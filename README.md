@@ -12,5 +12,7 @@ In playback no tracking mode, Reaper will not do anything in response to cue rec
 
 How the software works:
 
+Digico-Reaper Link makes an OSC connection to the Digico console, emulating an iPad interface. It also makes an internal OSC connection to Reaper. The software acts as an OSC translation layer. 
+
 
 
