@@ -14,5 +14,10 @@ How the software works:
 
 Digico-Reaper Link makes an OSC connection to the Digico console, emulating an iPad interface. It also makes an internal OSC connection to Reaper. The software acts as an OSC translation layer. 
 
+How to set it up:
+
+On your Digico console, configure External Control for the IP address of your Reaper computer and load the iPad command set. 
+Set the ports as you desire. 
+
 
 
