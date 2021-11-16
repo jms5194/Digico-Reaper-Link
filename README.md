@@ -31,7 +31,5 @@ Add a new control interface. Device IP must be 127.0.0.1. You should not change 
 
 Lastly, open Digico-Reaper Link. Go to File-->Preferences, and input your consoles IP address, the IP address your computer is on on the same subnet as the console, and the ports you are using, and you should be all set!
 
-
-
-<img width="207" alt="Screen Shot 2021-11-10 at 10 49 29 PM" src="https://user-images.githubusercontent.com/79057472/141207393-e0e83fa1-18ef-421e-90f0-67fddc40237b.png">
+<img width="209" alt="image" src="https://user-images.githubusercontent.com/79057472/141976598-53eafc70-84b3-40c2-9531-ebab6ae312c4.png">
 
