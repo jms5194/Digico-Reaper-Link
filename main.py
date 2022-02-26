@@ -13,7 +13,7 @@ import threading
 import os.path
 import plistlib
 import appdirs
-import PySimpleGUIQt as sg
+import UI
 from appdirs import *
 from pythonosc import udp_client
 from pythonosc import dispatcher
@@ -42,11 +42,14 @@ class ReaperDigicoOSCBridge:
         self.just_keep_cleaning = True
         self.marker_mode = "PlaybackTrack"
         self.plist_prefs = ""
-        self.window_loc = ""
+        self.window_loc = (400, 222)
+        self.play_macro = 63
+        self.stop_macro = 64
+        self.rec_macro = 65
         self.lock = threading.Lock()
         self.check_configuration()
         self.start_threads()
-        self.app_window()
+        UI.app_window(self)
 
     def check_configuration(self):
         # Checking if a .plist config already exists for this app, if not call
@@ -220,6 +223,17 @@ class ReaperDigicoOSCBridge:
         elif recording is False:
             self.is_recording = False
 
+    def reaper_play(self):
+        self.reaper_client.send_message("/action", 1007)
+
+    def reaper_stop(self):
+        self.reaper_client.send_message("/action", 1016)
+
+    def reaper_rec(self):
+        # Sends action to skip to end of project and then record, to prevent overwrites
+        self.reaper_client.send_message("/action", 40043)
+        self.reaper_client.send_message("/action", 1013)
+
     def receive_reaper_OSC(self):
         # Receives and distributes OSC from Reaper, based on matching OSC values
         self.reaper_dispatcher.map("/marker/*/name", self.marker_matcher)
@@ -232,6 +246,7 @@ class ReaperDigicoOSCBridge:
         # Receives and distributes OSC from Digico, based on matching OSC values
         self.digico_dispatcher.map("/Snapshots/Current_Snapshot", self.request_snapshot_info)
         self.digico_dispatcher.map("/Snapshots/name", self.snapshot_OSC_handler)
+        self.digico_dispatcher.map("/Macros/Recall_Macro/*", self.process_transport_macros)
 
     def request_snapshot_info(self, OSCAddress, CurrentSnapshotNumber):
         # Receives the OSC for the Current Snapshot Number and uses that to request the cue number/name
@@ -247,69 +262,17 @@ class ReaperDigicoOSCBridge:
         elif self.marker_mode == "PlaybackTrack" and self.is_playing is False:
             self.get_marker_id_by_name(cue_number + " " + cue_name)
 
-    # GUI Functions:
-
-    def prefs_window(self):
-        # Generates the preferences menu GUI in the file menu.
-        layout = [
-            [sg.Text("Console IP:", font=("Arial", 14))],
-            [sg.Input(self.console_ip, size=(15, 1), key="con_ip")],
-            [sg.Text("Local IP:", font=("Arial", 14))],
-            [sg.Input(self.local_ip, size=(15, 1), key="local_ip")],
-            [sg.Text("Digico Ports:", font=("Arial", 14))],
-            [sg.Text("Send Port:", font=("Arial", 14)), sg.Text("Receive Port:", font=("Arial", 14))],
-            [sg.Text(" "), sg.Input(self.console_port, size=(5, 1), key="con_snd"), sg.Text("     "),
-             sg.Input(self.receive_port, size=(5, 1), key="con_rcv")],
-            [sg.Text("Reaper Ports:", font=("Arial", 14))],
-            [sg.Text("Send Port:", font=("Arial", 14)), sg.Text("Receive Port:", font=("Arial", 14))],
-            [sg.Text(" "), sg.Input(self.reaper_port, size=(5, 1), key="rpr_snd"), sg.Text("     "),
-             sg.Input(self.reaper_receive_port, size=(5, 1), key="rpr_rcv")],
-            [sg.Button('Update', size=(170, 50), font=("Arial", 20))],
-        ]
-
-        window = sg.Window("Preferences", layout, location=self.window_loc)
-        while True:  # Event Loop
-            event, values = window.Read(timeout=400)
-            if event == sg.WIN_CLOSED or event == 'Exit':
-                break
-            elif event == "Update":
-                self.update_configuration(values["con_ip"], values["local_ip"], values["con_snd"], values["con_rcv"],
-                                          values["rpr_snd"], values["rpr_rcv"])
-                window.close()
-
-    def app_window(self):
-        # Generates the primary program window.
-        menu_def = [['&File', ['&Properties', 'E&xit']],
-                    ['&Help', '&About...'], ]
-
-        layout = [
-            [sg.Text("Select Mode:", font=("Arial", 20))],
-            [sg.Radio("Recording", "RADIO1", default=False, key="REC_ENABLE", size_px=(170, 50), font=("Arial", 16))],
-            [sg.Radio("Playback Tracking", "RADIO1", default=True, key="PB_TRACK_ENABLE", size_px=(170, 50),
-                      font=("Arial", 16))],
-            [sg.Radio("Playback No Track", "RADIO1", default=False, key="PB_TRACK_DISABLE", size_px=(170, 50),
-                      font=("Arial", 16))],
-            [sg.Button('Exit', size=(170, 50), font=("Arial", 20))],
-            [sg.Menu(menu_def, tearoff=False, pad=(200, 1))]
-
-        ]
-        window = sg.Window("Digico-Reaper Link", layout, location=self.window_loc)
-        while True:  # Event Loop
-            event, values = window.Read(timeout=400)
-            if event == sg.WIN_CLOSED or event == 'Exit':
-                break
-            elif event == "Properties":
-                self.prefs_window()
-            if values["REC_ENABLE"] is True and values["PB_TRACK_ENABLE"] is False and values["PB_TRACK_DISABLE"] is False:
-                self.marker_mode = "Recording"
-            elif values["REC_ENABLE"] is False and values["PB_TRACK_ENABLE"] is True and values["PB_TRACK_DISABLE"] is False:
-                self.marker_mode = "PlaybackTrack"
-            elif values["REC_ENABLE"] is False and values["PB_TRACK_ENABLE"] is False and values["PB_TRACK_DISABLE"] is True:
-                self.marker_mode = "PlaybackNoTrack"
-        self.update_pos_in_config(window.CurrentLocation())
-        window.Close()
-        self.close_servers()
-        sys.exit()
+    def process_transport_macros(self, OSCAddress, arg):
+        try:
+            macro_number = int(OSCAddress.split("/")[3])
+            if macro_number == self.play_macro:
+                self.reaper_play()
+            elif macro_number == self.stop_macro:
+                self.reaper_stop()
+            elif macro_number == self.rec_macro:
+                self.reaper_rec()
+        except Exception as e:
+            print(e)
 
     def close_servers(self):
         # Shutdown the OSC servers, do not close the app.
