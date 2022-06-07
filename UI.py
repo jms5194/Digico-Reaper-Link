@@ -18,6 +18,12 @@ def prefs_window(self):
         [sg.Text("Send Port:", font=("Arial", 14)), sg.Text("Receive Port:", font=("Arial", 14))],
         [sg.Text(" "), sg.Input(self.reaper_port, size=(5, 1), key="rpr_snd"), sg.Text("     "),
          sg.Input(self.reaper_receive_port, size=(5, 1), key="rpr_rcv")],
+        [sg.Text("Repeater IP:", font=("Arial", 14))],
+        [sg.Input(self.repeater_ip, size=(15, 1), key="rptr_ip")],
+        [sg.Text("Repeater Ports:", font=("Arial, 14"))],
+        [sg.Text("Send Port:", font=("Arial", 14)), sg.Text("Receive Port:", font=("Arial", 14))],
+        [sg.Text(" "), sg.Input(self.repeater_port, size=(5,1), key="rptr_snd"), sg.Text("     "),
+         sg.Input(self.repeater_receive_port, size=(5,1), key="rptr_rcv")],
         [sg.Button('Update', size=(20, 1), font=("Arial", 20))],
     ]
 
