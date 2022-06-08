@@ -33,10 +33,9 @@ def prefs_window(self):
         if event == sg.WIN_CLOSED or event == 'Exit':
             break
         elif event == "Update":
-            self.update_configuration(values["con_ip"], values["local_ip"], values["con_snd"], values["con_rcv"],
-                                      values["rpr_snd"], values["rpr_rcv"])
+            self.update_configuration(values["con_ip"], values["local_ip"], values["rptr_ip"], values["con_snd"], values["con_rcv"],
+                                      values["rpr_snd"], values["rpr_rcv"], values["rptr_snd"], values["rptr_rcv"])
             window.close()
-
 
 def app_window(self):
     # Generates the primary program window.

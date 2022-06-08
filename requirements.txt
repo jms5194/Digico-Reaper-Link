@@ -4,6 +4,6 @@ macholib==1.15.2
 pyinstaller==4.7
 pyinstaller-hooks-contrib==2021.3
 python-osc==1.8.0
-shiboken2==5.15.2
+shiboken2==5.15.2.1
 
 PySimpleGUI~=4.55.1

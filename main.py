@@ -287,7 +287,7 @@ class ReaperDigicoOSCBridge:
 
     def snapshot_OSC_handler(self, OSCAddress, *args):
         # Processes the current cue number
-        self.repeater_client.send_message(OSCAddress, *args)
+        self.repeater_client.send_message(OSCAddress, [*args])
         cue_name = args[3]
         cue_number = str(args[1] / 100)
         if self.marker_mode == "Recording" and self.is_recording is True:
@@ -297,7 +297,7 @@ class ReaperDigicoOSCBridge:
             self.get_marker_id_by_name(cue_number + " " + cue_name)
 
     def process_transport_macros(self, OSCAddress, arg):
-        self.repeater_client.send_message(OSCAddress, *args)
+        self.repeater_client.send_message(OSCAddress, arg)
         try:
             macro_number = int(OSCAddress.split("/")[3])
             if macro_number == self.play_macro:
@@ -313,11 +313,14 @@ class ReaperDigicoOSCBridge:
     #Repeater Functions:
 
     def receive_repeater_OSC(self):
-        self.repeater_dispatcher.set_default_handler(self.forward_OSC)
+        self.repeater_dispatcher.set_default_handler(self.send_to_console)
 
 
     def forward_OSC(self, OSCAddress, *args):
-        self.repeater_client.send_message(OSCAddress, *args)
+        self.repeater_client.send_message(OSCAddress, [*args])
+
+    def send_to_console(self, OSCAddress, *args):
+        self.console_client.send_message(OSCAddress, [*args])
 
 
     def close_servers(self):
