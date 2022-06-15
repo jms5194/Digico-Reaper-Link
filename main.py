@@ -152,7 +152,8 @@ class ReaperDigicoOSCBridge:
         osc_cleanup_thread = threading.Thread(target=self.osc_cleanup, daemon=False)
         digico_osc_thread.start()
         reaper_osc_thread.start()
-        repeater_osc_thread.start()
+        if self.forwarder_enabled == True:
+            repeater_osc_thread.start()
         osc_cleanup_thread.start()
 
     def build_digico_osc_servers(self):
