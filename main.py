@@ -65,7 +65,7 @@ class ReaperDigicoOSCBridge:
         if os.path.isdir(config_dir):
             pass
         else:
-            os.mkdir(config_dir)
+            os.makedirs(config_dir)
         try:
             self.plist_prefs = config_dir + "/rpdigiprefs.plist"
             with open(self.plist_prefs, 'rb') as fp:
