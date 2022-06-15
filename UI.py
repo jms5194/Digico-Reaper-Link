@@ -18,6 +18,11 @@ def prefs_window(self):
         [sg.Text("Send Port:", font=("Arial", 14)), sg.Text("Receive Port:", font=("Arial", 14))],
         [sg.Text(" "), sg.Input(self.reaper_port, size=(5, 1), key="rpr_snd"), sg.Text("     "),
          sg.Input(self.reaper_receive_port, size=(5, 1), key="rpr_rcv")],
+        [sg.Text("Repeater Enabled", font=("Arial", 14))],
+        [sg.Radio("Disabled", "RADIO1", default=True, key="fwd_enable",
+                  font=("Arial", 14)),
+        sg.Radio("Enabled", "RADIO1", default=False, key="fwd_enable",
+                  font=("Arial", 14))],
         [sg.Text("Repeater IP:", font=("Arial", 14))],
         [sg.Input(self.repeater_ip, size=(15, 1), key="rptr_ip")],
         [sg.Text("Repeater Ports:", font=("Arial, 14"))],
@@ -33,7 +38,7 @@ def prefs_window(self):
         if event == sg.WIN_CLOSED or event == 'Exit':
             break
         elif event == "Update":
-            self.update_configuration(values["con_ip"], values["local_ip"], values["rptr_ip"], values["con_snd"], values["con_rcv"],
+            self.update_configuration(values["con_ip"], values["local_ip"], values["rptr_ip"], values["con_snd"], values["con_rcv"], values[fwd_enable],
                                       values["rpr_snd"], values["rpr_rcv"], values["rptr_snd"], values["rptr_rcv"])
             window.close()
 

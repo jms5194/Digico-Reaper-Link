@@ -44,6 +44,7 @@ class ReaperDigicoOSCBridge:
         self.is_playing = False
         self.is_recording = False
         self.just_keep_cleaning = True
+        self.forwarder_enabled = False
         self.marker_mode = "PlaybackTrack"
         self.plist_prefs = ""
         self.window_loc = (400, 222)
@@ -84,6 +85,7 @@ class ReaperDigicoOSCBridge:
         self.repeater_port = pl["default_repeater_send_port"]
         self.repeater_receive_port = pl["default_repeater_receive_port"]
         self.reaper_receive_port = pl["default_reaper_receive_port"]
+        self.forwarder_enabled = pl["forwarder_enabled"]
         self.window_loc = (pl["window_pos_x"], pl["window_pos_y"])
 
     def build_initial_plist(self, location_of_plist):
@@ -98,6 +100,7 @@ class ReaperDigicoOSCBridge:
             default_reaper_receive_port=9998,
             default_repeater_send_port=9999,
             default_repeater_receive_port=9998,
+            forwarder_enabled=False,
             window_pos_x=400,
             window_pos_y=222
         )
@@ -107,7 +110,7 @@ class ReaperDigicoOSCBridge:
             pl = plistlib.load(fp)
             self.set_vars_from_pref(pl)
 
-    def update_configuration(self, con_ip, local_ip, rptr_ip, con_send, con_rcv, rpr_send, rpr_rcv, rptr_snd, rptr_rcv):
+    def update_configuration(self, con_ip, local_ip, rptr_ip, con_send, con_rcv, fwd_enable, rpr_send, rpr_rcv, rptr_snd, rptr_rcv):
         # Given new values from the GUI, update the config file and restart the OSC Server
         with open(self.plist_prefs, 'rb') as fp:
             pl = plistlib.load(fp)
@@ -121,6 +124,7 @@ class ReaperDigicoOSCBridge:
                 pl["default_reaper_receive_port"] = int(rpr_rcv)
                 pl["default_repeater_send_port"] = int(rptr_snd)
                 pl["default_repeater_receive_port"] = int(rptr_rcv)
+                pl["forwarder_enabled"] = bool(fwd_enable)
             except Exception as e:
                 print(e)
         with open(self.plist_prefs, 'wb') as fp:
@@ -278,16 +282,24 @@ class ReaperDigicoOSCBridge:
         self.digico_dispatcher.set_default_handler(self.forward_OSC)
 
     def send_to_console(self, OSCAddress, *args):
-        self.console_client.send_message(OSCAddress, *args)
+        self.console_client.send_message(OSCAddress, [*args])
 
     def request_snapshot_info(self, OSCAddress, CurrentSnapshotNumber):
         # Receives the OSC for the Current Snapshot Number and uses that to request the cue number/name
-        self.repeater_client.send_message(OSCAddress, CurrentSnapshotNumber)
+        if self.forwarder_enabled == True:
+            try:
+                self.repeater_client.send_message(OSCAddress, CurrentSnapshotNumber)
+            except Exception as e:
+                print(e)
         self.console_client.send_message("/Snapshots/name/?", CurrentSnapshotNumber)
 
     def snapshot_OSC_handler(self, OSCAddress, *args):
         # Processes the current cue number
-        self.repeater_client.send_message(OSCAddress, [*args])
+        if self.forwarder_enabled == True:
+            try:
+                 self.repeater_client.send_message(OSCAddress, [*args])
+            except Exception as e:
+                print(e)
         cue_name = args[3]
         cue_number = str(args[1] / 100)
         if self.marker_mode == "Recording" and self.is_recording is True:
@@ -297,7 +309,11 @@ class ReaperDigicoOSCBridge:
             self.get_marker_id_by_name(cue_number + " " + cue_name)
 
     def process_transport_macros(self, OSCAddress, arg):
-        self.repeater_client.send_message(OSCAddress, arg)
+        if self.forwarder_enabled == True:
+            try:
+                self.repeater_client.send_message(OSCAddress, arg)
+            except Exception as e:
+                print(e)
         try:
             macro_number = int(OSCAddress.split("/")[3])
             if macro_number == self.play_macro:
@@ -317,11 +333,11 @@ class ReaperDigicoOSCBridge:
 
 
     def forward_OSC(self, OSCAddress, *args):
-        self.repeater_client.send_message(OSCAddress, [*args])
-
-    def send_to_console(self, OSCAddress, *args):
-        self.console_client.send_message(OSCAddress, [*args])
-
+        if self.forwarder_enabled == True:
+            try:
+                self.repeater_client.send_message(OSCAddress, [*args])
+            except Exception as e:
+                print(e)
 
     def close_servers(self):
         # Shutdown the OSC servers, do not close the app.
