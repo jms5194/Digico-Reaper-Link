@@ -19,7 +19,7 @@ def prefs_window(self):
         [sg.Text(" "), sg.Input(self.reaper_port, size=(5, 1), key="rpr_snd"), sg.Text("     "),
          sg.Input(self.reaper_receive_port, size=(5, 1), key="rpr_rcv")],
         [sg.Text("Repeater Enabled", font=("Arial", 14))],
-        [sg.Radio("Disabled", "RADIO1", default=True, key="fwd_enable",
+        [sg.Radio("Disabled", "RADIO1", default=True, key="fwd_disable",
                   font=("Arial", 14)),
         sg.Radio("Enabled", "RADIO1", default=False, key="fwd_enable",
                   font=("Arial", 14))],
