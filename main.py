@@ -152,7 +152,7 @@ class ReaperDigicoOSCBridge:
         osc_cleanup_thread = threading.Thread(target=self.osc_cleanup, daemon=False)
         digico_osc_thread.start()
         reaper_osc_thread.start()
-        if self.forwarder_enabled == True:
+        if self.forwarder_enabled is True:
             repeater_osc_thread.start()
         osc_cleanup_thread.start()
 
@@ -182,7 +182,7 @@ class ReaperDigicoOSCBridge:
         self.repeater_dispatcher = dispatcher.Dispatcher()
         self.receive_repeater_OSC()
         self.repeater_osc_server = osc_server.ThreadingOSCUDPServer((self.local_ip, self.repeater_receive_port),
-                                                                  self.repeater_dispatcher)
+                                                                    self.repeater_dispatcher)
         print("Repeater OSC server started")
         self.repeater_osc_server.serve_forever()
 
@@ -224,7 +224,7 @@ class ReaperDigicoOSCBridge:
             self.reaper_client.send_message("/device/marker/count", 512)
 
     def marker_matcher(self, OSCAddress, test_name):
-        # Matches an marker composite name with it's Reaper ID
+        # Matches a marker composite name with its Reaper ID
         address_split = OSCAddress.split("/")
         marker_id = address_split[2]
         if test_name == self.name_to_match:
@@ -287,7 +287,7 @@ class ReaperDigicoOSCBridge:
 
     def request_snapshot_info(self, OSCAddress, CurrentSnapshotNumber):
         # Receives the OSC for the Current Snapshot Number and uses that to request the cue number/name
-        if self.forwarder_enabled == True:
+        if self.forwarder_enabled is True:
             try:
                 self.repeater_client.send_message(OSCAddress, CurrentSnapshotNumber)
             except Exception as e:
@@ -296,9 +296,9 @@ class ReaperDigicoOSCBridge:
 
     def snapshot_OSC_handler(self, OSCAddress, *args):
         # Processes the current cue number
-        if self.forwarder_enabled == True:
+        if self.forwarder_enabled is True:
             try:
-                 self.repeater_client.send_message(OSCAddress, [*args])
+                self.repeater_client.send_message(OSCAddress, [*args])
             except Exception as e:
                 print(e)
         cue_name = args[3]
@@ -310,7 +310,7 @@ class ReaperDigicoOSCBridge:
             self.get_marker_id_by_name(cue_number + " " + cue_name)
 
     def process_transport_macros(self, OSCAddress, arg):
-        if self.forwarder_enabled == True:
+        if self.forwarder_enabled is True:
             try:
                 self.repeater_client.send_message(OSCAddress, arg)
             except Exception as e:
@@ -326,15 +326,13 @@ class ReaperDigicoOSCBridge:
         except Exception as e:
             print(e)
 
-
-    #Repeater Functions:
+    # Repeater Functions:
 
     def receive_repeater_OSC(self):
         self.repeater_dispatcher.set_default_handler(self.send_to_console)
 
-
     def forward_OSC(self, OSCAddress, *args):
-        if self.forwarder_enabled == True:
+        if self.forwarder_enabled is True:
             try:
                 self.repeater_client.send_message(OSCAddress, [*args])
             except Exception as e:
