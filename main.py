@@ -44,8 +44,7 @@ class ReaperDigicoOSCBridge:
         self.name_to_match = ""
         self.is_playing = False
         self.is_recording = False
-        self.just_keep_cleaning = True
-        self.forwarder_enabled = False
+        self.forwarder_enabled = "False"
         self.marker_mode = "PlaybackTrack"
         self.plist_prefs = ""
         self.window_loc = (400, 222)
@@ -80,7 +79,7 @@ class ReaperDigicoOSCBridge:
 
     def set_vars_from_pref(self, config_file_loc):
         config = configparser.ConfigParser()
-        config.read(self.ini_prefs)
+        config.read(config_file_loc)
         self.console_ip = config["main"]["default_ip"]
         self.local_ip = config["main"]["local_ip"]
         self.repeater_ip = config["main"]["repeater_ip"]
