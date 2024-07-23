@@ -347,10 +347,6 @@ class ReaperDigicoOSCBridge:
             self.repeater_osc_server.server_close()
         except Exception as e:
             print(e)
-        try:
-            self.just_keep_cleaning = False
-        except Exception as e:
-            print(e)
 
     def restart_servers(self):
         # Restart the OSC server threads.
