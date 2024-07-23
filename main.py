@@ -10,7 +10,8 @@ __date__ = "$Date: 2021/11/10"
 import time
 import threading
 import os.path
-import plistlib
+import configparser
+from configupdater import ConfigUpdater
 import appdirs
 import UI
 from pythonosc import udp_client
@@ -57,8 +58,8 @@ class ReaperDigicoOSCBridge:
         UI.app_window(self)
 
     def check_configuration(self):
-        # Checking if a .plist config already exists for this app, if not call
-        # build_initial_plist
+        # Checking if a .ini config already exists for this app, if not call
+        # build_initial_ini
         appname = "Digico-Reaper Link"
         appauthor = "Justin Stasiw"
         config_dir = appdirs.user_config_dir(appname, appauthor)
@@ -67,94 +68,93 @@ class ReaperDigicoOSCBridge:
         else:
             os.makedirs(config_dir)
         try:
-            self.plist_prefs = config_dir + "/rpdigiprefs.plist"
-            with open(self.plist_prefs, 'rb') as fp:
-                pl = plistlib.load(fp)
-                self.set_vars_from_pref(pl)
+            self.ini_prefs = config_dir + "/settings.cfg"
+            print(self.ini_prefs)
+            if os.path.isfile(self.ini_prefs):
+                self.set_vars_from_pref(self.ini_prefs)
+            else:
+                self.build_initial_ini(self.ini_prefs)
         except Exception as e:
             print(e)
-            self.build_initial_plist(self.plist_prefs)
+            self.build_initial_ini(self.ini_prefs)
 
-    def set_vars_from_pref(self, pl):
-        self.console_ip = pl["default_ip"]
-        self.local_ip = pl["local_ip"]
-        self.repeater_ip = pl["repeater_ip"]
-        self.console_port = pl["default_digico_send_port"]
-        self.receive_port = pl["default_digico_receive_port"]
-        self.reaper_port = pl["default_reaper_send_port"]
-        self.repeater_port = pl["default_repeater_send_port"]
-        self.repeater_receive_port = pl["default_repeater_receive_port"]
-        self.reaper_receive_port = pl["default_reaper_receive_port"]
-        self.forwarder_enabled = pl["forwarder_enabled"]
-        self.window_loc = (pl["window_pos_x"], pl["window_pos_y"])
+    def set_vars_from_pref(self, config_file_loc):
+        config = configparser.ConfigParser()
+        config.read(self.ini_prefs)
+        self.console_ip = config["main"]["default_ip"]
+        self.local_ip = config["main"]["local_ip"]
+        self.repeater_ip = config["main"]["repeater_ip"]
+        self.console_port = int(config["main"]["default_digico_send_port"])
+        self.receive_port = int(config["main"]["default_digico_receive_port"])
+        self.reaper_port = int(config["main"]["default_reaper_send_port"])
+        self.repeater_port = int(config["main"]["default_repeater_send_port"])
+        self.repeater_receive_port = int(config["main"]["default_repeater_receive_port"])
+        self.reaper_receive_port = int(config["main"]["default_reaper_receive_port"])
+        self.forwarder_enabled = config["main"]["forwarder_enabled"]
+        self.window_loc = (int(config["main"]["window_pos_x"]), int(config["main"]["window_pos_y"]))
 
-    def build_initial_plist(self, location_of_plist):
-        # Builds a .plist configuration file with default settings.
-        p1 = dict(
-            default_ip="10.10.13.10",
-            local_ip="10.10.13.100",
-            repeater_ip="10.10.13.11",
-            default_digico_send_port=8001,
-            default_digico_receive_port=8000,
-            default_reaper_send_port=9999,
-            default_reaper_receive_port=9998,
-            default_repeater_send_port=9999,
-            default_repeater_receive_port=9998,
-            forwarder_enabled=False,
-            window_pos_x=400,
-            window_pos_y=222
-        )
-        with open(location_of_plist, "wb") as fp:
-            plistlib.dump(p1, fp)
-        with open(self.plist_prefs, 'rb') as fp:
-            pl = plistlib.load(fp)
-            self.set_vars_from_pref(pl)
+    def build_initial_ini(self, location_of_ini):
+        # Builds a .ini configuration file with default settings.
+        config = configparser.ConfigParser()
+        config["main"] = {}
+        config["main"]["default_ip"]="10.10.13.10"
+        config["main"]["local_ip"]="10.10.13.100"
+        config["main"]["repeater_ip"]="10.10.13.11"
+        config["main"]["default_digico_send_port"]="8001"
+        config["main"]["default_digico_receive_port"]="8000"
+        config["main"]["default_reaper_send_port"]="9999"
+        config["main"]["default_reaper_receive_port"]="9998"
+        config["main"]["default_repeater_send_port"]="9999"
+        config["main"]["default_repeater_receive_port"]="9998"
+        config["main"]["forwarder_enabled"]="False"
+        config["main"]["window_pos_x"]="400"
+        config["main"]["window_pos_y"]="222"
+
+        with open(location_of_ini, "w") as configfile:
+           config.write(configfile)
+        self.set_vars_from_pref(config)
 
     def update_configuration(self, con_ip, local_ip, rptr_ip, con_send, con_rcv, fwd_enable, rpr_send, rpr_rcv, rptr_snd, rptr_rcv):
         # Given new values from the GUI, update the config file and restart the OSC Server
-        with open(self.plist_prefs, 'rb') as fp:
-            pl = plistlib.load(fp)
-            try:
-                pl["default_ip"] = con_ip
-                pl["local_ip"] = local_ip
-                pl["repeater_ip"] = rptr_ip
-                pl["default_digico_send_port"] = int(con_send)
-                pl["default_digico_receive_port"] = int(con_rcv)
-                pl["default_reaper_send_port"] = int(rpr_send)
-                pl["default_reaper_receive_port"] = int(rpr_rcv)
-                pl["default_repeater_send_port"] = int(rptr_snd)
-                pl["default_repeater_receive_port"] = int(rptr_rcv)
-                pl["forwarder_enabled"] = bool(fwd_enable)
-            except Exception as e:
-                print(e)
-        with open(self.plist_prefs, 'wb') as fp:
-            plistlib.dump(pl, fp)
-        self.set_vars_from_pref(pl)
+        updater = ConfigUpdater()
+        updater.read(self.ini_prefs)
+        try:
+            updater["main"]["default_ip"] = con_ip
+            updater["main"]["local_ip"] = local_ip
+            updater["main"]["repeater_ip"] = rptr_ip
+            updater["main"]["default_digico_send_port"] = str(con_send)
+            updater["main"]["default_digico_receive_port"] = str(con_rcv)
+            updater["main"]["default_reaper_send_port"] = str(rpr_send)
+            updater["main"]["default_reaper_receive_port"] = str(rpr_rcv)
+            updater["main"]["default_repeater_send_port"] = str(rptr_snd)
+            updater["main"]["default_repeater_receive_port"] = str(rptr_rcv)
+            updater["main"]["forwarder_enabled"] = str(fwd_enable)
+        except Exception as e:
+            print(e)
+        updater.update_file()
+        self.set_vars_from_pref(self.ini_prefs)
         self.close_servers()
         self.restart_servers()
 
     def update_pos_in_config(self, win_pos_tuple):
-        with open(self.plist_prefs, 'rb') as fp:
-            pl = plistlib.load(fp)
-            try:
-                pl["window_pos_x"] = win_pos_tuple[0]
-                pl["window_pos_y"] = win_pos_tuple[1]
-            except Exception as e:
-                print(e)
-        with open(self.plist_prefs, 'wb') as fp:
-            plistlib.dump(pl, fp)
+        updater = ConfigUpdater()
+        updater.read(self.ini_prefs)
+        try:
+            updater["main"]["window_pos_x"] = str(win_pos_tuple[0])
+            updater["main"]["window_pos_y"] = str(win_pos_tuple[1])
+        except Exception as e:
+            print(e)
+        updater.update_file()
 
     def start_threads(self):
         # Builds the threads for the OSC servers to run in, non-blocking.
         digico_osc_thread = threading.Thread(target=self.build_digico_osc_servers, daemon=False)
         reaper_osc_thread = threading.Thread(target=self.build_reaper_osc_servers, daemon=False)
         repeater_osc_thread = threading.Thread(target=self.build_repeater_osc_servers, daemon=False)
-        osc_cleanup_thread = threading.Thread(target=self.osc_cleanup, daemon=False)
         digico_osc_thread.start()
         reaper_osc_thread.start()
-        if self.forwarder_enabled is True:
+        if self.forwarder_enabled == "True":
             repeater_osc_thread.start()
-        osc_cleanup_thread.start()
 
     def build_digico_osc_servers(self):
         # Connect to the Digico console
@@ -186,25 +186,6 @@ class ReaperDigicoOSCBridge:
         print("Repeater OSC server started")
         self.repeater_osc_server.serve_forever()
 
-    def osc_cleanup(self):
-        # Dealing with a memory leak bug in Python's threading server. Threads don't close properly, and so leak memory.
-        # This gets called occasionally to clean out dead threads.
-        # Can we test to see if this is still required?
-        try:
-            while self.just_keep_cleaning is True:
-                time.sleep(1)
-                for thread in self.digico_osc_server._threads:
-                    if not thread.is_alive():
-                        self.digico_osc_server._threads.remove(thread)
-                for thread in self.reaper_osc_server._threads:
-                    if not thread.is_alive():
-                        self.reaper_osc_server._threads.remove(thread)
-                for thread in self.repeater_osc_server._threads:
-                    if not thread.is_alive():
-                        self.repeater_osc_server._threads.remove(thread)
-        except:
-            time.sleep(1)
-            self.osc_cleanup()
 
     # Reaper Functions:
 
@@ -214,7 +195,6 @@ class ReaperDigicoOSCBridge:
 
     def update_last_marker_name(self, name):
         self.reaper_client.send_message("/lastmarker/name", name)
-
     def get_marker_id_by_name(self, name):
         # Asks for current marker information based upon number of markers.
         if self.is_playing is False:
@@ -249,12 +229,16 @@ class ReaperDigicoOSCBridge:
                 recording = True
         if playing is True:
             self.is_playing = True
+            print("reaper is playing")
         elif playing is False:
             self.is_playing = False
+            print("reaper is not playing")
         if recording is True:
             self.is_recording = True
+            print("reaper is recording")
         elif recording is False:
             self.is_recording = False
+            print("reaper is not recording")
 
     def reaper_play(self):
         self.reaper_client.send_message("/action", 1007)
@@ -279,24 +263,39 @@ class ReaperDigicoOSCBridge:
         # Receives and distributes OSC from Digico, based on matching OSC values
         self.digico_dispatcher.map("/Snapshots/Current_Snapshot", self.request_snapshot_info)
         self.digico_dispatcher.map("/Snapshots/name", self.snapshot_OSC_handler)
-        self.digico_dispatcher.map("/Macros/Recall_Macro/*", self.process_transport_macros)
+        self.digico_dispatcher.map("/Macros/Recall_Macro/*", self.request_macro_info)
+        self.digico_dispatcher.map("/Macros/name", self.macro_name_handler)
         self.digico_dispatcher.set_default_handler(self.forward_OSC)
 
     def send_to_console(self, OSCAddress, *args):
+        #Send an OSC message to the console
         self.console_client.send_message(OSCAddress, [*args])
 
     def request_snapshot_info(self, OSCAddress, CurrentSnapshotNumber):
         # Receives the OSC for the Current Snapshot Number and uses that to request the cue number/name
-        if self.forwarder_enabled is True:
+        if self.forwarder_enabled == "True":
             try:
                 self.repeater_client.send_message(OSCAddress, CurrentSnapshotNumber)
             except Exception as e:
                 print(e)
         self.console_client.send_message("/Snapshots/name/?", CurrentSnapshotNumber)
 
+    def request_macro_info(self, OSCAddress, CurrentMacroNumber):
+        #When a Macro is pressed, request the name of the macro
+        self.console_client.send_message("/Macros/name/?", CurrentMacroNumber)
+
+    def macro_name_handler(self, OSCAddress, *args):
+        #If macros match names, then send behavior to Reaper
+        if args[1] == "REAPER,REC" or "REC":
+            self.process_transport_macros("rec")
+        elif args[1] == "REAPER,STOP" or "STOP":
+            self.process_transport_macros("stop")
+        elif args[1] == "REAPER,PLAY" or "PLAY":
+            self.process_transport_macros("play")
+
     def snapshot_OSC_handler(self, OSCAddress, *args):
         # Processes the current cue number
-        if self.forwarder_enabled is True:
+        if self.forwarder_enabled == "True":
             try:
                 self.repeater_client.send_message(OSCAddress, [*args])
             except Exception as e:
@@ -309,19 +308,13 @@ class ReaperDigicoOSCBridge:
         elif self.marker_mode == "PlaybackTrack" and self.is_playing is False:
             self.get_marker_id_by_name(cue_number + " " + cue_name)
 
-    def process_transport_macros(self, OSCAddress, arg):
-        if self.forwarder_enabled is True:
-            try:
-                self.repeater_client.send_message(OSCAddress, arg)
-            except Exception as e:
-                print(e)
+    def process_transport_macros(self, transport):
         try:
-            macro_number = int(OSCAddress.split("/")[3])
-            if macro_number == self.play_macro:
+            if transport == "play":
                 self.reaper_play()
-            elif macro_number == self.stop_macro:
+            elif transport == "stop":
                 self.reaper_stop()
-            elif macro_number == self.rec_macro:
+            elif transport == "rec":
                 self.reaper_rec()
         except Exception as e:
             print(e)
@@ -332,7 +325,7 @@ class ReaperDigicoOSCBridge:
         self.repeater_dispatcher.set_default_handler(self.send_to_console)
 
     def forward_OSC(self, OSCAddress, *args):
-        if self.forwarder_enabled is True:
+        if self.forwarder_enabled == "True":
             try:
                 self.repeater_client.send_message(OSCAddress, [*args])
             except Exception as e:
