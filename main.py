@@ -30,6 +30,7 @@ class ReaperDigicoOSCBridge:
         self.lock = threading.Lock()
         self.check_configuration()
         self.start_threads()
+        self.ini_prefs = ""
 
     def check_configuration(self):
         # Checking if a .ini config already exists for this app, if not call
