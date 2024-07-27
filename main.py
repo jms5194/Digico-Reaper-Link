@@ -29,24 +29,26 @@ class ReaperDigicoOSCBridge:
         self.name_to_match = ""
         self.is_playing = False
         self.is_recording = False
+        self.ini_prefs = ""
+        self.config_dir = ""
         self.lock = threading.Lock()
+        self.where_to_put_user_data()
         self.check_configuration()
         self.start_threads()
-        self.ini_prefs = ""
 
-    def check_configuration(self):
-        # Checking if a .ini config already exists for this app, if not call
-        # build_initial_ini
+    def where_to_put_user_data(self):
         appname = "Digico-Reaper Link"
         appauthor = "Justin Stasiw"
-        config_dir = appdirs.user_config_dir(appname, appauthor)
-        if os.path.isdir(config_dir):
+        self.config_dir = appdirs.user_config_dir(appname, appauthor)
+        if os.path.isdir(self.config_dir):
             pass
         else:
-            os.makedirs(config_dir)
+            os.makedirs(self.config_dir)
+        self.ini_prefs = self.config_dir + "/settings.cfg"
+    def check_configuration(self):
+        # Checking if a .cfg config already exists for this app, if not call
+        # build_initial_ini
         try:
-            self.ini_prefs = config_dir + "/settings.cfg"
-            print(self.ini_prefs)
             if os.path.isfile(self.ini_prefs):
                 self.set_vars_from_pref(self.ini_prefs)
             else:
