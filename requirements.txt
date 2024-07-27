@@ -1,5 +1,5 @@
 appdirs~=1.4.4
-python-osc~=1.8.0
-
-PySimpleGUI~=4.55.1
+python-osc~=1.8.3
 ConfigUpdater~=3.2
+psutil~=6.0.0
+wxPython~=4.2.1
