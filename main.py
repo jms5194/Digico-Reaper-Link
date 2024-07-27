@@ -11,10 +11,12 @@ import psutil
 import settings
 
 
-
 class ReaperDigicoOSCBridge:
 
     def __init__(self):
+        self.repeater_osc_thread = None
+        self.reaper_osc_thread = None
+        self.digico_osc_thread = None
         self.digico_dispatcher = None
         self.reaper_dispatcher = None
         self.repeater_dispatcher = None
@@ -52,7 +54,6 @@ class ReaperDigicoOSCBridge:
         except Exception as e:
             print(e)
             self.build_initial_ini(self.ini_prefs)
-        #self.find_local_ip_in_subnet()
 
     def set_vars_from_pref(self, config_file_loc):
         config = configparser.ConfigParser()
@@ -73,24 +74,25 @@ class ReaperDigicoOSCBridge:
         # Builds a .ini configuration file with default settings.
         config = configparser.ConfigParser()
         config["main"] = {}
-        config["main"]["default_ip"]="10.10.13.10"
-        config["main"]["local_ip"]="10.10.13.100"
-        config["main"]["repeater_ip"]="10.10.13.11"
-        config["main"]["default_digico_send_port"]="8001"
-        config["main"]["default_digico_receive_port"]="8000"
-        config["main"]["default_reaper_send_port"]="9999"
-        config["main"]["default_reaper_receive_port"]="9998"
-        config["main"]["default_repeater_send_port"]="9999"
-        config["main"]["default_repeater_receive_port"]="9998"
-        config["main"]["forwarder_enabled"]="False"
-        config["main"]["window_pos_x"]="400"
-        config["main"]["window_pos_y"]="222"
+        config["main"]["default_ip"] = "10.10.13.10"
+        config["main"]["local_ip"] = "10.10.13.100"
+        config["main"]["repeater_ip"] = "10.10.13.11"
+        config["main"]["default_digico_send_port"] = "8001"
+        config["main"]["default_digico_receive_port"] = "8000"
+        config["main"]["default_reaper_send_port"] = "9999"
+        config["main"]["default_reaper_receive_port"] = "9998"
+        config["main"]["default_repeater_send_port"] = "9999"
+        config["main"]["default_repeater_receive_port"] = "9998"
+        config["main"]["forwarder_enabled"] = "False"
+        config["main"]["window_pos_x"] = "400"
+        config["main"]["window_pos_y"] = "222"
 
         with open(location_of_ini, "w") as configfile:
-           config.write(configfile)
+            config.write(configfile)
         self.set_vars_from_pref(config)
 
-    def update_configuration(self, con_ip, local_ip, rptr_ip, con_send, con_rcv, fwd_enable, rpr_send, rpr_rcv, rptr_snd, rptr_rcv):
+    def update_configuration(self, con_ip, local_ip, rptr_ip, con_send, con_rcv, fwd_enable, rpr_send, rpr_rcv,
+                             rptr_snd, rptr_rcv):
         # Given new values from the GUI, update the config file and restart the OSC Server
         updater = ConfigUpdater()
         updater.read(self.ini_prefs)
@@ -111,7 +113,6 @@ class ReaperDigicoOSCBridge:
         self.set_vars_from_pref(self.ini_prefs)
         self.close_servers()
         self.restart_servers()
-
 
     def update_pos_in_config(self, win_pos_tuple):
         updater = ConfigUpdater()
@@ -140,7 +141,7 @@ class ReaperDigicoOSCBridge:
         self.receive_console_OSC()
         try:
             self.digico_osc_server = osc_server.ThreadingOSCUDPServer((settings.local_ip, settings.receive_port),
-                                                                  self.digico_dispatcher)
+                                                                      self.digico_dispatcher)
             print("Digico OSC server started.")
             self.digico_osc_server.serve_forever()
         except Exception as e:
@@ -165,28 +166,29 @@ class ReaperDigicoOSCBridge:
         self.repeater_dispatcher = dispatcher.Dispatcher()
         self.receive_repeater_OSC()
         try:
-            self.repeater_osc_server = osc_server.ThreadingOSCUDPServer((settings.local_ip, settings.repeater_receive_port),
-                                                                    self.repeater_dispatcher)
+            self.repeater_osc_server = osc_server.ThreadingOSCUDPServer(
+                (settings.local_ip, settings.repeater_receive_port),
+                self.repeater_dispatcher)
             print("Repeater OSC server started")
             self.repeater_osc_server.serve_forever()
         except Exception as e:
-            print(("Unable to establish connection to repeater"))
+            print("Unable to establish connection to repeater")
 
     def find_local_ip_in_subnet(self):
-        #Find our local interface in the same network as the console interface
-        #Not yet implemented
+        # Find our local interface in the same network as the console interface
+        # Not yet implemented
         ipv4_interfaces = []
         for interface, snics in psutil.net_if_addrs().items():
             for snic in snics:
                 if snic.family == socket.AF_INET:
-                    ipv4_interfaces.append((snic.address,snic.netmask))
+                    ipv4_interfaces.append((snic.address, snic.netmask))
         for i in ipv4_interfaces:
             test_ip_split = i[0].split(".")
             ip_split = settings.console_ip.split(".")
             if test_ip_split[0:3] == ip_split[0:3]:
                 return i[0]
-            #Need to figure out how to check subnet mask
-            #Need to add ability to handle possibility of multiple matches
+            # Need to figure out how to check subnet mask
+            # Need to add ability to handle possibility of multiple matches
 
     # Reaper Functions:
 
@@ -270,7 +272,7 @@ class ReaperDigicoOSCBridge:
         self.digico_dispatcher.set_default_handler(self.forward_OSC)
 
     def send_to_console(self, OSCAddress, *args):
-        #Send an OSC message to the console
+        # Send an OSC message to the console
         self.console_client.send_message(OSCAddress, [*args])
 
     def request_snapshot_info(self, OSCAddress, CurrentSnapshotNumber):
@@ -283,16 +285,16 @@ class ReaperDigicoOSCBridge:
         self.console_client.send_message("/Snapshots/name/?", CurrentSnapshotNumber)
 
     def request_macro_info(self, OSCAddress, pressed):
-        #When a Macro is pressed, request the name of the macro
+        # When a Macro is pressed, request the name of the macro
         macro_num = OSCAddress.split("/")[3]
         self.console_client.send_message("/Macros/name/?", int(macro_num))
 
     def macro_name_handler(self, OSCAddress, *args):
-        #If macros match names, then send behavior to Reaper
+        # If macros match names, then send behavior to Reaper
         macro_name = args[1]
         macro_name = str(macro_name).lower()
         print(macro_name)
-        if macro_name in ("reaper,rec", "reaper rec" ,"rec", "record", "reaper, record", "reaper record"):
+        if macro_name in ("reaper,rec", "reaper rec", "rec", "record", "reaper, record", "reaper record"):
             self.process_transport_macros("rec")
         elif macro_name in ("reaper,stop", "reaper stop", "stop"):
             self.process_transport_macros("stop")
@@ -304,6 +306,7 @@ class ReaperDigicoOSCBridge:
     def process_marker_macro(self):
         self.place_marker_at_current()
         self.update_last_marker_name("Marker Dropped")
+
     def snapshot_OSC_handler(self, OSCAddress, *args):
         # Processes the current cue number
         if settings.forwarder_enabled == "True":
@@ -343,7 +346,6 @@ class ReaperDigicoOSCBridge:
                 print(e)
 
     def close_servers(self):
-        #print("closing servers")
         try:
             self.digico_osc_server.shutdown()
             self.digico_osc_thread.join()
@@ -361,7 +363,6 @@ class ReaperDigicoOSCBridge:
             print(e)
         print("servers closed")
         return True
-
 
     def restart_servers(self):
         # Restart the OSC server threads.
