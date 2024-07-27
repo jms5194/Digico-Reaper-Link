@@ -2,6 +2,8 @@ import wx
 import ipaddress
 import settings
 from main import ReaperDigicoOSCBridge
+import sys
+
 class MainWindow(wx.Frame):
     #Bringing the logic from main as an attribute of MainWindow
     BridgeFunctions = ReaperDigicoOSCBridge()

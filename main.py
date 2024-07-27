@@ -281,20 +281,23 @@ class ReaperDigicoOSCBridge:
                 print(e)
         self.console_client.send_message("/Snapshots/name/?", CurrentSnapshotNumber)
 
-    def request_macro_info(self, OSCAddress, CurrentMacroNumber):
+    def request_macro_info(self, OSCAddress, pressed):
         #When a Macro is pressed, request the name of the macro
-        self.console_client.send_message("/Macros/name/?", CurrentMacroNumber)
+        macro_num = OSCAddress.split("/")[3]
+        self.console_client.send_message("/Macros/name/?", int(macro_num))
 
     def macro_name_handler(self, OSCAddress, *args):
         #If macros match names, then send behavior to Reaper
-        args[1] = str(args[1]).lower()
-        if args[1] == "reaper,rec" or "reaper rec" or "rec":
+        macro_name = args[1]
+        macro_name = str(macro_name).lower()
+        print(macro_name)
+        if macro_name in ("reaper,rec", "reaper rec" ,"rec", "record", "reaper, record", "reaper record"):
             self.process_transport_macros("rec")
-        elif args[1] == "reaper,stop" or "reaper stop" or "stop":
+        elif macro_name in ("reaper,stop", "reaper stop", "stop"):
             self.process_transport_macros("stop")
-        elif args[1] == "reaper,play" or "reaper play" or "play":
+        elif macro_name in ("reaper,play", "reaper play", "play"):
             self.process_transport_macros("play")
-        elif args[1] == "reaper,marker" or "reaper marker" or "marker":
+        elif macro_name in ("reaper,marker", "reaper marker", "marker"):
             self.process_marker_macro()
 
     def process_marker_macro(self):
