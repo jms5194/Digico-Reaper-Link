@@ -138,8 +138,8 @@ class ReaperDigicoOSCBridge:
 
     def build_digico_osc_servers(self):
         # Connect to the Digico console
-        print(str(settings.console_ip) + ' ' + str(settings.receive_port))
-        self.console_client = udp_client.SimpleUDPClient(settings.console_ip, settings.receive_port)
+        print(str(settings.console_ip) + ' ' + str(settings.console_port))
+        self.console_client = udp_client.SimpleUDPClient(settings.console_ip, settings.console_port)
         self.digico_dispatcher = dispatcher.Dispatcher()
         self.receive_console_OSC()
         try:
