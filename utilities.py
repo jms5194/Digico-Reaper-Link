@@ -138,7 +138,8 @@ class ReaperDigicoOSCBridge:
 
     def build_digico_osc_servers(self):
         # Connect to the Digico console
-        self.console_client = udp_client.SimpleUDPClient(settings.console_ip, settings.console_port)
+        print(str(settings.console_ip) + ' ' + str(settings.receive_port))
+        self.console_client = udp_client.SimpleUDPClient(settings.console_ip, settings.receive_port)
         self.digico_dispatcher = dispatcher.Dispatcher()
         self.receive_console_OSC()
         try:
@@ -282,6 +283,7 @@ class ReaperDigicoOSCBridge:
         if settings.forwarder_enabled == "True":
             try:
                 self.repeater_client.send_message(OSCAddress, CurrentSnapshotNumber)
+                print('requested snapshot info')
             except Exception as e:
                 print(e)
         self.console_client.send_message("/Snapshots/name/?", CurrentSnapshotNumber)

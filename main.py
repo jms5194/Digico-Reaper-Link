@@ -127,7 +127,7 @@ class PrefsPanel(wx.Panel):
         # Console IP Input
         self.console_ip_control = wx.TextCtrl(self, style=wx.TE_CENTER)
         self.console_ip_control.SetMaxLength(15)
-        self.console_ip_control.SetValue(settings.local_ip)
+        self.console_ip_control.SetValue(settings.console_ip)
         panel_sizer.Add(self.console_ip_control, 0, wx.ALL | wx.EXPAND, 5)
         panel_sizer.Add(0, 10)
         # Local IP Label
