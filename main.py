@@ -2,6 +2,8 @@ import wx
 import ipaddress
 import settings
 from utilities import ReaperDigicoOSCBridge
+from pubsub import pub
+import threading
 
 
 class MainWindow(wx.Frame):
@@ -9,7 +11,7 @@ class MainWindow(wx.Frame):
     BridgeFunctions = ReaperDigicoOSCBridge()
 
     def __init__(self):
-        wx.Frame.__init__(self, parent=None, size=(250, 200), title="Digico-Reaper Link")
+        wx.Frame.__init__(self, parent=None, size=(221, 310), title="Digico-Reaper Link")
         self.SetPosition(settings.window_loc)
         panel = MainPanel(self)
         # Build a menubar:
@@ -17,7 +19,6 @@ class MainWindow(wx.Frame):
         filemenu = wx.Menu()
         about_menuitem = filemenu.Append(wx.ID_ABOUT, "&About", "Info about this program")
         filemenu.AppendSeparator()
-        filemenu.Append(wx.ID_EXIT, "E&xit", "Terminate this program")
         m_exit = filemenu.Append(wx.ID_EXIT, "&Exit\tAlt-X", "Close window and exit program.")
         properties_menuitem = filemenu.Append(wx.ID_PROPERTIES, "Properties", "Program Settings")
         menubar = wx.MenuBar()
@@ -64,7 +65,11 @@ class MainPanel(wx.Panel):
     def __init__(self, parent):
         wx.Panel.__init__(self, parent)
         panel_sizer = wx.BoxSizer(wx.VERTICAL)
-        header_font = wx.Font(20, family=wx.FONTFAMILY_MODERN, style=0, weight=wx.BOLD, underline=False, faceName="",
+        header_font = wx.Font(20, family=wx.FONTFAMILY_SWISS, style=0, weight=wx.BOLD, underline=False, faceName="",
+                              encoding=wx.FONTENCODING_DEFAULT)
+        sub_header1_font = wx.Font(17,family=wx.FONTFAMILY_SWISS, style=0, weight=wx.NORMAL, underline=False, faceName="",
+                              encoding=wx.FONTENCODING_DEFAULT)
+        sub_header2_font =  wx.Font(14,family=wx.FONTFAMILY_SWISS, style=0, weight=wx.NORMAL, underline=False, faceName="",
                               encoding=wx.FONTENCODING_DEFAULT)
         radio_grid = wx.GridSizer(3, 1, 0, 0)
         rec_button_cntl = wx.RadioButton(self, label="Recording", style=wx.RB_GROUP)
@@ -78,17 +83,56 @@ class MainPanel(wx.Panel):
         notrack_button_cntl.SetFont(header_font)
         radio_grid.Add(notrack_button_cntl, 0, wx.ALL | wx.EXPAND, 5)
         panel_sizer.Add(radio_grid, 0, wx.ALL | wx.EXPAND, 5)
+
+        # Is connected section:
+        connected_status = wx.StaticText(self)
+        connected_status.SetLabel("Connection Status")
+        connected_status.SetFont(sub_header1_font)
+
+        connected_grid = wx.GridSizer(3,1,5,5)
+
+        digico_con_label = wx.StaticText(self)
+        digico_con_label.SetLabel("Digico")
+        digico_con_label.SetFont(sub_header2_font)
+        connected_grid.Add(digico_con_label, flag=wx.ALIGN_CENTER_HORIZONTAL)
+
+        self.digico_connected = wx.TextCtrl(self, size=(100, -1), style=wx.TE_CENTER)
+        self.digico_connected.SetLabel("N/C")
+        self.digico_connected.SetEditable(False)
+        self.digico_connected.SetBackgroundColour("Red")
+        connected_grid.Add(self.digico_connected, flag=wx.ALIGN_CENTER_HORIZONTAL)
+
+        panel_sizer.Add(connected_status, flag=wx.ALIGN_CENTER_HORIZONTAL)
+        panel_sizer.Add(connected_grid, flag=wx.ALIGN_CENTER_HORIZONTAL)
+
+        #Lower Buttons
+        button_grid = wx.GridSizer(3,1,10,10)
+        # Drop Marker Button
+        marker_button = wx.Button(self, label ="Drop Marker")
+        button_grid.Add(marker_button, flag=wx.ALIGN_CENTER_HORIZONTAL)
+        # Attempt Reconnect Button
+        attempt_reconnect_button = wx.Button(self, label="Attempt Reconnect")
+        button_grid.Add(attempt_reconnect_button, flag=wx.ALIGN_CENTER_HORIZONTAL)
         # Exit Button
-        exit_button = wx.Button(self, -1, "Exit")
-        exit_button.SetFont(header_font)
-        panel_sizer.Add(exit_button, 10, wx.ALL | wx.EXPAND, 10)
+        exit_button = wx.Button(self, label="Exit")
+        button_grid.Add(exit_button, flag=wx.ALIGN_CENTER_HORIZONTAL)
+        panel_sizer.Add(button_grid,flag=wx.ALIGN_CENTER_HORIZONTAL )
         self.SetSizer(panel_sizer)
         # Bindings
+        self.Bind(wx.EVT_BUTTON, self.place_marker, marker_button)
         self.Bind(wx.EVT_BUTTON, self.exitapp, exit_button)
         self.Bind(wx.EVT_CLOSE, self.exitapp)
+        self.Bind(wx.EVT_BUTTON, self.attemptreconnect, attempt_reconnect_button)
         self.Bind(wx.EVT_RADIOBUTTON, self.recmode, rec_button_cntl)
         self.Bind(wx.EVT_RADIOBUTTON, self.trackmode, track_button_cntl)
         self.Bind(wx.EVT_RADIOBUTTON, self.notrackmode, notrack_button_cntl)
+
+        pub.subscribe(self.digico_connected_listener, "console_name")
+        self.configuretimers()
+
+    def place_marker(self, e):
+        MainWindow.BridgeFunctions.place_marker_at_current()
+        MainWindow.BridgeFunctions.update_last_marker_name("Marker from UI")
 
     def exitapp(self, e):
         self.GetTopLevelParent().on_close(None)
@@ -101,6 +145,34 @@ class MainPanel(wx.Panel):
 
     def notrackmode(self, e):
         settings.marker_mode = "PlaybackNoTrack"
+
+    def configuretimers(self):
+        self.DigicoTimer = wx.CallLater(5000, self.digico_disconnected)
+
+    def digico_connected_listener(self, consolename, arg2=None):
+        if self.DigicoTimer.IsRunning():
+            self.DigicoTimer.Stop()
+            self.digico_connected.SetLabel(consolename)
+            self.digico_connected.SetBackgroundColour("Green")
+            wx.CallAfter(self.DigicoTimer.Start)
+        else:
+            self.digico_connected.SetLabel(consolename)
+            self.digico_connected.SetBackgroundColour("Green")
+            wx.CallAfter(self.DigicoTimer.Start)
+
+    def digico_disconnected(self):
+        self.digico_connected.SetLabel("N/C")
+        self.digico_connected.SetBackgroundColour("Red")
+
+    def attemptreconnect(self, e):
+        MainWindow.BridgeFunctions.update_configuration(con_ip=settings.console_ip, local_ip=settings.local_ip,
+                                                        rptr_ip="127.0.0.1", con_send=settings.console_port,
+                                                        con_rcv=settings.receive_port,
+                                                        fwd_enable=settings.forwarder_enabled,
+                                                        rpr_send=settings.reaper_port,
+                                                        rpr_rcv=settings.reaper_receive_port,
+                                                        rptr_snd=settings.repeater_port,
+                                                        rptr_rcv=settings.repeater_receive_port)
 
 
 class PrefsWindow(wx.Frame):

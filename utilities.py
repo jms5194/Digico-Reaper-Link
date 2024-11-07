@@ -9,7 +9,9 @@ from pythonosc import osc_server
 import socket
 import psutil
 import settings
-
+import time
+from pubsub import pub
+import configure_reaper
 
 class ReaperDigicoOSCBridge:
 
@@ -113,6 +115,8 @@ class ReaperDigicoOSCBridge:
             print(e)
         updater.update_file()
         self.set_vars_from_pref(self.ini_prefs)
+        if not configure_reaper.osc_interface_exists(configure_reaper.get_resource_path(True), rpr_rcv, rpr_send):
+            configure_reaper.add_OSC_interface(configure_reaper.get_resource_path(True), rpr_rcv, rpr_send)
         self.close_servers()
         self.restart_servers()
 
@@ -138,7 +142,6 @@ class ReaperDigicoOSCBridge:
 
     def build_digico_osc_servers(self):
         # Connect to the Digico console
-        print(str(settings.console_ip) + ' ' + str(settings.console_port))
         self.console_client = udp_client.SimpleUDPClient(settings.console_ip, settings.console_port)
         self.digico_dispatcher = dispatcher.Dispatcher()
         self.receive_console_OSC()
@@ -146,9 +149,12 @@ class ReaperDigicoOSCBridge:
             self.digico_osc_server = osc_server.ThreadingOSCUDPServer((settings.local_ip, settings.receive_port),
                                                                       self.digico_dispatcher)
             print("Digico OSC server started.")
+            self.console_type_and_connected_check()
             self.digico_osc_server.serve_forever()
         except Exception as e:
+            print(e)
             print("Unable to establish connection to Digico")
+
 
     def build_reaper_osc_servers(self):
         # Connect to Reaper via OSC
@@ -161,6 +167,7 @@ class ReaperDigicoOSCBridge:
             print("Reaper OSC server started")
             self.reaper_osc_server.serve_forever()
         except Exception as e:
+            print(e)
             print("Unable to establish connection to Reaper")
 
     def build_repeater_osc_servers(self):
@@ -197,6 +204,7 @@ class ReaperDigicoOSCBridge:
 
     def place_marker_at_current(self):
         # Uses a reaper OSC action to place a marker at the current timeline spot
+        print("dropped Marker")
         self.reaper_client.send_message("/action", 40157)
 
     def update_last_marker_name(self, name):
@@ -236,16 +244,16 @@ class ReaperDigicoOSCBridge:
                 recording = True
         if playing is True:
             self.is_playing = True
-            print("reaper is playing")
+            #print("reaper is playing")
         elif playing is False:
             self.is_playing = False
-            print("reaper is not playing")
+            #print("reaper is not playing")
         if recording is True:
             self.is_recording = True
-            print("reaper is recording")
+            #print("reaper is recording")
         elif recording is False:
             self.is_recording = False
-            print("reaper is not recording")
+            #print("reaper is not recording")
 
     def reaper_play(self):
         self.reaper_client.send_message("/action", 1007)
@@ -264,6 +272,8 @@ class ReaperDigicoOSCBridge:
         self.reaper_dispatcher.map("/play", self.current_transport_state)
         self.reaper_dispatcher.map("/record", self.current_transport_state)
 
+
+
     # Digico Functions:
 
     def receive_console_OSC(self):
@@ -272,11 +282,21 @@ class ReaperDigicoOSCBridge:
         self.digico_dispatcher.map("/Snapshots/name", self.snapshot_OSC_handler)
         self.digico_dispatcher.map("/Macros/Recall_Macro/*", self.request_macro_info)
         self.digico_dispatcher.map("/Macros/name", self.macro_name_handler)
+        self.digico_dispatcher.map("/Console/Name", self.console_name_handler)
         self.digico_dispatcher.set_default_handler(self.forward_OSC)
+
 
     def send_to_console(self, OSCAddress, *args):
         # Send an OSC message to the console
         self.console_client.send_message(OSCAddress, [*args])
+
+    def console_type_and_connected_check(self):
+            self.console_client.send_message("/Console/Name/?", None)
+
+    def console_name_handler(self, OSCAddress, ConsoleName):
+        pub.sendMessage('console_name', consolename=ConsoleName)
+        time.sleep(3)
+        self.console_type_and_connected_check()
 
     def request_snapshot_info(self, OSCAddress, CurrentSnapshotNumber):
         # Receives the OSC for the Current Snapshot Number and uses that to request the cue number/name
@@ -351,16 +371,19 @@ class ReaperDigicoOSCBridge:
 
     def close_servers(self):
         try:
+            self.digico_osc_server.server_close()
             self.digico_osc_server.shutdown()
             self.digico_osc_thread.join()
         except Exception as e:
             print(e)
         try:
+            self.reaper_osc_server.server_close()
             self.reaper_osc_server.shutdown()
             self.reaper_osc_thread.join()
         except Exception as e:
             print(e)
         try:
+            self.reaper_osc_server.server_close()
             self.repeater_osc_server.shutdown()
             self.repeater_osc_thread.join()
         except Exception as e:

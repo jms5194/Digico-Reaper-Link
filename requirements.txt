@@ -1,5 +1,6 @@
 appdirs~=1.4.4
-python-osc~=1.8.3
+python-osc~=1.9.0
 ConfigUpdater~=3.2
-psutil~=6.0.0
-wxPython~=4.2.1
+psutil~=6.1.0
+wxPython~=4.2.2
+PYpubsub~=4.0.3
