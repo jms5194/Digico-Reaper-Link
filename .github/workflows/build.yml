@@ -1,4 +1,9 @@
-Name: BuildExecs
+name: Create Release
+
+on:
+  push:
+    tags:
+      - 'v*'
 
 jobs:
   create_release:
@@ -7,67 +12,49 @@ jobs:
     steps:
       - name: Create Release
         id: create_release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v1
         with:
           name: ${{ github.ref_name }}
           draft: false
           prerelease: false
           generate_release_notes: false
 
-  build:
-    name: Build packages
-    needs: createrelease
-    runs-on: ${{ matrix.os }}
+  build_release:
+    name: Build Release
+    needs: create_release
     strategy:
       matrix:
+        os: [macos-latest, windows-latest]
         include:
           - os: macos-latest
-            TARGET: macos
-            CMD_BUILD: >
-                pyinstaller -F -w -n "Digico-Reaper Link" -i resources/rprdigi.icns main.py &&
-                cd dist/ &&
-                zip -r9 "Digico-Reaper Link" "Digico-Reaper Link".app/
-            OUT_FILE_NAME: Digico-Reaper Link.zip
-            ASSET_MIME: application/zip
+            release_suffix: mac
           - os: windows-latest
-            TARGET: windows
-            CMD_BUILD: pyinstaller -F -w -n "Digico-Reaper Link" -i resources/rprdigi.ico main.py
-            OUT_FILE_NAME: Digico-Reaper Link.exe
-            ASSET_MIME: application/vnd.microsoft.portable-executable
+            release_suffix: windows
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    build_release:
-      name: Build Release
-      needs: create_release
-      strategy:
-        matrix:
-          os: [macos-latest, windows-latest ]
-          include:
-            - os: macos-latest
-              release_suffix: mac
-            - os: windows-latest
-              release_suffix: windows
-      runs-on: ${{ matrix.os }}
-      steps:
-        - name: Checkout Code
-          uses: actions/checkout@v4
+      - name: Run Mac Build
+        if: matrix.os == 'macos-latest'
+        uses: Martin005/pyinstaller-action@v1
+        with:
+          python_ver: "3.12"
+          requirements: "requirements.txt"
+          upload_exe_with_name: "Digico-Reaper Link"
+          options: -F, -w, -n "Digico-Reaper Link" -i /resources/rprdigi.icns
 
-        - name: Set up Python 3.12
-          uses: actions/setup-python@v5
-          with:
-            python-version: 3.12
+      - name: Run Windows Build
+        if: matrix.os == 'windows-latest'
+        uses: Martin005/pyinstaller-action@v1
+        with:
+          python_ver: "3.12"
+          requirements: "requirements.txt"
+          upload_exe_with_name: "Digico-Reaper Link"
+          options: -F, -w, -n "Digico-Reaper Link" -i /resources/rprdigi.ico
 
-        - name: Install dependencies
-          run: |
-            python -m pip install --upgrade pip
-            pip install -r requirements.txt
-
-        - name: Build with pyinstaller for ${{matrix.TARGET}}
-          run: ${{matrix.CMD_BUILD}}
-
-        - name: Release
-            uses: softprops/action-gh-release@v2
-            with:
-              tag_name: ${{ needs.create_release.outputs.tag-name }}
-              files: release_${{ matrix.release_suffix }}
-
-
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.create_release.outputs.tag-name }}
+          files: release_${{ matrix.release_suffix }}
