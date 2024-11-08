@@ -244,16 +244,16 @@ class ReaperDigicoOSCBridge:
                 recording = True
         if playing is True:
             self.is_playing = True
-            #print("reaper is playing")
+            print("reaper is playing")
         elif playing is False:
             self.is_playing = False
-            #print("reaper is not playing")
+            print("reaper is not playing")
         if recording is True:
             self.is_recording = True
-            #print("reaper is recording")
+            print("reaper is recording")
         elif recording is False:
             self.is_recording = False
-            #print("reaper is not recording")
+            print("reaper is not recording")
 
     def reaper_play(self):
         self.reaper_client.send_message("/action", 1007)

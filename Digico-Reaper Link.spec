@@ -33,7 +33,7 @@ exe = EXE(pyz,
           disable_windowed_traceback=False,
           codesign_identity=None,
           entitlements_file=None , icon='rprdigi.icns')
-          test
+
 coll = COLLECT(exe,
                a.binaries,
                a.zipfiles,
