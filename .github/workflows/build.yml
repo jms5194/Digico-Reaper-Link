@@ -1,34 +1,18 @@
-name: Build
-
-on:
-  push:
-    tags:
-      - 'v*' # Push events to matching v*, i.e. v1.0, v20.15.10
+Name: BuildExecs
 
 jobs:
-
-  createrelease:
+  create_release:
     name: Create Release
-    runs-on: [ubuntu-latest]
+    runs-on: ubuntu-latest
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-    - name: Create Release
-      uses: comnoco/create-release-action@v2.0.5
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        tag_name: ${{ github.ref }}
-        release_name: Release ${{ github.ref }}
-        draft: false
-        prerelease: false
-    - name: Output Release URL File
-      run: echo "${{ steps.create_release.outputs.upload_url }}" > release_url.txt
-    - name: Save Release URL File for publish
-      uses: actions/upload-artifact@v3
-      with:
-        name: release_url
-        path: release_url.txt
+      - name: Create Release
+        id: create_release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: ${{ github.ref_name }}
+          draft: false
+          prerelease: false
+          generate_release_notes: false
 
   build:
     name: Build packages
@@ -50,35 +34,40 @@ jobs:
             CMD_BUILD: pyinstaller -F -w -n "Digico-Reaper Link" -i resources/rprdigi.ico main.py
             OUT_FILE_NAME: Digico-Reaper Link.exe
             ASSET_MIME: application/vnd.microsoft.portable-executable
-    steps:
-    - uses: actions/checkout@v4
-    - name: Set up Python 3.12
-      uses: actions/setup-python@v5
-      with:
-        python-version: 3.12
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
-    - name: Build with pyinstaller for ${{matrix.TARGET}}
-      run: ${{matrix.CMD_BUILD}}
-    - name: Load Release URL File from release job
-      uses: actions/download-artifact@v3
-      with:
-        name: release_url
-    - name: Get Release File Name & Upload URL
-      id: get_release_info
-      shell: bash
-      run: |
-        value=`cat release_url/release_url.txt`
-        echo ::set-output name=upload_url::$value
-    - name: Upload Release Asset
-      id: upload-release-asset
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.get_release_info.outputs.upload_url }}
-        asset_path: ./dist/${{ matrix.OUT_FILE_NAME}}
-        asset_name: ${{ matrix.OUT_FILE_NAME}}
-        asset_content_type: ${{ matrix.ASSET_MIME}}
+
+    build_release:
+      name: Build Release
+      needs: create_release
+      strategy:
+        matrix:
+          os: [macos-latest, windows-latest ]
+          include:
+            - os: macos-latest
+              release_suffix: mac
+            - os: windows-latest
+              release_suffix: windows
+      runs-on: ${{ matrix.os }}
+      steps:
+        - name: Checkout Code
+          uses: actions/checkout@v4
+
+        - name: Set up Python 3.12
+          uses: actions/setup-python@v5
+          with:
+            python-version: 3.12
+
+        - name: Install dependencies
+          run: |
+            python -m pip install --upgrade pip
+            pip install -r requirements.txt
+
+        - name: Build with pyinstaller for ${{matrix.TARGET}}
+          run: ${{matrix.CMD_BUILD}}
+
+        - name: Release
+            uses: softprops/action-gh-release@v2
+            with:
+              tag_name: ${{ needs.create_release.outputs.tag-name }}
+              files: release_${{ matrix.release_suffix }}
+
+
