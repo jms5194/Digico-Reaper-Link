@@ -43,7 +43,7 @@ jobs:
           spec: main.py
           requirements: "requirements.txt"
           upload_exe_with_name: "Digico-Reaper Link"
-          options: -F, -w, -n "Digico-Reaper Link" -i /resources/rprdigi.icns
+          options: -F, -w, -n "Digico-Reaper Link" -i resources/rprdigi.icns
 
       - name: Run Windows Build
         if: matrix.os == 'windows-latest'
@@ -53,7 +53,7 @@ jobs:
           spec: main.py
           requirements: "requirements.txt"
           upload_exe_with_name: "Digico-Reaper Link"
-          options: -F, -w, -n "Digico-Reaper Link" -i /resources/rprdigi.ico
+          options: -F, -w, -n "Digico-Reaper Link" -i resources/rprdigi.ico
 
       - name: Release
         uses: softprops/action-gh-release@v2
