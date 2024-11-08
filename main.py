@@ -3,7 +3,6 @@ import ipaddress
 import settings
 from utilities import ReaperDigicoOSCBridge
 from pubsub import pub
-import threading
 
 
 class MainWindow(wx.Frame):
@@ -233,28 +232,7 @@ class PrefsPanel(wx.Panel):
         digico_ports_grid.Add(self.digico_rcv_port_control, 0, wx.ALL | wx.EXPAND, -1)
         panel_sizer.Add(digico_ports_grid, 0, wx.ALL | wx.EXPAND, 5)
         panel_sizer.Add(0, 25)
-        # Reaper Ports Label
-        reaper_ports_text = wx.StaticText(self, label="Reaper Ports", style=wx.ALIGN_CENTER)
-        reaper_ports_text.SetFont(header_font)
-        panel_sizer.Add(reaper_ports_text, 0, wx.ALL | wx.EXPAND, -1)
-        # Reaper Ports Input
-        reaper_ports_grid = wx.GridSizer(2, 2, -1, 10)
-        reaper_send_port_text = wx.StaticText(self, label="Send to Reaper", style=wx.ALIGN_CENTER)
-        reaper_send_port_text.SetFont(base_font)
-        reaper_ports_grid.Add(reaper_send_port_text, 0, wx.ALL | wx.EXPAND, 5)
-        reaper_rcv_port_text = wx.StaticText(self, label="Receive from Reaper", style=wx.ALIGN_CENTER)
-        reaper_rcv_port_text.SetFont(base_font)
-        reaper_ports_grid.Add(reaper_rcv_port_text, 0, wx.ALL | wx.EXPAND, 5)
-        self.reaper_send_port_control = wx.TextCtrl(self, style=wx.TE_CENTER)
-        self.reaper_send_port_control.SetMaxLength(5)
-        self.reaper_send_port_control.SetValue(str(settings.reaper_port))
-        reaper_ports_grid.Add(self.reaper_send_port_control, 0, wx.ALL | wx.EXPAND, -1)
-        self.reaper_rcv_port_control = wx.TextCtrl(self, style=wx.TE_CENTER)
-        self.reaper_rcv_port_control.SetMaxLength(5)
-        self.reaper_rcv_port_control.SetValue(str(settings.reaper_receive_port))
-        reaper_ports_grid.Add(self.reaper_rcv_port_control, 0, wx.ALL | wx.EXPAND, -1)
-        panel_sizer.Add(reaper_ports_grid, 0, wx.ALL | wx.EXPAND, 5)
-        panel_sizer.Add(0, 10)
+
         # OSC Repeater Label
         osc_repeater_text = wx.StaticText(self, label="OSC Repeater", style=wx.ALIGN_CENTER)
         osc_repeater_text.SetFont(header_font)
@@ -304,8 +282,6 @@ class PrefsPanel(wx.Panel):
         settings.local_ip = self.local_ip_control.GetValue()
         settings.console_port = str(self.digico_send_port_control.GetValue())
         settings.receive_port = str(self.digico_rcv_port_control.GetValue())
-        settings.reaper_port = str(self.reaper_send_port_control.GetValue())
-        settings.reaper_receive_port = str(self.reaper_rcv_port_control.GetValue())
         settings.repeater_port = str(self.repeater_send_port_control.GetValue())
         settings.repeater_receive_port = str(self.repeater_rcv_port_control.GetValue())
         if self.repeater_radio_enabled is True:
