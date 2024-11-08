@@ -37,7 +37,7 @@ jobs:
 
       - name: Run Mac Build
         if: matrix.os == 'macos-latest'
-        uses: Martin005/pyinstaller-action@v1
+        uses: Martin005/pyinstaller-action@v1.2.0
         with:
           python_ver: "3.12"
           requirements: "requirements.txt"
@@ -46,7 +46,7 @@ jobs:
 
       - name: Run Windows Build
         if: matrix.os == 'windows-latest'
-        uses: Martin005/pyinstaller-action@v1
+        uses: Martin005/pyinstaller-action@v1.2.0
         with:
           python_ver: "3.12"
           requirements: "requirements.txt"
