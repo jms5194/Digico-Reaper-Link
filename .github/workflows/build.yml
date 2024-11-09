@@ -43,6 +43,7 @@ jobs:
           spec: main.py
           requirements: "requirements.txt"
           upload_exe_with_name: "Digico-Reaper Link"
+          exe_path: release_macos
           options: -F, -w, -n "Digico-Reaper Link" -i resources/rprdigi.icns
 
       - name: Run Windows Build
@@ -53,6 +54,7 @@ jobs:
           spec: main.py
           requirements: "requirements.txt"
           upload_exe_with_name: "Digico-Reaper Link"
+          exe_path: release_windows
           options: -F, -w, -n "Digico-Reaper Link" -i resources/rprdigi.ico
 
       - name: Release
