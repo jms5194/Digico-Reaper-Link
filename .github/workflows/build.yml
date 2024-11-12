@@ -52,13 +52,14 @@ jobs:
       - name: Install pyinstaller for Windows
         if: matrix.os == 'windows-latest'
         run: |
-          Invoke-WebRequest -Uri https://github.com/pyinstaller/pyinstaller/archive/refs/tags/v6.8.0.zip -OutFile pyinstaller-6.8.0.zip
-          Expand-Archive -Path pyinstaller-6.8.0.zip -DestinationPath .
+          Invoke-WebRequest -Uri https://github.com/pyinstaller/pyinstaller/archive/refs/tags/v6.11.1.zip -OutFile pyinstaller-6.11.1.zip
+          Expand-Archive -Path pyinstaller-6.11.1.zip -DestinationPath .
           cd pyinstaller-6.8.0
+          python -m pip install --upgrade pip
           python -m pip install .
           cd ..
-          Remove-Item -Recurse -Force pyinstaller-6.8.0
-          Remove-Item -Force pyinstaller-6.8.0.zip
+          Remove-Item -Recurse -Force pyinstaller-6.11.1
+          Remove-Item -Force pyinstaller-6.11.1.zip
 
       - name: Install dependencies
         run: |
