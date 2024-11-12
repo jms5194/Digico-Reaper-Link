@@ -158,6 +158,6 @@ jobs:
         with:
           tag_name: ${{ needs.create_release.outputs.tag-name }}
           files: |
-            "Digico-Reaper Link-macos-arm64.dmg"
-            "Digico-Reaper Link-macos-x86.dmg"
-            "Digico-Reaper Link.zip"
+            "./Digico-Reaper Link-macos-arm64.dmg"
+            "./Digico-Reaper Link-macos-x86.dmg"
+            "./Digico-Reaper Link.zip"
