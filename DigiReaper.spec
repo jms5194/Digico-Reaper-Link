@@ -15,12 +15,12 @@ args = parser.parse_args()
 datas = [
     ('.env', '.'),
     ('resources/rprdigi.icns, './icons'),
-    ('resources/rprdigi.ico', './icons'),
+    ('resources/rprdigi.ico', './icons')
 ]
 
 sources = [
     'src/settings.py',
-    'src/utilities.py',
+    'src/utilities.py'
 ]
 
 
