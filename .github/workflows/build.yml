@@ -111,13 +111,6 @@ jobs:
           "@ | Out-File -FilePath .env -Encoding ASCII
         shell: pwsh
 
-      - name: Build device enumeration module on Windows
-        if: matrix.os == 'windows-latest'
-        run: |
-          cd src/win32DeviceEnum
-          python setup.py build_ext --inplace
-          cd ../..
-
       - name: Build with PyInstaller (MacOS)
         if: matrix.os == 'macos-x86' || matrix.os == 'macos-arm64'
         run: |
