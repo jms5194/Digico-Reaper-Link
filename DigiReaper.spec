@@ -23,7 +23,7 @@ datas = [
 numpy_datas, numpy_binaries, numpy_hiddenimports = collect_all('numpy')
 ws_hiddenimports=['websockets', 'websockets.legacy']
 
-a = Analysis(['main.py']
+a = Analysis(['main.py'],
     pathex=[],
     binaries=numpy_binaries,
     datas=datas + numpy_datas,
