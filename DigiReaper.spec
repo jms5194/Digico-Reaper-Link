@@ -19,8 +19,8 @@ datas = [
 ]
 
 sources = [
-    'src/settings.py',
-    'src/utilities.py',
+    'settings.py',
+    'utilities.py',
 ]
 
 
