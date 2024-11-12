@@ -54,7 +54,7 @@ jobs:
         run: |
           Invoke-WebRequest -Uri https://github.com/pyinstaller/pyinstaller/archive/refs/tags/v6.11.1.zip -OutFile pyinstaller-6.11.1.zip
           Expand-Archive -Path pyinstaller-6.11.1.zip -DestinationPath .
-          cd pyinstaller-6.8.0
+          cd pyinstaller-6.11.1
           python -m pip install --upgrade pip
           python -m pip install .
           cd ..
