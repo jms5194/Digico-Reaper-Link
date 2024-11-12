@@ -14,8 +14,8 @@ args = parser.parse_args()
 
 datas = [
     ('.env', '.'),
-    ('resources/rprdigi.icns', './icons'),
-    ('resources/rprdigi.ico', './icons'),
+    ('resources/rprdigi.icns', './resources'),
+    ('resources/rprdigi.ico', './resources'),
 ]
 
 sources = [
@@ -47,7 +47,7 @@ if args.win:
         a.scripts,
         splash,
         name='Digico-Reaper Link',
-        icon='icons/rprdigi.ico',
+        icon='resources/rprdigi.ico',
         debug=args.debug is not None and args.debug,
         exclude_binaries=True,
         bootloader_ignore_signals=False,
@@ -91,7 +91,7 @@ elif args.mac_osx:
     app = BUNDLE(
         exe,
         name='Digico-Reaper Link.app',
-        icon='icons/rprdigi.icns',
+        icon='resources/rprdigi.icns',
         bundle_identifier='com.justinstasiw.digicoreaperlink',
         version='3.0.0',
         info_plist={
@@ -108,7 +108,7 @@ else:
         splash,
         splash.binaries,
         name='Digico-Reaper Link',
-        icon='icons/rprdigi.ico',
+        icon='resources/rprdigi.ico',
         debug=args.debug is not None and args.debug,
         bootloader_ignore_signals=False,
         strip=False,
