@@ -19,6 +19,7 @@ datas = [
 ]
 
 sources = [
+    'main.py'
     'settings.py',
     'utilities.py',
 ]
