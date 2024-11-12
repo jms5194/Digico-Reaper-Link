@@ -1,9 +1,9 @@
 name: Cross-Platform Build with PyInstaller
 
 on:
-  pull_request:
-    branches: [ main ]
-  workflow_call:
+  push:
+    tags:
+      - 'v*'
 
 jobs:
   check-format:
@@ -12,8 +12,21 @@ jobs:
     permissions:
       contents: read
 
+  create_release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create Release
+        id: create_release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: ${{ github.ref_name }}
+          draft: false
+          prerelease: false
+          generate_release_notes: false
+
   build:
-    needs: check-format
+    needs: check-format, create_release
     strategy:
       matrix:
         os: [macos-x86, macos-arm64, windows-latest]
@@ -165,6 +178,15 @@ jobs:
           name: DigicoReaperLink-${{ matrix.target }}
           # only upload exe on windows, dmg on macos
           path: |
+            "Digico-Reaper Link-macos-arm64.dmg"
+            "Digico-Reaper Link-macos-x86.dmg"
+            "Digico-Reaper Link.zip"
+
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.create_release.outputs.tag-name }}
+          files: |
             "Digico-Reaper Link-macos-arm64.dmg"
             "Digico-Reaper Link-macos-x86.dmg"
             "Digico-Reaper Link.zip"
