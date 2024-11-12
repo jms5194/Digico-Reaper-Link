@@ -18,18 +18,12 @@ datas = [
     ('resources/rprdigi.ico', './resources'),
 ]
 
-sources = [
-    'main.py'
-    'settings.py',
-    'utilities.py',
-]
 
 
 numpy_datas, numpy_binaries, numpy_hiddenimports = collect_all('numpy')
 ws_hiddenimports=['websockets', 'websockets.legacy']
 
-a = Analysis(
-    sources,
+a = Analysis(['main.py']
     pathex=[],
     binaries=numpy_binaries,
     datas=datas + numpy_datas,
