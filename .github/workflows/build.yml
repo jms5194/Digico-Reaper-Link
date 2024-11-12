@@ -156,16 +156,6 @@ jobs:
           Compress-Archive -Path "build/DigiReaper/Digico-Reaper Link.exe" -DestinationPath "./Digico-Reaper Link.zip"
         shell: pwsh
 
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: scoresight-${{ matrix.target }}
-          # only upload exe on windows, tar on linux, dmg on macos
-          path: |
-            Digico-Reaper\ Link-macos-arm64.dmg
-            Digico-Reaper\ Link-macos-x86.dmg
-            Digico-Reaper\ Link.zip
-
       - name: Release
         uses: softprops/action-gh-release@v2
         with:
