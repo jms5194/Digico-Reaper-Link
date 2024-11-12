@@ -6,12 +6,6 @@ on:
       - 'v*'
 
 jobs:
-  check-format:
-    name: Check Formatting 🔍
-    uses: ./.github/workflows/check-format.yaml
-    permissions:
-      contents: read
-
   create_release:
     name: Create Release
     runs-on: ubuntu-latest
@@ -26,7 +20,7 @@ jobs:
           generate_release_notes: false
 
   build:
-    needs: check-format, create_release
+    needs: create_release
     strategy:
       matrix:
         os: [macos-x86, macos-arm64, windows-latest]
