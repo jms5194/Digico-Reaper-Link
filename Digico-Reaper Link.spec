@@ -44,5 +44,5 @@ coll = COLLECT(exe,
                name='Digico-Reaper Link')
 app = BUNDLE(coll,
              name='Digico-Reaper Link.app',
-             icon='rprdigi.icns',
+             icon='resources/rprdigi.icns',
              bundle_identifier=None)
