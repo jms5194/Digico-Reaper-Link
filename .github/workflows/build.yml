@@ -141,24 +141,19 @@ jobs:
 
       - name: Create dmg MacOS
         if: matrix.os == 'macos-x86' || matrix.os == 'macos-arm64'
-        uses: nick-fields/retry@v3.0.0
-        with:
-          timeout_seconds: 150
-          max_attempts: 3
-          retry_on: error
-          command: |
-            chmod a+x "dist/Digico-Reaper Link.app"
-            brew update
-            brew upgrade
-            brew install create-dmg
-            create-dmg \
-            --volname "D-R Link Installer" \
-            --app-drop-link 600 185 \
-            --window-pos 200 120 \
-            --window-size 800 400 \
-            --hide-extension "Digico-Reaper Link.app" \
-            "D-R Link Installer"-${{ matrix.target }}.dmg \
-            "dist/Digico-Reaper Link.app"
+        run: |
+          chmod a+x "dist/Digico-Reaper Link.app"
+          brew update
+          brew upgrade
+          brew install create-dmg
+          create-dmg \
+          --volname "D-R Link Installer" \
+          --app-drop-link 600 185 \
+          --window-pos 200 120 \
+          --window-size 800 400 \
+          --hide-extension "Digico-Reaper Link.app" \
+          "D-R Link Installer"-${{ matrix.target }}.dmg \
+          "dist/Digico-Reaper Link.app"
 
       - name: Create zip on Windows
         if: matrix.os == 'windows-latest'
