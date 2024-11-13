@@ -149,6 +149,7 @@ jobs:
           command: |
             chmod a+x "dist/Digico-Reaper Link.app"
             brew update
+            brew upgrade
             brew install create-dmg
             create-dmg \
             --volname "D-R Link Installer"
@@ -157,7 +158,7 @@ jobs:
             --window-size 800 400 \
             --hide-extension "Digico-Reaper Link.app"
             "D-R Link Installer"-${{ matrix.target }}.dmg
-            "dist/Digico-Reaper Link.app"
+            "dist/"
 
       - name: Create zip on Windows
         if: matrix.os == 'windows-latest'
