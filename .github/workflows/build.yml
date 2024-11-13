@@ -148,7 +148,16 @@ jobs:
           retry_on: error
           command: |
             chmod a+x "dist/Digico-Reaper Link.app"
-            hdiutil create -volname "Digico-Reaper Link" -srcfolder "dist/Digico-Reaper Link.app" -ov -format UDRO "Digico-Reaper Link"-${{ matrix.target }}.dmg
+            brew update
+            brew install create-dmg
+            create-dmg \
+            --volname "D-R Link Installer"
+            --app-drop-link 600 185 \
+            --window-pos 200 120 \
+            --window-size 800 400 \
+            --hide-extension "Digico-Reaper Link.app"
+            "D-R Link Installer"-${{ matrix.target }}.dmg
+            "dist/Digico-Reaper Link.app"
 
       - name: Create zip on Windows
         if: matrix.os == 'windows-latest'
@@ -161,6 +170,6 @@ jobs:
         with:
           tag_name: ${{ needs.create_release.outputs.tag-name }}
           files: |
-            Digico-Reaper\ Link-macos-arm64.dmg
-            Digico-Reaper\ Link-macos-x86.dmg
+            D-R\ Link\ Installer-macos-arm64.dmg
+            D-R\ Link\ Installer-macos-x86.dmg
             Digico-Reaper\ Link.zip
