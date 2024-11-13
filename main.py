@@ -44,8 +44,11 @@ class MainWindow(wx.Frame):
         PrefsWindow(parent=wx.GetTopLevelParent(self), title="Digico-Reaper Properties")
 
     def on_close(self, event):
+        # Let's close the window and destroy the UI
+        # But let's remember where we hand the wind for next time
         cur_pos = self.GetTopLevelParent().GetPosition()
         self.GetTopLevelParent().BridgeFunctions.update_pos_in_config(cur_pos)
+        # Make a dialog to confirm closing.
         dlg = wx.MessageDialog(self,
                                "Do you really want to close Digico-Reaper Link?",
                                "Confirm Exit", wx.OK | wx.CANCEL | wx.ICON_QUESTION)
@@ -61,15 +64,18 @@ class MainWindow(wx.Frame):
 
 
 class MainPanel(wx.Panel):
+    # This is our main window UI
     def __init__(self, parent):
         wx.Panel.__init__(self, parent)
         panel_sizer = wx.BoxSizer(wx.VERTICAL)
+        # Font Definitions
         header_font = wx.Font(20, family=wx.FONTFAMILY_SWISS, style=0, weight=wx.BOLD, underline=False, faceName="",
                               encoding=wx.FONTENCODING_DEFAULT)
         sub_header1_font = wx.Font(17,family=wx.FONTFAMILY_SWISS, style=0, weight=wx.NORMAL, underline=False, faceName="",
                               encoding=wx.FONTENCODING_DEFAULT)
         sub_header2_font =  wx.Font(14,family=wx.FONTFAMILY_SWISS, style=0, weight=wx.NORMAL, underline=False, faceName="",
                               encoding=wx.FONTENCODING_DEFAULT)
+        # Button grid for application mode
         radio_grid = wx.GridSizer(3, 1, 0, 0)
         rec_button_cntl = wx.RadioButton(self, label="Recording", style=wx.RB_GROUP)
         rec_button_cntl.SetFont(header_font)
@@ -104,7 +110,7 @@ class MainPanel(wx.Panel):
         panel_sizer.Add(connected_status, flag=wx.ALIGN_CENTER_HORIZONTAL)
         panel_sizer.Add(connected_grid, flag=wx.ALIGN_CENTER_HORIZONTAL)
 
-        #Lower Buttons
+        # Lower Buttons
         button_grid = wx.GridSizer(3,1,10,10)
         # Drop Marker Button
         marker_button = wx.Button(self, label ="Drop Marker")
@@ -125,15 +131,18 @@ class MainPanel(wx.Panel):
         self.Bind(wx.EVT_RADIOBUTTON, self.recmode, rec_button_cntl)
         self.Bind(wx.EVT_RADIOBUTTON, self.trackmode, track_button_cntl)
         self.Bind(wx.EVT_RADIOBUTTON, self.notrackmode, notrack_button_cntl)
-
+        # Subscribing to the OSC response for console name to reset the timeout timer
         pub.subscribe(self.digico_connected_listener, "console_name")
+        # Start a timer for Digico timeout
         self.configuretimers()
 
     def place_marker(self, e):
+        # Manually places a marker in Reaper from the UI
         MainWindow.BridgeFunctions.place_marker_at_current()
         MainWindow.BridgeFunctions.update_last_marker_name("Marker from UI")
 
     def exitapp(self, e):
+        # Calls on_close for the parent window
         self.GetTopLevelParent().on_close(None)
 
     def recmode(self, e):
@@ -146,25 +155,35 @@ class MainPanel(wx.Panel):
         settings.marker_mode = "PlaybackNoTrack"
 
     def configuretimers(self):
+        # Builds a 5 second non blocking timer for console response timeout.
+        # Calls self.digico_disconnected if timer runs out.
         self.DigicoTimer = wx.CallLater(5000, self.digico_disconnected)
 
     def digico_connected_listener(self, consolename, arg2=None):
         if self.DigicoTimer.IsRunning():
+            # When a response is received from the console, reset the timeout timer if running
             self.DigicoTimer.Stop()
+            # Update the UI to reflect the connected status
             self.digico_connected.SetLabel(consolename)
             self.digico_connected.SetBackgroundColour("Green")
+            # Restart the timeout timer
             wx.CallAfter(self.DigicoTimer.Start)
         else:
+            # If the timer was not already running
+            # Update UI to reflect connected
             self.digico_connected.SetLabel(consolename)
             self.digico_connected.SetBackgroundColour("Green")
+            # Start the timer
             wx.CallAfter(self.DigicoTimer.Start)
 
     def digico_disconnected(self):
+        # If timer runs out without being reset, update the UI to N/C
         self.digico_connected.SetLabel("N/C")
         self.digico_connected.SetBackgroundColour("Red")
 
     def attemptreconnect(self, e):
-        MainWindow.BridgeFunctions.update_configuration(con_ip=settings.console_ip, local_ip=settings.local_ip,
+        # Just forces a close/reconnect of the OSC servers by manually updating the configuration.
+        MainWindow.BridgeFunctions.update_configuration(con_ip=settings.console_ip,
                                                         rptr_ip="127.0.0.1", con_send=settings.console_port,
                                                         con_rcv=settings.receive_port,
                                                         fwd_enable=settings.forwarder_enabled,
@@ -175,6 +194,7 @@ class MainPanel(wx.Panel):
 
 
 class PrefsWindow(wx.Frame):
+    #This is our preferences window pane
     def __init__(self, title, parent):
         wx.Frame.__init__(self, parent=parent, size=(400, 600), title=title)
         panel = PrefsPanel(parent=wx.GetTopLevelParent(self))
@@ -184,6 +204,7 @@ class PrefsWindow(wx.Frame):
 class PrefsPanel(wx.Panel):
     def __init__(self, parent):
         wx.Panel.__init__(self, parent)
+        # Define Fonts:
         header_font = wx.Font(20, family=wx.FONTFAMILY_MODERN, style=0, weight=wx.BOLD,
                               underline=False, faceName="", encoding=wx.FONTENCODING_DEFAULT)
         sub_header_font = wx.Font(16, family=wx.FONTFAMILY_MODERN, style=0, weight=wx.BOLD,
@@ -201,15 +222,6 @@ class PrefsPanel(wx.Panel):
         self.console_ip_control.SetValue(settings.console_ip)
         panel_sizer.Add(self.console_ip_control, 0, wx.ALL | wx.EXPAND, 5)
         panel_sizer.Add(0, 10)
-        # Local IP Label
-        local_ip_text = wx.StaticText(self, label="Local IP", style=wx.ALIGN_CENTER)
-        local_ip_text.SetFont(header_font)
-        panel_sizer.Add(local_ip_text, 0, wx.ALL | wx.EXPAND, 5)
-        # Local IP Input
-        self.local_ip_control = wx.TextCtrl(self, style=wx.TE_CENTER)
-        self.local_ip_control.SetValue(settings.local_ip)
-        panel_sizer.Add(self.local_ip_control, 0, wx.ALL | wx.EXPAND, 5)
-        panel_sizer.Add(0, 25)
         # Digico Ports Label
         digico_ports_text = wx.StaticText(self, label="Digico Ports", style=wx.ALIGN_CENTER)
         digico_ports_text.SetFont(header_font)
@@ -275,11 +287,13 @@ class PrefsPanel(wx.Panel):
 
         # Prefs Window Bindings
         self.Bind(wx.EVT_BUTTON, self.update_button_pressed, update_button)
+        self.console_ip_control.Bind(wx.EVT_TEXT, self.changed_console_ip)
+        self.console_ip_control.Bind(wx.EVT_KILL_FOCUS, self.check_console_ip)
         self.Show()
 
     def update_button_pressed(self, e):
+        # Writing the new values from the preferences panel to settings.py
         settings.console_ip = self.console_ip_control.GetValue()
-        settings.local_ip = self.local_ip_control.GetValue()
         settings.console_port = str(self.digico_send_port_control.GetValue())
         settings.receive_port = str(self.digico_rcv_port_control.GetValue())
         settings.repeater_port = str(self.repeater_send_port_control.GetValue())
@@ -288,7 +302,8 @@ class PrefsPanel(wx.Panel):
             settings.forwarder_enabled = "True"
         elif self.repeater_radio_enabled is False:
             settings.forwarder_enabled = "False"
-        MainWindow.BridgeFunctions.update_configuration(con_ip=settings.console_ip, local_ip=settings.local_ip,
+        # Force a close/reconnect of the OSC servers by pushing the configuration update.
+        MainWindow.BridgeFunctions.update_configuration(con_ip=settings.console_ip,
                                                         rptr_ip="127.0.0.1", con_send=settings.console_port,
                                                         con_rcv=settings.receive_port,
                                                         fwd_enable=settings.forwarder_enabled,
@@ -296,16 +311,28 @@ class PrefsPanel(wx.Panel):
                                                         rpr_rcv=settings.reaper_receive_port,
                                                         rptr_snd=settings.repeater_port,
                                                         rptr_rcv=settings.repeater_receive_port)
+        # Close the preferences window when update is pressed.
         self.Parent.Destroy()
-
-    def check_ip(self, ip):
+    def changed_console_ip(self, e):
+        # Flag to know if the console IP has been modified in the prefs window
+        self.ip_inspected = False
+    def check_console_ip(self, e):
+        # Validates input into the console IP address field
         # Use the ip_address function from the ipaddress module to check if the input is a valid IP address
-        try:
-            ipaddress.ip_address(ip)
-            print("Valid IP address")
-        except ValueError:
-            # If the input is not a valid IP address, catch the exception and print an error message
-            print("Invalid IP address")
+        ip = self.console_ip_control.GetValue()
+
+        if not self.ip_inspected:
+            self.ip_inspected = True
+            try:
+                ipaddress.ip_address(ip)
+            except ValueError:
+                # If the input is not a valid IP address, catch the exception and show a dialog
+                dlg = wx.MessageDialog(self, "This is not a valid IP address for the console. Please try again",
+                                   "Digico-Reaper Link", wx.OK)
+                dlg.ShowModal()  # Shows it
+                dlg.Destroy()  # Destroy pop-up when finished.
+                # Put the focus back on the bad field
+                wx.CallAfter(self.console_ip_control.SetFocus)
 
 
 if __name__ == "__main__":

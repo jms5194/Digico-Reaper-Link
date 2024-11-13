@@ -1,5 +1,6 @@
 name: Cross-Platform Build with PyInstaller
 
+# Call when commit is tagged with v*
 on:
   push:
     tags:
@@ -9,6 +10,7 @@ permissions:
   contents: write
 
 jobs:
+  # Creates a release in Github
   create_release:
     name: Create Release
     runs-on: ubuntu-latest
@@ -23,9 +25,11 @@ jobs:
           generate_release_notes: false
 
   build:
+    # When create_release is finished
     needs: create_release
     strategy:
       matrix:
+        # Building for Mac silicon, Mac Intel, and Windows
         os: [macos-x86, macos-arm64, windows-latest]
         include:
           - os: macos-x86
@@ -40,22 +44,23 @@ jobs:
             python-version: '3.12'
             target: windows
             runs-on: windows-latest
-
+    # Run the build on all of the matrix of systems above
     runs-on: ${{ matrix.runs-on }}
 
     steps:
+      # Checkout the project from Github
       - uses: actions/checkout@v4
-
+      # Get python installed on the runner
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-
+      # Upgrade Pip and install dependencies
       - name: Install dependencies
         run: |
           python - pip install --upgrade pip
           python -m pip install -r requirements.txt
-
+      # Bring in our apple certificate to the keychain of the runner
       - name: Import Apple Certificate
         if: matrix.os == 'macos-x86' || matrix.os == 'macos-arm64'
         run: |
@@ -101,14 +106,14 @@ jobs:
           LOCAL_RELEASE_DATE=$(Get-Date -Format 'yyyy-MM-ddTHH:mm:ssZ')
           "@ | Out-File -FilePath .env -Encoding ASCII
         shell: pwsh
-
+      # Build app with Pyinstaller on Mac
       - name: Build with PyInstaller (MacOS)
         if: matrix.os == 'macos-x86' || matrix.os == 'macos-arm64'
         run: |
           pyinstaller --clean --noconfirm DigiReaper.spec -- --mac_osx
         env:
           APPLE_APP_DEVELOPER_ID: ${{ secrets.APPLE_APP_DEVELOPER_ID }}
-
+      # Build app with Pyinstaller on Windows
       - name: Build with PyInstaller (Windows)
         if: matrix.os == 'windows-latest'
         run: |
@@ -122,7 +127,7 @@ jobs:
         if: (matrix.os == 'macos-x86' || matrix.os == 'macos-arm64')
         run: |
           ditto -c -k --keepParent "dist/Digico-Reaper Link.app" "Digico-Reaper Link.zip"
-
+      # Send the application zip to Apple for Notarization and stapling
       - name: Notarize and Staple
         if: (matrix.os == 'macos-x86' || matrix.os == 'macos-arm64')
         run: |
@@ -138,7 +143,7 @@ jobs:
         run: |
           spctl -a -v "dist/Digico-Reaper Link.app"
           rm "Digico-Reaper Link.zip"
-
+      # Build an installer DMG for MacOS
       - name: Create dmg MacOS
         if: matrix.os == 'macos-x86' || matrix.os == 'macos-arm64'
         run: |
@@ -152,20 +157,20 @@ jobs:
           --window-pos 200 120 \
           --window-size 800 400 \
           --hide-extension "Digico-Reaper Link.app" \
-          "D-R Link Installer"-${{ matrix.target }}.dmg \
+          "Digico-Reaper Link Installer"-${{ matrix.target }}.dmg \
           "dist/Digico-Reaper Link.app"
-
+      # Zip the windows applications
       - name: Create zip on Windows
         if: matrix.os == 'windows-latest'
         run: |
           Compress-Archive -Path "build/DigiReaper/Digico-Reaper Link.exe" -DestinationPath "./Digico-Reaper Link.zip"
         shell: pwsh
-
+      # Add the built binaries to the release
       - name: Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ needs.create_release.outputs.tag-name }}
           files: |
-            D-R\ Link\ Installer-macos-arm64.dmg
-            D-R\ Link\ Installer-macos-x86.dmg
+            Digico-Reaper\ Link\ Installer-macos-arm64.dmg
+            Digico-Reaper\ Link\ Installer-macos-x86.dmg
             Digico-Reaper\ Link.zip

@@ -1,6 +1,5 @@
 console_ip = "10.10.10.1"
 reaper_ip = "127.0.0.1"
-local_ip = "127.0.0.1"
 repeater_ip = "10.10.10.10"
 repeater_port = 9999
 repeater_receive_port = 9998

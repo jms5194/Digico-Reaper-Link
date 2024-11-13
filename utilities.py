@@ -12,6 +12,8 @@ import settings
 import time
 from pubsub import pub
 import configure_reaper
+import ipaddress
+
 
 class ReaperDigicoOSCBridge:
 
@@ -39,6 +41,7 @@ class ReaperDigicoOSCBridge:
         self.start_threads()
 
     def where_to_put_user_data(self):
+        # Find a home for our preferences file
         appname = "Digico-Reaper Link"
         appauthor = "Justin Stasiw"
         self.config_dir = appdirs.user_config_dir(appname, appauthor)
@@ -47,8 +50,9 @@ class ReaperDigicoOSCBridge:
         else:
             os.makedirs(self.config_dir)
         self.ini_prefs = self.config_dir + "/settings.cfg"
+
     def check_configuration(self):
-        # Checking if a .cfg config already exists for this app, if not call
+        # Checking if a .ini config already exists for this app, if not call
         # build_initial_ini
         try:
             if os.path.isfile(self.ini_prefs):
@@ -59,11 +63,12 @@ class ReaperDigicoOSCBridge:
             print(e)
             self.build_initial_ini(self.ini_prefs)
 
-    def set_vars_from_pref(self, config_file_loc):
+    @staticmethod
+    def set_vars_from_pref(config_file_loc):
+        # Bring in the vars to fill out settings.py from the preferences file
         config = configparser.ConfigParser()
         config.read(config_file_loc)
         settings.console_ip = config["main"]["default_ip"]
-        settings.local_ip = config["main"]["local_ip"]
         settings.repeater_ip = config["main"]["repeater_ip"]
         settings.console_port = int(config["main"]["default_digico_send_port"])
         settings.receive_port = int(config["main"]["default_digico_receive_port"])
@@ -76,10 +81,10 @@ class ReaperDigicoOSCBridge:
 
     def build_initial_ini(self, location_of_ini):
         # Builds a .ini configuration file with default settings.
+        # What should our defaults be? All zeros? Something technically valid?
         config = configparser.ConfigParser()
         config["main"] = {}
         config["main"]["default_ip"] = "10.10.13.10"
-        config["main"]["local_ip"] = "10.10.13.100"
         config["main"]["repeater_ip"] = "10.10.13.11"
         config["main"]["default_digico_send_port"] = "8001"
         config["main"]["default_digico_receive_port"] = "8000"
@@ -95,14 +100,13 @@ class ReaperDigicoOSCBridge:
             config.write(configfile)
         self.set_vars_from_pref(config)
 
-    def update_configuration(self, con_ip, local_ip, rptr_ip, con_send, con_rcv, fwd_enable, rpr_send, rpr_rcv,
+    def update_configuration(self, con_ip, rptr_ip, con_send, con_rcv, fwd_enable, rpr_send, rpr_rcv,
                              rptr_snd, rptr_rcv):
         # Given new values from the GUI, update the config file and restart the OSC Server
         updater = ConfigUpdater()
         updater.read(self.ini_prefs)
         try:
             updater["main"]["default_ip"] = con_ip
-            updater["main"]["local_ip"] = local_ip
             updater["main"]["repeater_ip"] = rptr_ip
             updater["main"]["default_digico_send_port"] = str(con_send)
             updater["main"]["default_digico_receive_port"] = str(con_rcv)
@@ -121,6 +125,7 @@ class ReaperDigicoOSCBridge:
         self.restart_servers()
 
     def update_pos_in_config(self, win_pos_tuple):
+        # Receives the position of the window from the UI and stores it in the preferences file
         updater = ConfigUpdater()
         updater.read(self.ini_prefs)
         try:
@@ -146,7 +151,9 @@ class ReaperDigicoOSCBridge:
         self.digico_dispatcher = dispatcher.Dispatcher()
         self.receive_console_OSC()
         try:
-            self.digico_osc_server = osc_server.ThreadingOSCUDPServer((settings.local_ip, settings.receive_port),
+            self.digico_osc_server = osc_server.ThreadingOSCUDPServer((self.find_local_ip_in_subnet
+                                                                       (settings.console_ip),
+                                                                       settings.receive_port),
                                                                       self.digico_dispatcher)
             print("Digico OSC server started.")
             self.console_type_and_connected_check()
@@ -154,7 +161,6 @@ class ReaperDigicoOSCBridge:
         except Exception as e:
             print(e)
             print("Unable to establish connection to Digico")
-
 
     def build_reaper_osc_servers(self):
         # Connect to Reaper via OSC
@@ -177,28 +183,32 @@ class ReaperDigicoOSCBridge:
         self.receive_repeater_OSC()
         try:
             self.repeater_osc_server = osc_server.ThreadingOSCUDPServer(
-                (settings.local_ip, settings.repeater_receive_port),
+                (self.find_local_ip_in_subnet(settings.console_ip), settings.repeater_receive_port),
                 self.repeater_dispatcher)
             print("Repeater OSC server started")
             self.repeater_osc_server.serve_forever()
         except Exception as e:
             print("Unable to establish connection to repeater")
 
-    def find_local_ip_in_subnet(self):
+    @staticmethod
+    def find_local_ip_in_subnet(console_ip):
         # Find our local interface in the same network as the console interface
-        # Not yet implemented
         ipv4_interfaces = []
+        # Make a list of all the network interfaces on our machine
         for interface, snics in psutil.net_if_addrs().items():
             for snic in snics:
                 if snic.family == socket.AF_INET:
                     ipv4_interfaces.append((snic.address, snic.netmask))
+        # Iterate through network interfaces to see if any are in the same subnet as console
         for i in ipv4_interfaces:
-            test_ip_split = i[0].split(".")
-            ip_split = settings.console_ip.split(".")
-            if test_ip_split[0:3] == ip_split[0:3]:
+            # Convert tuples to strings like 192.168.1.0/255.255.255.0 since thats what ipaddress expects
+            interface_ip_string = i[0] + "/" + i[1]
+            # If strict is off, then the user bits of the computer IP will be masked automatically
+            # Need to add error handling here
+            if ipaddress.IPv4Address(console_ip) in ipaddress.IPv4Network(interface_ip_string, False):
                 return i[0]
-            # Need to figure out how to check subnet mask
-            # Need to add ability to handle possibility of multiple matches
+            else:
+                pass
 
     # Reaper Functions:
 
@@ -272,10 +282,7 @@ class ReaperDigicoOSCBridge:
         self.reaper_dispatcher.map("/play", self.current_transport_state)
         self.reaper_dispatcher.map("/record", self.current_transport_state)
 
-
-
     # Digico Functions:
-
     def receive_console_OSC(self):
         # Receives and distributes OSC from Digico, based on matching OSC values
         self.digico_dispatcher.map("/Snapshots/Current_Snapshot", self.request_snapshot_info)
@@ -285,16 +292,18 @@ class ReaperDigicoOSCBridge:
         self.digico_dispatcher.map("/Console/Name", self.console_name_handler)
         self.digico_dispatcher.set_default_handler(self.forward_OSC)
 
-
     def send_to_console(self, OSCAddress, *args):
         # Send an OSC message to the console
         self.console_client.send_message(OSCAddress, [*args])
 
     def console_type_and_connected_check(self):
-            self.console_client.send_message("/Console/Name/?", None)
+        # Asks the console for its name. This forms the heartbeat function of the UI
+        self.console_client.send_message("/Console/Name/?", None)
 
     def console_name_handler(self, OSCAddress, ConsoleName):
+        # Let's send the console name to the UI
         pub.sendMessage('console_name', consolename=ConsoleName)
+        # Every 3 seconds, let's request the console name again
         time.sleep(3)
         self.console_type_and_connected_check()
 
@@ -370,6 +379,7 @@ class ReaperDigicoOSCBridge:
                 print(e)
 
     def close_servers(self):
+        # Closing all of the OSC servers.
         try:
             self.digico_osc_server.server_close()
             self.digico_osc_server.shutdown()
