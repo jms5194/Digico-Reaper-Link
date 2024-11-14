@@ -45,7 +45,6 @@ if args.win:
         name='Digico-Reaper Link',
         icon='resources/rprdigi.ico',
         debug=args.debug is not None and args.debug,
-        exclude_binaries=True,
         bootloader_ignore_signals=False,
         strip=False,
         upx=True,
@@ -54,6 +53,7 @@ if args.win:
         disable_windowed_traceback=False,
         argv_emulation=False,
         target_arch=None,
+        codesign_identity=None,
     )
     coll = COLLECT(
         exe,
@@ -65,6 +65,12 @@ if args.win:
         upx_exclude=[],
         name='Digico-Reaper Link'
     )
+    app = BUNDLE(
+        coll,
+        name='Digico-Reaper Link.exe",
+        icon= 'resources/rprdigi.ico',
+        bundle_identifier=None
+        )
 elif args.mac_osx:
     exe = EXE(
         pyz,
