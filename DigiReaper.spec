@@ -67,7 +67,7 @@ if args.win:
     )
     app = BUNDLE(
         coll,
-        name='Digico-Reaper Link.exe",
+        name='Digico-Reaper Link.exe',
         icon= 'resources/rprdigi.ico',
         bundle_identifier=None
         )
