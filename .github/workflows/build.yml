@@ -163,7 +163,7 @@ jobs:
       - name: Create zip on Windows
         if: matrix.os == 'windows-latest'
         run: |
-          Compress-Archive -Path "build/DigiReaper/Digico-Reaper Link.exe" -DestinationPath "./Digico-Reaper Link-win.zip"
+          Compress-Archive -Path "dist/Digico-Reaper Link.exe" -DestinationPath "./Digico-Reaper Link-win.zip"
         shell: pwsh
       # Add the built binaries to the release
       - name: Release
