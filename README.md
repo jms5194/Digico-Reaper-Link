@@ -1,8 +1,16 @@
 # Digico-Reaper-Link
-<img width="211" alt="Screen Shot 2021-11-10 at 10 49 08 PM" src="https://user-images.githubusercontent.com/79057472/141206402-2f8f9612-7a2f-491a-9cb9-8ba5ffe6638e.png">
 
+<img width="333" alt="Digico-Reaper Link GUI" src="https://github.com/user-attachments/assets/e8656c93-b73b-4da0-8a0b-833c0e9f54e9">
 
 This is a small GUI based helper application designed to help with using Digico's Copy Audio function with a Reaper DAW used for recording. 
+
+This Readme is for V3.3.8 and later, which is a signficant new iteration for the application. V1 is still available in releases, but the information below will not apply. 
+
+If you just want to download the software- here's the link:
+
+<a href="https://www.github.com/jms5194/Digico-Reaper-Link/releases/latest">Download Here!</a>
+
+The application is available for MacOS (Arm and Intel) as well as Windows. The MacOS builds are signed and notarized. The Windows builds are not signed, and may be flagged by SmartScreen. Also, the Windows build may require you to build a firewall rule that allows the application through the firewall, at least my testing machine did. 
 
 Here's what it does:
 
@@ -23,13 +31,11 @@ Set the ports as you desire. Your configuration on the console should look somet
 
 ![external control](https://user-images.githubusercontent.com/79057472/141206529-99671316-4b3b-47c3-96af-803fbd5f8889.jpg)
 
+This will use your iPad slot on your Digico console. If you are running a dual engine console, you can connect Digico-Reaper Link to one engine and an iPad to another, but on a single engine desk you will not be able to also have an iPad attached. I built repeater functionality into this app, so an iPad coudl traverse through it, but the current state of Digico's iPod app sends out so much corrupted OSC that my software can't deal with it. Trying to figure out how to deal with that in the future. 
 
-Then in Reaper, go to Preferences-->Control/OSC/Web. 
-Add a new control interface. Device IP must be 127.0.0.1. You should not change local IP. You can set the ports as you desire. You can use the default pattern config file, but a better one is located in this github called Digico.ReaperOSC. If you want to use that one, take that file from the Github and put it in ~/Library/Application Support/Reaper/OSC, and then it should show up as an option in the pattern drop down. 
+You don't need to do any configuration in Reaper. When you open Digico-Reaper Link, if Reaper is not running, it will prompt you to open Reaper. The first time Digico-Reaper Link sees Reaper, it will write a new interface to Reaper's OSC interface list. It will then prompt you to close and reopen Reaper, to initialize the new interface. Then every open it will check that the correct interface is in place, and continue to make connections as long as it is. 
 
-<img width="629" alt="Screen Shot 2021-11-10 at 10 53 26 PM" src="https://user-images.githubusercontent.com/79057472/141206755-fb282265-9c9e-413b-b911-3b6037ed5e01.png">
+When Digico-Reaper Link is open, go to File-->Preferences, and input your consoles IP address and the ports you are using, and you should be all set!
 
-Lastly, open Digico-Reaper Link. Go to File-->Preferences, and input your consoles IP address, the IP address your computer is on on the same subnet as the console, and the ports you are using, and you should be all set!
-
-<img width="209" alt="image" src="https://user-images.githubusercontent.com/79057472/141976598-53eafc70-84b3-40c2-9531-ebab6ae312c4.png">
+<img width="515" alt="Digico-Reaper Prefs" src="https://github.com/user-attachments/assets/df3b424a-42d1-4b2b-9c0b-373d3d6d67fd">
 
