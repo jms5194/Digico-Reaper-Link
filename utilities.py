@@ -38,7 +38,6 @@ class ReaperDigicoOSCBridge:
         self.lock = threading.Lock()
         self.where_to_put_user_data()
         self.check_configuration()
-        self.start_threads()
 
     def where_to_put_user_data(self):
         # Find a home for our preferences file
@@ -119,10 +118,15 @@ class ReaperDigicoOSCBridge:
             print(e)
         updater.update_file()
         self.set_vars_from_pref(self.ini_prefs)
-        if not configure_reaper.osc_interface_exists(configure_reaper.get_resource_path(True), rpr_rcv, rpr_send):
-            configure_reaper.add_OSC_interface(configure_reaper.get_resource_path(True), rpr_rcv, rpr_send)
         self.close_servers()
         self.restart_servers()
+
+    def CheckReaperPrefs(self, rpr_rcv, rpr_send):
+        if configure_reaper.osc_interface_exists(configure_reaper.get_resource_path(True), rpr_rcv, rpr_send):
+            return True
+
+    def AddReaperPrefs(self, rpr_rcv, rpr_send):
+        configure_reaper.add_OSC_interface(configure_reaper.get_resource_path(True), rpr_rcv, rpr_send)
 
     def update_pos_in_config(self, win_pos_tuple):
         # Receives the position of the window from the UI and stores it in the preferences file
@@ -134,6 +138,16 @@ class ReaperDigicoOSCBridge:
         except Exception as e:
             print(e)
         updater.update_file()
+
+    def ValidateReaperPrefs(self):
+        try:
+            if not self.CheckReaperPrefs(settings.reaper_receive_port, settings.reaper_port):
+                self.AddReaperPrefs(settings.reaper_receive_port, settings.reaper_port)
+                pub.sendMessage("reset_reaper", resetreaper=True)
+            return True
+        except RuntimeError as e:
+            print(e)
+            pub.sendMessage('reaper_error', reapererror=e)
 
     def start_threads(self):
         # Builds the threads for the OSC servers to run in, non-blocking.
@@ -302,7 +316,7 @@ class ReaperDigicoOSCBridge:
 
     def console_name_handler(self, OSCAddress, ConsoleName):
         # Let's send the console name to the UI
-        pub.sendMessage('console_name', consolename=ConsoleName)
+        pub.sendMessage("console_name", consolename=ConsoleName)
         # Every 3 seconds, let's request the console name again
         time.sleep(3)
         self.console_type_and_connected_check()

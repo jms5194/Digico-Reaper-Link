@@ -67,14 +67,15 @@ class MainPanel(wx.Panel):
     # This is our main window UI
     def __init__(self, parent):
         wx.Panel.__init__(self, parent)
+        self.DigicoTimer = None
         panel_sizer = wx.BoxSizer(wx.VERTICAL)
         # Font Definitions
-        header_font = wx.Font(20, family=wx.FONTFAMILY_SWISS, style=0, weight=wx.BOLD, underline=False, faceName="",
-                              encoding=wx.FONTENCODING_DEFAULT)
-        sub_header1_font = wx.Font(17,family=wx.FONTFAMILY_SWISS, style=0, weight=wx.NORMAL, underline=False, faceName="",
-                              encoding=wx.FONTENCODING_DEFAULT)
-        sub_header2_font =  wx.Font(14,family=wx.FONTFAMILY_SWISS, style=0, weight=wx.NORMAL, underline=False, faceName="",
-                              encoding=wx.FONTENCODING_DEFAULT)
+        header_font = wx.Font(20, family=wx.FONTFAMILY_SWISS, style=0, weight=wx.BOLD,
+                              underline=False, faceName="", encoding=wx.FONTENCODING_DEFAULT)
+        sub_header1_font = wx.Font(17, family=wx.FONTFAMILY_SWISS, style=0, weight=wx.NORMAL,
+                                   underline=False, faceName="", encoding=wx.FONTENCODING_DEFAULT)
+        sub_header2_font = wx.Font(14, family=wx.FONTFAMILY_SWISS, style=0, weight=wx.NORMAL,
+                                   underline=False, faceName="", encoding=wx.FONTENCODING_DEFAULT)
         # Button grid for application mode
         radio_grid = wx.GridSizer(3, 1, 0, 0)
         rec_button_cntl = wx.RadioButton(self, label="Recording", style=wx.RB_GROUP)
@@ -94,7 +95,7 @@ class MainPanel(wx.Panel):
         connected_status.SetLabel("Connection Status")
         connected_status.SetFont(sub_header1_font)
 
-        connected_grid = wx.GridSizer(3,1,5,5)
+        connected_grid = wx.GridSizer(3, 1, 5, 5)
 
         digico_con_label = wx.StaticText(self)
         digico_con_label.SetLabel("Digico")
@@ -111,9 +112,9 @@ class MainPanel(wx.Panel):
         panel_sizer.Add(connected_grid, flag=wx.ALIGN_CENTER_HORIZONTAL)
 
         # Lower Buttons
-        button_grid = wx.GridSizer(3,1,10,10)
+        button_grid = wx.GridSizer(3, 1, 10, 10)
         # Drop Marker Button
-        marker_button = wx.Button(self, label ="Drop Marker")
+        marker_button = wx.Button(self, label="Drop Marker")
         button_grid.Add(marker_button, flag=wx.ALIGN_CENTER_HORIZONTAL)
         # Attempt Reconnect Button
         attempt_reconnect_button = wx.Button(self, label="Attempt Reconnect")
@@ -121,7 +122,7 @@ class MainPanel(wx.Panel):
         # Exit Button
         exit_button = wx.Button(self, label="Exit")
         button_grid.Add(exit_button, flag=wx.ALIGN_CENTER_HORIZONTAL)
-        panel_sizer.Add(button_grid,flag=wx.ALIGN_CENTER_HORIZONTAL )
+        panel_sizer.Add(button_grid, flag=wx.ALIGN_CENTER_HORIZONTAL)
         self.SetSizer(panel_sizer)
         # Bindings
         self.Bind(wx.EVT_BUTTON, self.place_marker, marker_button)
@@ -133,10 +134,15 @@ class MainPanel(wx.Panel):
         self.Bind(wx.EVT_RADIOBUTTON, self.notrackmode, notrack_button_cntl)
         # Subscribing to the OSC response for console name to reset the timeout timer
         pub.subscribe(self.digico_connected_listener, "console_name")
+        pub.subscribe(self.reaper_disconnected_listener, "reaper_error")
+        pub.subscribe(self.callforreaperrestart, "reset_reaper")
+        if MainWindow.BridgeFunctions.ValidateReaperPrefs():
+            MainWindow.BridgeFunctions.start_threads()
         # Start a timer for Digico timeout
         self.configuretimers()
 
-    def place_marker(self, e):
+    @staticmethod
+    def place_marker(e):
         # Manually places a marker in Reaper from the UI
         MainWindow.BridgeFunctions.place_marker_at_current()
         MainWindow.BridgeFunctions.update_last_marker_name("Marker from UI")
@@ -145,17 +151,20 @@ class MainPanel(wx.Panel):
         # Calls on_close for the parent window
         self.GetTopLevelParent().on_close(None)
 
-    def recmode(self, e):
+    @staticmethod
+    def recmode(e):
         settings.marker_mode = "Recording"
 
-    def trackmode(self, e):
+    @staticmethod
+    def trackmode(e):
         settings.marker_mode = "PlaybackTrack"
 
-    def notrackmode(self, e):
+    @staticmethod
+    def notrackmode(e):
         settings.marker_mode = "PlaybackNoTrack"
 
     def configuretimers(self):
-        # Builds a 5 second non blocking timer for console response timeout.
+        # Builds a 5-second non-blocking timer for console response timeout.
         # Calls self.digico_disconnected if timer runs out.
         self.DigicoTimer = wx.CallLater(5000, self.digico_disconnected)
 
@@ -181,7 +190,32 @@ class MainPanel(wx.Panel):
         self.digico_connected.SetLabel("N/C")
         self.digico_connected.SetBackgroundColour("Red")
 
-    def attemptreconnect(self, e):
+    def reaper_disconnected_listener(self, reapererror, arg2=None):
+        dlg = wx.MessageDialog(self,
+                               "Reaper is not currently open. Please open and press OK.",
+                               "Reaper Disconnected", wx.OK | wx.CANCEL | wx.ICON_QUESTION)
+        result = dlg.ShowModal()
+        dlg.Destroy()
+        if result == wx.ID_CANCEL:
+            closed_complete = self.GetTopLevelParent().BridgeFunctions.close_servers()
+            if closed_complete:
+                try:
+                    self.GetTopLevelParent().Destroy()
+                except Exception as e:
+                    print(e)
+        elif result == wx.ID_OK:
+            if MainWindow.BridgeFunctions.ValidateReaperPrefs():
+                MainWindow.BridgeFunctions.start_threads()
+
+    def callforreaperrestart(self, resetreaper, arg2=None):
+        dlg = wx.MessageDialog(self,
+                               "Reaper has been configured for use with Digico-Reaper Link. Please restart Reaper and press OK",
+                               "Reaper Configured", wx.OK | wx.ICON_QUESTION)
+        result = dlg.ShowModal()
+        dlg.Destroy()
+
+    @staticmethod
+    def attemptreconnect(e):
         # Just forces a close/reconnect of the OSC servers by manually updating the configuration.
         MainWindow.BridgeFunctions.update_configuration(con_ip=settings.console_ip,
                                                         rptr_ip="127.0.0.1", con_send=settings.console_port,
@@ -194,7 +228,7 @@ class MainPanel(wx.Panel):
 
 
 class PrefsWindow(wx.Frame):
-    #This is our preferences window pane
+    # This is our preferences window pane
     def __init__(self, title, parent):
         wx.Frame.__init__(self, parent=parent, size=(400, 600), title=title)
         panel = PrefsPanel(parent=wx.GetTopLevelParent(self))
@@ -205,6 +239,7 @@ class PrefsPanel(wx.Panel):
     def __init__(self, parent):
         wx.Panel.__init__(self, parent)
         # Define Fonts:
+        self.ip_inspected = False
         header_font = wx.Font(20, family=wx.FONTFAMILY_MODERN, style=0, weight=wx.BOLD,
                               underline=False, faceName="", encoding=wx.FONTENCODING_DEFAULT)
         sub_header_font = wx.Font(16, family=wx.FONTFAMILY_MODERN, style=0, weight=wx.BOLD,
@@ -313,9 +348,11 @@ class PrefsPanel(wx.Panel):
                                                         rptr_rcv=settings.repeater_receive_port)
         # Close the preferences window when update is pressed.
         self.Parent.Destroy()
+
     def changed_console_ip(self, e):
         # Flag to know if the console IP has been modified in the prefs window
         self.ip_inspected = False
+
     def check_console_ip(self, e):
         # Validates input into the console IP address field
         # Use the ip_address function from the ipaddress module to check if the input is a valid IP address
@@ -328,7 +365,7 @@ class PrefsPanel(wx.Panel):
             except ValueError:
                 # If the input is not a valid IP address, catch the exception and show a dialog
                 dlg = wx.MessageDialog(self, "This is not a valid IP address for the console. Please try again",
-                                   "Digico-Reaper Link", wx.OK)
+                                       "Digico-Reaper Link", wx.OK)
                 dlg.ShowModal()  # Shows it
                 dlg.Destroy()  # Destroy pop-up when finished.
                 # Put the focus back on the bad field

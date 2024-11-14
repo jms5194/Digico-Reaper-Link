@@ -101,7 +101,7 @@ def osc_interface_exists(resource_path, rcv_port, snd_port):
     Returns
     -------
     bool
-        Whether a REAPER Web Interface exists at ``port``.
+        Whether a REAPER OSC Interface exists at ``port``.
     """
     config = Config(os.path.join(resource_path, "reaper.ini"))
     csurf_count = int(config["reaper"].get("csurf_cnt", "0"))
