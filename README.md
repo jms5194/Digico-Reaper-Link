@@ -39,3 +39,32 @@ When Digico-Reaper Link is open, go to File-->Preferences, and input your consol
 
 <img width="515" alt="Digico-Reaper Prefs" src="https://github.com/user-attachments/assets/df3b424a-42d1-4b2b-9c0b-373d3d6d67fd">
 
+
+New features:
+
+Heartbeat with Digico- In the UI window, the red square that says N/C will turn to green and have the type of console in it when a Digico console connection is established. This status is refreshed every 5 seconds, so you should be able to easily tell if you've lost connection with the console. 
+
+Drop Marker Button- Useful for confirming that your connection to Reaper is sound, this will drop a marker into Reaper upon button press in the UI. 
+
+Attempt Reconnect Button- This closes and reopens all of the connections to the OSC Clients/Servers. Useful if you have changed your network configuration or a cable has become disconnected, you can reset the connections without closing and reopening the app. 
+
+Macros from Digico- You can now control Reaper from macros on your Digico console through Digico-Reaper Link. All you have to do is label the macros- they don't have to have any actions in them. Supported behaviors are. 
+
+Play<br>
+Stop<br>
+Record (This is a safe record, it will always skip to the end of all recordings and then start recording)<br>
+Drop Marker<br>
+
+You can label the macros with any of the options below and Reaper-Digico Link will detect them (any capitalization anywhere will be ignored):
+
+Reaper,Play- Reaper Play - Play<br>
+Reaper,Stop - Reaper Stop - Stop<br>
+Reaper,Rec - Reaper Rec - Rec - Record<br>
+Reaper,Marker - Reaper Marker - Marker<br>
+
+See an example in the images below:
+
+![macro buttons](https://github.com/user-attachments/assets/b23ca08f-a874-4b6a-871b-9007d02613c6)![macros](https://github.com/user-attachments/assets/954f9f07-a841-4ba6-90ad-ab294a9e27c7)
+
+
+
