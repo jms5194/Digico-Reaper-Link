@@ -32,7 +32,7 @@ exe = EXE(pyz,
           console=False,
           disable_windowed_traceback=False,
           codesign_identity=None,
-          entitlements_file=None , icon='rprdigi.icns')
+          entitlements_file=None , icon='resources/rprdigi.icns')
 
 coll = COLLECT(exe,
                a.binaries,
