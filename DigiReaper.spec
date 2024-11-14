@@ -41,6 +41,8 @@ pyz = PYZ(a.pure)
 if args.win:
     exe = EXE(
         pyz,
+        a.binaries,
+        a.datas,
         a.scripts,
         name='Digico-Reaper Link',
         icon='resources/rprdigi.ico',
@@ -55,22 +57,6 @@ if args.win:
         target_arch=None,
         codesign_identity=None,
     )
-    coll = COLLECT(
-        exe,
-        a.binaries,
-        a.zipfiles,
-        a.datas,
-        strip=False,
-        upx=True,
-        upx_exclude=[],
-        name='Digico-Reaper Link'
-    )
-    app = BUNDLE(
-        coll,
-        name='Digico-Reaper Link.exe',
-        icon= 'resources/rprdigi.ico',
-        bundle_identifier=None
-        )
 elif args.mac_osx:
     exe = EXE(
         pyz,
