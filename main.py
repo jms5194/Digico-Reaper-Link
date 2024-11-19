@@ -6,7 +6,7 @@ from pubsub import pub
 
 
 class MainWindow(wx.Frame):
-    # Bringing the logic from main as an attribute of MainWindow
+    # Bringing the logic from utilities as an attribute of MainWindow
     BridgeFunctions = ReaperDigicoOSCBridge()
 
     def __init__(self):

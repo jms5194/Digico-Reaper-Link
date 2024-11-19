@@ -140,12 +140,14 @@ class ReaperDigicoOSCBridge:
         updater.update_file()
 
     def ValidateReaperPrefs(self):
+        # If the Reaper .ini file does not contain an entry for Digico-Reaper Link, add one.
         try:
             if not self.CheckReaperPrefs(settings.reaper_receive_port, settings.reaper_port):
                 self.AddReaperPrefs(settings.reaper_receive_port, settings.reaper_port)
                 pub.sendMessage("reset_reaper", resetreaper=True)
             return True
         except RuntimeError as e:
+            # If reaper is not running, send a error to the UI
             print(e)
             pub.sendMessage('reaper_error', reapererror=e)
 
@@ -352,7 +354,7 @@ class ReaperDigicoOSCBridge:
 
     def process_marker_macro(self):
         self.place_marker_at_current()
-        self.update_last_marker_name("Marker Dropped")
+        self.update_last_marker_name("Marker from Console")
 
     def snapshot_OSC_handler(self, OSCAddress, *args):
         # Processes the current cue number
