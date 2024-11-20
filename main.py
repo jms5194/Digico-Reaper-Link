@@ -30,7 +30,6 @@ class MainWindow(wx.Frame):
         self.Bind(wx.EVT_MENU, self.on_about, about_menuitem)
         self.Bind(wx.EVT_MENU, self.launch_prefs, properties_menuitem)
         self.Bind(wx.EVT_CLOSE, self.on_close)
-        #self.Fit()
         self.Show()
 
     def on_about(self, event):
@@ -128,7 +127,6 @@ class MainPanel(wx.Panel):
         panel_sizer.Add(button_grid, flag=wx.ALIGN_CENTER_HORIZONTAL)
         panel_sizer.AddSpacer(15)
         self.SetSizer(panel_sizer)
-        #self.Fit()
         # Bindings
         self.Bind(wx.EVT_BUTTON, self.place_marker, marker_button)
         self.Bind(wx.EVT_BUTTON, self.exitapp, exit_button)
@@ -237,7 +235,7 @@ class PrefsWindow(wx.Frame):
     def __init__(self, title, parent):
         wx.Frame.__init__(self, parent=parent, size=(400, 600), title=title)
         panel = PrefsPanel(parent=wx.GetTopLevelParent(self))
-        #self.Fit()
+        self.Fit()
         self.Show()
 
 
@@ -326,7 +324,6 @@ class PrefsPanel(wx.Panel):
         panel_sizer.Add(update_button, 0, wx.ALL | wx.EXPAND, 5)
         panel_sizer.AddSpacer(15)
         self.SetSizer(panel_sizer)
-        #self.Fit()
 
         # Prefs Window Bindings
         self.Bind(wx.EVT_BUTTON, self.update_button_pressed, update_button)
