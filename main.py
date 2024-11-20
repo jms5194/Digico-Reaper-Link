@@ -10,8 +10,9 @@ class MainWindow(wx.Frame):
     BridgeFunctions = ReaperDigicoOSCBridge()
 
     def __init__(self):
-        wx.Frame.__init__(self, parent=None, size=(221, 310), title="Digico-Reaper Link")
+        wx.Frame.__init__(self, parent=None, title="Digico-Reaper Link")
         self.SetPosition(settings.window_loc)
+        self.SetSize(settings.window_size)
         panel = MainPanel(self)
         # Build a menubar:
 
@@ -29,7 +30,7 @@ class MainWindow(wx.Frame):
         self.Bind(wx.EVT_MENU, self.on_about, about_menuitem)
         self.Bind(wx.EVT_MENU, self.launch_prefs, properties_menuitem)
         self.Bind(wx.EVT_CLOSE, self.on_close)
-        self.Fit()
+        #self.Fit()
         self.Show()
 
     def on_about(self, event):
@@ -45,9 +46,11 @@ class MainWindow(wx.Frame):
 
     def on_close(self, event):
         # Let's close the window and destroy the UI
-        # But let's remember where we hand the wind for next time
+        # But let's remember where we left the window for next time
         cur_pos = self.GetTopLevelParent().GetPosition()
+        cur_size = self.GetTopLevelParent().GetSize()
         self.GetTopLevelParent().BridgeFunctions.update_pos_in_config(cur_pos)
+        self.GetTopLevelParent().BridgeFunctions.update_size_in_config(cur_size)
         # Make a dialog to confirm closing.
         dlg = wx.MessageDialog(self,
                                "Do you really want to close Digico-Reaper Link?",
@@ -125,7 +128,7 @@ class MainPanel(wx.Panel):
         panel_sizer.Add(button_grid, flag=wx.ALIGN_CENTER_HORIZONTAL)
         panel_sizer.AddSpacer(15)
         self.SetSizer(panel_sizer)
-        self.Fit()
+        #self.Fit()
         # Bindings
         self.Bind(wx.EVT_BUTTON, self.place_marker, marker_button)
         self.Bind(wx.EVT_BUTTON, self.exitapp, exit_button)
@@ -234,7 +237,7 @@ class PrefsWindow(wx.Frame):
     def __init__(self, title, parent):
         wx.Frame.__init__(self, parent=parent, size=(400, 600), title=title)
         panel = PrefsPanel(parent=wx.GetTopLevelParent(self))
-        self.Fit()
+        #self.Fit()
         self.Show()
 
 
@@ -323,7 +326,7 @@ class PrefsPanel(wx.Panel):
         panel_sizer.Add(update_button, 0, wx.ALL | wx.EXPAND, 5)
         panel_sizer.AddSpacer(15)
         self.SetSizer(panel_sizer)
-        self.Fit()
+        #self.Fit()
 
         # Prefs Window Bindings
         self.Bind(wx.EVT_BUTTON, self.update_button_pressed, update_button)

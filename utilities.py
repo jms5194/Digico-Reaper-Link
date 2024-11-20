@@ -48,7 +48,7 @@ class ReaperDigicoOSCBridge:
             pass
         else:
             os.makedirs(self.config_dir)
-        self.ini_prefs = self.config_dir + "/settings.cfg"
+        self.ini_prefs = self.config_dir + "/settingsV3.ini"
 
     def check_configuration(self):
         # Checking if a .ini config already exists for this app, if not call
@@ -65,6 +65,7 @@ class ReaperDigicoOSCBridge:
     @staticmethod
     def set_vars_from_pref(config_file_loc):
         # Bring in the vars to fill out settings.py from the preferences file
+        print("setting vars")
         config = configparser.ConfigParser()
         config.read(config_file_loc)
         settings.console_ip = config["main"]["default_ip"]
@@ -76,28 +77,33 @@ class ReaperDigicoOSCBridge:
         settings.repeater_receive_port = int(config["main"]["default_repeater_receive_port"])
         settings.reaper_receive_port = int(config["main"]["default_reaper_receive_port"])
         settings.forwarder_enabled = config["main"]["forwarder_enabled"]
-        settings.window_loc = (int(config["main"]["window_pos_x"]), int(config["main"]["window_pos_y"]))
+        settings.window_loc = int(config["main"]["window_pos_x"]), int(config["main"]["window_pos_y"])
+        settings.window_size = int(config["main"]["window_size_x"]), int(config["main"]["window_size_y"])
 
     def build_initial_ini(self, location_of_ini):
         # Builds a .ini configuration file with default settings.
         # What should our defaults be? All zeros? Something technically valid?
+        print("writing an initial config")
         config = configparser.ConfigParser()
         config["main"] = {}
         config["main"]["default_ip"] = "10.10.13.10"
         config["main"]["repeater_ip"] = "10.10.13.11"
         config["main"]["default_digico_send_port"] = "8001"
         config["main"]["default_digico_receive_port"] = "8000"
-        config["main"]["default_reaper_send_port"] = "9999"
-        config["main"]["default_reaper_receive_port"] = "9998"
+        config["main"]["default_reaper_send_port"] = "49102"
+        config["main"]["default_reaper_receive_port"] = "49101"
         config["main"]["default_repeater_send_port"] = "9999"
         config["main"]["default_repeater_receive_port"] = "9998"
         config["main"]["forwarder_enabled"] = "False"
         config["main"]["window_pos_x"] = "400"
         config["main"]["window_pos_y"] = "222"
+        config["main"]["window_size_x"] = "221"
+        config["main"]["window_size_y"] = "310"
 
         with open(location_of_ini, "w") as configfile:
             config.write(configfile)
-        self.set_vars_from_pref(config)
+        time.sleep(1)
+        self.set_vars_from_pref(self.ini_prefs)
 
     def update_configuration(self, con_ip, rptr_ip, con_send, con_rcv, fwd_enable, rpr_send, rpr_rcv,
                              rptr_snd, rptr_rcv):
@@ -139,6 +145,16 @@ class ReaperDigicoOSCBridge:
             print(e)
         updater.update_file()
 
+    def update_size_in_config(self, win_size_tuple):
+        updater = ConfigUpdater()
+        updater.read(self.ini_prefs)
+        try:
+            updater["main"]["window_size_x"] = str(win_size_tuple[0])
+            updater["main"]["window_size_y"] = str(win_size_tuple[1])
+        except Exception as e:
+            print(e)
+        updater.update_file()
+
     def ValidateReaperPrefs(self):
         # If the Reaper .ini file does not contain an entry for Digico-Reaper Link, add one.
         try:
@@ -147,7 +163,7 @@ class ReaperDigicoOSCBridge:
                 pub.sendMessage("reset_reaper", resetreaper=True)
             return True
         except RuntimeError as e:
-            # If reaper is not running, send a error to the UI
+            # If reaper is not running, send an error to the UI
             print(e)
             pub.sendMessage('reaper_error', reapererror=e)
 

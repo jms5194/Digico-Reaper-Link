@@ -11,3 +11,4 @@ receive_port = 8000
 forwarder_enabled = "False"
 marker_mode = "PlaybackTrack"
 window_loc = (400, 222)
+window_size = (221, 310)
