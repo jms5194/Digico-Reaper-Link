@@ -67,4 +67,10 @@ See an example in the images below:
 ![macro buttons](https://github.com/user-attachments/assets/b23ca08f-a874-4b6a-871b-9007d02613c6)![macros](https://github.com/user-attachments/assets/954f9f07-a841-4ba6-90ad-ab294a9e27c7)
 
 
+If this software has been useful to you, consider making a donation via the github sponsors system below:
+
+[![](https://img.shields.io/static/v1?label=Sponsor&message=%E2%9D%A4&logo=GitHub&color=%23fe8e86)](https://github.com/sponsors/jms5194)
+
+
+
 
