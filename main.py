@@ -324,6 +324,7 @@ class PrefsPanel(wx.Panel):
         panel_sizer.Add(update_button, 0, wx.ALL | wx.EXPAND, 5)
         panel_sizer.AddSpacer(15)
         self.SetSizer(panel_sizer)
+        self.Fit()
 
         # Prefs Window Bindings
         self.Bind(wx.EVT_BUTTON, self.update_button_pressed, update_button)
