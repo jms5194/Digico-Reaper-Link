@@ -305,6 +305,8 @@ class ReaperDigicoOSCBridge:
 
     def reaper_rec(self):
         # Sends action to skip to end of project and then record, to prevent overwrites
+        settings.marker_mode = "Recording"
+        pub.sendMessage("mode_select_osc", selected_mode="Recording")
         self.reaper_client.send_message("/action", 40043)
         self.reaper_client.send_message("/action", 1013)
 
@@ -367,6 +369,16 @@ class ReaperDigicoOSCBridge:
             self.process_transport_macros("play")
         elif macro_name in ("reaper,marker", "reaper marker", "marker"):
             self.process_marker_macro()
+        elif macro_name in ("mode,rec", "mode,record", "mode,recording", "mode rec", "mode record", "mode recording"):
+            settings.marker_mode = "Recording"
+            pub.sendMessage("mode_select_osc", selected_mode="Recording")
+        elif macro_name in ("mode,track", "mode,tracking", "mode,PB Track", "mode track", "mode tracking", "mode PB Track"):
+            settings.marker_mode = "PlaybackTrack"
+            pub.sendMessage("mode_select_osc", selected_mode="PlaybackTrack")
+        elif macro_name in ("mode,no track", "mode,no tracking", "mode no track", "mode no tracking"):
+            settings.marker_mode = "PlaybackNoTrack"
+            pub.sendMessage("mode_select_osc", selected_mode="PlaybackNoTrack")
+
 
     def process_marker_macro(self):
         self.place_marker_at_current()

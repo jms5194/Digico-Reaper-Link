@@ -80,16 +80,16 @@ class MainPanel(wx.Panel):
                                    underline=False, faceName="", encoding=wx.FONTENCODING_DEFAULT)
         # Button grid for application mode
         radio_grid = wx.GridSizer(3, 1, 0, 0)
-        rec_button_cntl = wx.RadioButton(self, label="Recording", style=wx.RB_GROUP)
-        rec_button_cntl.SetFont(header_font)
-        radio_grid.Add(rec_button_cntl, 0, wx.ALL | wx.EXPAND, 5)
-        track_button_cntl = wx.RadioButton(self, label="Playback Tracking")
-        track_button_cntl.SetValue(True)
-        track_button_cntl.SetFont(header_font)
-        radio_grid.Add(track_button_cntl, 0, wx.ALL | wx.EXPAND, 5)
-        notrack_button_cntl = wx.RadioButton(self, label="Playback No Track")
-        notrack_button_cntl.SetFont(header_font)
-        radio_grid.Add(notrack_button_cntl, 0, wx.ALL | wx.EXPAND, 5)
+        self.rec_button_cntl = wx.RadioButton(self, label="Recording", style=wx.RB_GROUP)
+        self.rec_button_cntl.SetFont(header_font)
+        radio_grid.Add(self.rec_button_cntl, 0, wx.ALL | wx.EXPAND, 5)
+        self.track_button_cntl = wx.RadioButton(self, label="Playback Tracking")
+        self.track_button_cntl.SetValue(True)
+        self.track_button_cntl.SetFont(header_font)
+        radio_grid.Add(self.track_button_cntl, 0, wx.ALL | wx.EXPAND, 5)
+        self.notrack_button_cntl = wx.RadioButton(self, label="Playback No Track")
+        self.notrack_button_cntl.SetFont(header_font)
+        radio_grid.Add(self.notrack_button_cntl, 0, wx.ALL | wx.EXPAND, 5)
         panel_sizer.Add(radio_grid, 0, wx.ALL | wx.EXPAND, 5)
 
         # Is connected section:
@@ -132,13 +132,14 @@ class MainPanel(wx.Panel):
         self.Bind(wx.EVT_BUTTON, self.exitapp, exit_button)
         self.Bind(wx.EVT_CLOSE, self.exitapp)
         self.Bind(wx.EVT_BUTTON, self.attemptreconnect, attempt_reconnect_button)
-        self.Bind(wx.EVT_RADIOBUTTON, self.recmode, rec_button_cntl)
-        self.Bind(wx.EVT_RADIOBUTTON, self.trackmode, track_button_cntl)
-        self.Bind(wx.EVT_RADIOBUTTON, self.notrackmode, notrack_button_cntl)
+        self.Bind(wx.EVT_RADIOBUTTON, self.recmode, self.rec_button_cntl)
+        self.Bind(wx.EVT_RADIOBUTTON, self.trackmode, self.track_button_cntl)
+        self.Bind(wx.EVT_RADIOBUTTON, self.notrackmode, self.notrack_button_cntl)
         # Subscribing to the OSC response for console name to reset the timeout timer
         pub.subscribe(self.digico_connected_listener, "console_name")
         pub.subscribe(self.reaper_disconnected_listener, "reaper_error")
         pub.subscribe(self.callforreaperrestart, "reset_reaper")
+        pub.subscribe(self.update_mode_select_gui_from_osc, "mode_select_osc")
         if MainWindow.BridgeFunctions.ValidateReaperPrefs():
             MainWindow.BridgeFunctions.start_threads()
         # Start a timer for Digico timeout
@@ -153,6 +154,14 @@ class MainPanel(wx.Panel):
     def exitapp(self, e):
         # Calls on_close for the parent window
         self.GetTopLevelParent().on_close(None)
+
+    def update_mode_select_gui_from_osc(self, selected_mode):
+        if selected_mode == "Recording":
+            wx.CallAfter(self.rec_button_cntl.SetValue,True)
+        elif selected_mode == "PlaybackTrack":
+            wx.CallAfter(self.track_button_cntl.SetValue,True)
+        elif selected_mode == "PlaybackNoTrack":
+            wx.CallAfter(self.notrack_button_cntl.SetValue,True)
 
     @staticmethod
     def recmode(e):
