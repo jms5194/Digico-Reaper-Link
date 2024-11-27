@@ -127,11 +127,13 @@ class ReaperDigicoOSCBridge:
         self.close_servers()
         self.restart_servers()
 
-    def CheckReaperPrefs(self, rpr_rcv, rpr_send):
+    @staticmethod
+    def CheckReaperPrefs(rpr_rcv, rpr_send):
         if configure_reaper.osc_interface_exists(configure_reaper.get_resource_path(True), rpr_rcv, rpr_send):
             return True
 
-    def AddReaperPrefs(self, rpr_rcv, rpr_send):
+    @staticmethod
+    def AddReaperPrefs(rpr_rcv, rpr_send):
         configure_reaper.add_OSC_interface(configure_reaper.get_resource_path(True), rpr_rcv, rpr_send)
 
     def update_pos_in_config(self, win_pos_tuple):
@@ -369,16 +371,18 @@ class ReaperDigicoOSCBridge:
             self.process_transport_macros("play")
         elif macro_name in ("reaper,marker", "reaper marker", "marker"):
             self.process_marker_macro()
-        elif macro_name in ("mode,rec", "mode,record", "mode,recording", "mode rec", "mode record", "mode recording"):
+        elif macro_name in ("mode,rec", "mode,record", "mode,recording",
+                            "mode rec", "mode record", "mode recording"):
             settings.marker_mode = "Recording"
             pub.sendMessage("mode_select_osc", selected_mode="Recording")
-        elif macro_name in ("mode,track", "mode,tracking", "mode,PB Track", "mode track", "mode tracking", "mode PB Track"):
+        elif macro_name in ("mode,track", "mode,tracking", "mode,PB Track",
+                            "mode track", "mode tracking", "mode PB Track"):
             settings.marker_mode = "PlaybackTrack"
             pub.sendMessage("mode_select_osc", selected_mode="PlaybackTrack")
-        elif macro_name in ("mode,no track", "mode,no tracking", "mode no track", "mode no tracking"):
+        elif macro_name in ("mode,no track", "mode,no tracking", "mode no track",
+                            "mode no tracking"):
             settings.marker_mode = "PlaybackNoTrack"
             pub.sendMessage("mode_select_osc", selected_mode="PlaybackNoTrack")
-
 
     def process_marker_macro(self):
         self.place_marker_at_current()

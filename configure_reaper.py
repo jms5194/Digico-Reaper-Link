@@ -8,6 +8,7 @@ import sys
 
 # Many thanks to the programmers of Reapy and Reapy-boost for much of this code.
 
+
 class CaseInsensitiveDict(OrderedDict):
     """OrderedDict with case-insensitive keys."""
     _dict: OrderedDict
@@ -44,9 +45,9 @@ class Config(ConfigParser):
 
     def write(self):
         # Backup config state before user has ever tried Reaper-Digico Link
-        before_RD_file = self.ini_file + '.before-Reaper-Digico.bak'
-        if not os.path.exists(before_RD_file):
-            shutil.copy(self.ini_file, before_RD_file)
+        before_rd_file = self.ini_file + '.before-Reaper-Digico.bak'
+        if not os.path.exists(before_rd_file):
+            shutil.copy(self.ini_file, before_rd_file)
         # Backup current config
         shutil.copy(self.ini_file, self.ini_file + '.bak')
         # Write config

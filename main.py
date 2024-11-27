@@ -157,11 +157,11 @@ class MainPanel(wx.Panel):
 
     def update_mode_select_gui_from_osc(self, selected_mode):
         if selected_mode == "Recording":
-            wx.CallAfter(self.rec_button_cntl.SetValue,True)
+            wx.CallAfter(self.rec_button_cntl.SetValue, True)
         elif selected_mode == "PlaybackTrack":
-            wx.CallAfter(self.track_button_cntl.SetValue,True)
+            wx.CallAfter(self.track_button_cntl.SetValue, True)
         elif selected_mode == "PlaybackNoTrack":
-            wx.CallAfter(self.notrack_button_cntl.SetValue,True)
+            wx.CallAfter(self.notrack_button_cntl.SetValue, True)
 
     @staticmethod
     def recmode(e):
@@ -221,7 +221,8 @@ class MainPanel(wx.Panel):
 
     def callforreaperrestart(self, resetreaper, arg2=None):
         dlg = wx.MessageDialog(self,
-                               "Reaper has been configured for use with Digico-Reaper Link. Please restart Reaper and press OK",
+                               "Reaper has been configured for use with Digico-Reaper Link. "
+                               "Please restart Reaper and press OK",
                                "Reaper Configured", wx.OK | wx.ICON_QUESTION)
         result = dlg.ShowModal()
         dlg.Destroy()

@@ -52,8 +52,12 @@ Macros from Digico- You can now control Reaper from macros on your Digico consol
 
 Play<br>
 Stop<br>
-Record (This is a safe record, it will always skip to the end of all recordings and then start recording)<br>
+Record (This is a safe record, it will always skip to the end of all recordings and then start recording, as well as place you into recording mode)<br>
 Drop Marker<br>
+Record Mode<br>
+Playback Tracking Mode<br>
+Playback No Track Mode<br>
+
 
 You can label the macros with any of the options below and Reaper-Digico Link will detect them (any capitalization anywhere will be ignored):
 
@@ -61,6 +65,9 @@ Reaper,Play- Reaper Play - Play<br>
 Reaper,Stop - Reaper Stop - Stop<br>
 Reaper,Rec - Reaper Rec - Rec - Record<br>
 Reaper,Marker - Reaper Marker - Marker<br>
+Mode,Rec - Mode Rec - Mode Recording<br>
+Mode,Track - Mode, Tracking - Mode Track - Mode Tracking<br>
+Mode,No Track - Mode No Track - Mode No Tracking<br>
 
 See an example in the images below:
 
