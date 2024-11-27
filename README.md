@@ -10,7 +10,7 @@ If you just want to download the software- here's the link:
 
 <a href="https://www.github.com/jms5194/Digico-Reaper-Link/releases/latest">Download Here!</a>
 
-The application is available for MacOS (Arm and Intel) as well as Windows. The MacOS builds are signed and notarized. The Windows builds are not signed, and may be flagged by SmartScreen. Also, the Windows build may require you to build a firewall rule that allows the application through the firewall, at least my testing machine did. 
+The application is available for macOS (Arm and Intel) as well as Windows. The macOS builds are signed and notarized. The Windows builds are not signed, and may be flagged by SmartScreen. Also, the Windows build may require you to build a firewall rule that allows the application through the firewall, at least my testing machine did. 
 
 Here's what it does:
 
