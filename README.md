@@ -69,6 +69,7 @@ Mode,Rec - Mode Rec - Mode Recording<br>
 Mode,Track - Mode, Tracking - Mode Track - Mode Tracking<br>
 Mode,No Track - Mode No Track - Mode No Tracking<br>
 
+
 See an example in the images below:
 
 ![macro buttons](https://github.com/user-attachments/assets/b23ca08f-a874-4b6a-871b-9007d02613c6)![macros](https://github.com/user-attachments/assets/954f9f07-a841-4ba6-90ad-ab294a9e27c7)
