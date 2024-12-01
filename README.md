@@ -31,7 +31,7 @@ Set the ports as you desire. Your configuration on the console should look somet
 
 ![external control](https://user-images.githubusercontent.com/79057472/141206529-99671316-4b3b-47c3-96af-803fbd5f8889.jpg)
 
-This will use your iPad slot on your Digico console. If you are running a dual engine console, you can connect Digico-Reaper Link to one engine and an iPad to another, but on a single engine desk you will not be able to also have an iPad attached. I built repeater functionality into this app, so an iPad coudl traverse through it, but the current state of Digico's iPod app sends out so much corrupted OSC that my software can't deal with it. Trying to figure out how to deal with that in the future. 
+This will use your iPad slot on your Digico console. If you are running a dual engine console, you can connect Digico-Reaper Link to one engine and an iPad to another, but on a single engine desk you will not be able to also have an iPad attached. I built repeater functionality into this app, so an iPad could traverse through it, but the current state of Digico's iPad app sends out so much corrupted OSC that my software can't deal with it. Trying to figure out how to deal with that in the future. 
 
 You don't need to do any configuration in Reaper. When you open Digico-Reaper Link, if Reaper is not running, it will prompt you to open Reaper. The first time Digico-Reaper Link sees Reaper, it will write a new interface to Reaper's OSC interface list. It will then prompt you to close and reopen Reaper, to initialize the new interface. Then every open it will check that the correct interface is in place, and continue to make connections as long as it is. 
 
