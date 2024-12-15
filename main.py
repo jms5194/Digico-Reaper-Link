@@ -183,7 +183,7 @@ class MainPanel(wx.Panel):
     def digico_connected_listener(self, consolename, arg2=None):
         if self.DigicoTimer.IsRunning():
             # When a response is received from the console, reset the timeout timer if running
-            self.DigicoTimer.Stop()
+            wx.CallAfter(self.DigicoTimer.Stop)
             # Update the UI to reflect the connected status
             self.digico_connected.SetLabel(consolename)
             self.digico_connected.SetBackgroundColour("Green")
