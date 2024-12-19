@@ -21,6 +21,7 @@ class ReaperDigicoOSCBridge:
         self.repeater_osc_thread = None
         self.reaper_osc_thread = None
         self.digico_osc_thread = None
+        self.osc_cleanup_thread = None
         self.digico_dispatcher = None
         self.reaper_dispatcher = None
         self.repeater_dispatcher = None
@@ -33,6 +34,7 @@ class ReaperDigicoOSCBridge:
         self.name_to_match = ""
         self.is_playing = False
         self.is_recording = False
+        self.just_keep_cleaning = True
         self.ini_prefs = ""
         self.config_dir = ""
         self.lock = threading.Lock()
@@ -174,10 +176,12 @@ class ReaperDigicoOSCBridge:
         self.digico_osc_thread = threading.Thread(target=self.build_digico_osc_servers, daemon=False)
         self.reaper_osc_thread = threading.Thread(target=self.build_reaper_osc_servers, daemon=False)
         self.repeater_osc_thread = threading.Thread(target=self.build_repeater_osc_servers, daemon=False)
+        self.osc_cleanup_thread = threading.Thread(target=self.osc_cleanup, daemon=False)
         self.digico_osc_thread.start()
         self.reaper_osc_thread.start()
         if settings.forwarder_enabled == "True":
             self.repeater_osc_thread.start()
+        self.osc_cleanup_thread.start()
 
     def build_digico_osc_servers(self):
         # Connect to the Digico console
@@ -223,6 +227,26 @@ class ReaperDigicoOSCBridge:
             self.repeater_osc_server.serve_forever()
         except Exception as e:
             print("Unable to establish connection to repeater")
+
+    def osc_cleanup(self):
+        # Dealing with a memory leak bug in Python's threading server. Threads don't close properly, and so leak memory.
+        # This gets called occasionally to clean out dead threads.
+        # As of 12/24, this is still required in high OSC loads. See issue #9
+        try:
+            while self.just_keep_cleaning is True:
+                time.sleep(1)
+                for thread in self.digico_osc_server._threads:
+                    if not thread.is_alive():
+                        self.digico_osc_server._threads.remove(thread)
+                for thread in self.reaper_osc_server._threads:
+                    if not thread.is_alive():
+                        self.reaper_osc_server._threads.remove(thread)
+                for thread in self.repeater_osc_server._threads:
+                    if not thread.is_alive():
+                        self.repeater_osc_server._threads.remove(thread)
+        except:
+            time.sleep(1)
+            self.osc_cleanup()
 
     @staticmethod
     def find_local_ip_in_subnet(console_ip):
@@ -444,6 +468,10 @@ class ReaperDigicoOSCBridge:
             self.reaper_osc_server.server_close()
             self.repeater_osc_server.shutdown()
             self.repeater_osc_thread.join()
+        except Exception as e:
+            print(e)
+        try:
+            self.just_keep_cleaning = False
         except Exception as e:
             print(e)
         print("servers closed")
