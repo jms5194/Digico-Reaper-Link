@@ -178,6 +178,7 @@ class MainPanel(wx.Panel):
         # Builds a 5-second non-blocking timer for console response timeout.
         # Calls self.digico_disconnected if timer runs out.
         self.DigicoTimer = wx.CallLater(5000, self.digico_disconnected)
+        wx.CallAfter(self.DigicoTimer.Start)
 
     def digico_connected_listener(self, consolename, arg2=None):
         if self.DigicoTimer.IsRunning():
@@ -187,14 +188,16 @@ class MainPanel(wx.Panel):
             wx.CallAfter(self.digico_connected.SetLabel, consolename)
             wx.CallAfter(self.digico_connected.SetBackgroundColour,"Green")
             # Restart the timeout timer
-            self.DigicoTimer = wx.CallLater(5000, self.digico_disconnected)
+            self.configuretimers()
+
         else:
             # If the timer was not already running
             # Update UI to reflect connected
             wx.CallAfter(self.digico_connected.SetLabel,consolename)
             wx.CallAfter(self.digico_connected.SetBackgroundColour,"Green")
             # Start the timer
-            self.DigicoTimer = wx.CallLater(5000, self.digico_disconnected)
+            self.configuretimers()
+
 
     def digico_disconnected(self):
         # If timer runs out without being reset, update the UI to N/C
