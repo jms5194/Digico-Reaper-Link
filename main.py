@@ -130,7 +130,6 @@ class MainPanel(wx.Panel):
         # Bindings
         self.Bind(wx.EVT_BUTTON, self.place_marker, marker_button)
         self.Bind(wx.EVT_BUTTON, self.exitapp, exit_button)
-        self.Bind(wx.EVT_CLOSE, self.exitapp)
         self.Bind(wx.EVT_BUTTON, self.attemptreconnect, attempt_reconnect_button)
         self.Bind(wx.EVT_RADIOBUTTON, self.recmode, self.rec_button_cntl)
         self.Bind(wx.EVT_RADIOBUTTON, self.trackmode, self.track_button_cntl)
@@ -185,22 +184,22 @@ class MainPanel(wx.Panel):
             # When a response is received from the console, reset the timeout timer if running
             wx.CallAfter(self.DigicoTimer.Stop)
             # Update the UI to reflect the connected status
-            self.digico_connected.SetLabel(consolename)
-            self.digico_connected.SetBackgroundColour("Green")
+            wx.CallAfter(self.digico_connected.SetLabel, consolename)
+            wx.CallAfter(self.digico_connected.SetBackgroundColour,"Green")
             # Restart the timeout timer
-            wx.CallAfter(self.DigicoTimer.Start)
+            self.DigicoTimer = wx.CallLater(5000, self.digico_disconnected)
         else:
             # If the timer was not already running
             # Update UI to reflect connected
-            self.digico_connected.SetLabel(consolename)
-            self.digico_connected.SetBackgroundColour("Green")
+            wx.CallAfter(self.digico_connected.SetLabel,consolename)
+            wx.CallAfter(self.digico_connected.SetBackgroundColour,"Green")
             # Start the timer
-            wx.CallAfter(self.DigicoTimer.Start)
+            self.DigicoTimer = wx.CallLater(5000, self.digico_disconnected)
 
     def digico_disconnected(self):
         # If timer runs out without being reset, update the UI to N/C
-        self.digico_connected.SetLabel("N/C")
-        self.digico_connected.SetBackgroundColour("Red")
+        wx.CallAfter(self.digico_connected.SetLabel,"N/C")
+        wx.CallAfter(self.digico_connected.SetBackgroundColour,"Red")
 
     def reaper_disconnected_listener(self, reapererror, arg2=None):
         dlg = wx.MessageDialog(self,
@@ -349,9 +348,9 @@ class PrefsPanel(wx.Panel):
         settings.receive_port = str(self.digico_rcv_port_control.GetValue())
         settings.repeater_port = str(self.repeater_send_port_control.GetValue())
         settings.repeater_receive_port = str(self.repeater_rcv_port_control.GetValue())
-        if self.repeater_radio_enabled is True:
+        if self.repeater_radio_enabled.GetValue() is True:
             settings.forwarder_enabled = "True"
-        elif self.repeater_radio_enabled is False:
+        elif self.repeater_radio_enabled.GetValue() is False:
             settings.forwarder_enabled = "False"
         # Force a close/reconnect of the OSC servers by pushing the configuration update.
         MainWindow.BridgeFunctions.update_configuration(con_ip=settings.console_ip,

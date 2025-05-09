@@ -13,6 +13,19 @@ import time
 from pubsub import pub
 import configure_reaper
 import ipaddress
+import wx
+
+
+class ManagedThread(threading.Thread):
+    def __init__(self, target, name=None, daemon=True):
+        super().__init__(target=target, name=name, daemon=daemon)
+        self._stop_event = threading.Event()
+
+    def stop(self):
+        self._stop_event.set()
+
+    def stopped(self):
+        return self._stop_event.is_set()
 
 
 class ReaperDigicoOSCBridge:
@@ -21,7 +34,6 @@ class ReaperDigicoOSCBridge:
         self.repeater_osc_thread = None
         self.reaper_osc_thread = None
         self.digico_osc_thread = None
-        self.osc_cleanup_thread = None
         self.digico_dispatcher = None
         self.reaper_dispatcher = None
         self.repeater_dispatcher = None
@@ -34,12 +46,12 @@ class ReaperDigicoOSCBridge:
         self.name_to_match = ""
         self.is_playing = False
         self.is_recording = False
-        self.just_keep_cleaning = True
         self.ini_prefs = ""
         self.config_dir = ""
         self.lock = threading.Lock()
         self.where_to_put_user_data()
         self.check_configuration()
+        self.console_name_event = threading.Event()
 
     def where_to_put_user_data(self):
         # Find a home for our preferences file
@@ -171,17 +183,19 @@ class ReaperDigicoOSCBridge:
             print(e)
             pub.sendMessage('reaper_error', reapererror=e)
 
+    def start_managed_thread(self, attr_name, target):
+        # Start a ManagedThread that can be signaled to stop
+        thread = ManagedThread(target=target, daemon=True)
+        setattr(self, attr_name, thread)
+        thread.start()
+
     def start_threads(self):
-        # Builds the threads for the OSC servers to run in, non-blocking.
-        self.digico_osc_thread = threading.Thread(target=self.build_digico_osc_servers, daemon=False)
-        self.reaper_osc_thread = threading.Thread(target=self.build_reaper_osc_servers, daemon=False)
-        self.repeater_osc_thread = threading.Thread(target=self.build_repeater_osc_servers, daemon=False)
-        self.osc_cleanup_thread = threading.Thread(target=self.osc_cleanup, daemon=False)
-        self.digico_osc_thread.start()
-        self.reaper_osc_thread.start()
+        # Start all OSC server threads
+        self.start_managed_thread('digico_osc_thread', self.build_digico_osc_servers)
+        self.start_managed_thread('reaper_osc_thread', self.build_reaper_osc_servers)
         if settings.forwarder_enabled == "True":
-            self.repeater_osc_thread.start()
-        self.osc_cleanup_thread.start()
+            self.start_managed_thread('repeater_osc_thread', self.build_repeater_osc_servers)
+        self.start_managed_thread('heartbeat_thread', self.heartbeat_loop)
 
     def build_digico_osc_servers(self):
         # Connect to the Digico console
@@ -227,26 +241,6 @@ class ReaperDigicoOSCBridge:
             self.repeater_osc_server.serve_forever()
         except Exception as e:
             print("Unable to establish connection to repeater")
-
-    def osc_cleanup(self):
-        # Dealing with a memory leak bug in Python's threading server. Threads don't close properly, and so leak memory.
-        # This gets called occasionally to clean out dead threads.
-        # As of 12/24, this is still required in high OSC loads. See issue #9
-        try:
-            while self.just_keep_cleaning is True:
-                time.sleep(1)
-                for thread in self.digico_osc_server._threads:
-                    if not thread.is_alive():
-                        self.digico_osc_server._threads.remove(thread)
-                for thread in self.reaper_osc_server._threads:
-                    if not thread.is_alive():
-                        self.reaper_osc_server._threads.remove(thread)
-                for thread in self.repeater_osc_server._threads:
-                    if not thread.is_alive():
-                        self.repeater_osc_server._threads.remove(thread)
-        except:
-            time.sleep(1)
-            self.osc_cleanup()
 
     @staticmethod
     def find_local_ip_in_subnet(console_ip):
@@ -360,12 +354,23 @@ class ReaperDigicoOSCBridge:
         # Asks the console for its name. This forms the heartbeat function of the UI
         self.console_client.send_message("/Console/Name/?", None)
 
-    def console_name_handler(self, OSCAddress, ConsoleName):
-        # Let's send the console name to the UI
-        pub.sendMessage("console_name", consolename=ConsoleName)
-        # Every 3 seconds, let's request the console name again
-        time.sleep(3)
-        self.console_type_and_connected_check()
+    @staticmethod
+    def console_name_handler(OSCAddress, ConsoleName):
+        # Receives the console name response and updates the UI.
+        try:
+            wx.CallAfter(pub.sendMessage, "console_name", consolename=ConsoleName)
+        except Exception as e:
+            print(f"Console Name Handler Error: {e}")
+
+    def heartbeat_loop(self):
+        # Periodically requests the console name every 3 seconds
+        # to verify connection status and update the UI
+        while not self.console_name_event.is_set():
+            try:
+                self.console_type_and_connected_check()
+            except Exception as e:
+                print(f"Heartbeat error: {e}")
+            time.sleep(3)
 
     def request_snapshot_info(self, OSCAddress, CurrentSnapshotNumber):
         # Receives the OSC for the Current Snapshot Number and uses that to request the cue number/name
@@ -451,30 +456,34 @@ class ReaperDigicoOSCBridge:
                 print(e)
 
     def close_servers(self):
-        # Closing all of the OSC servers.
+        print("Closing OSC servers...")
+        self.console_name_event.set()  # Signal heartbeat to exit
+
         try:
-            self.digico_osc_server.server_close()
-            self.digico_osc_server.shutdown()
-            self.digico_osc_thread.join()
+            if self.digico_osc_server:
+                self.digico_osc_server.shutdown()
+                self.digico_osc_server.server_close()
+            if self.reaper_osc_server:
+                self.reaper_osc_server.shutdown()
+                self.reaper_osc_server.server_close()
+            if self.repeater_osc_server:
+                self.repeater_osc_server.shutdown()
+                self.repeater_osc_server.server_close()
         except Exception as e:
-            print(e)
-        try:
-            self.reaper_osc_server.server_close()
-            self.reaper_osc_server.shutdown()
-            self.reaper_osc_thread.join()
-        except Exception as e:
-            print(e)
-        try:
-            self.reaper_osc_server.server_close()
-            self.repeater_osc_server.shutdown()
-            self.repeater_osc_thread.join()
-        except Exception as e:
-            print(e)
-        try:
-            self.just_keep_cleaning = False
-        except Exception as e:
-            print(e)
-        print("servers closed")
+            print(f"Error shutting down server: {e}")
+
+        # Wait for threads to end
+        for thread_attr in [
+            'digico_osc_thread',
+            'reaper_osc_thread',
+            'repeater_osc_thread',
+            'heartbeat_thread',
+        ]:
+            thread = getattr(self, thread_attr, None)
+            if thread and thread.is_alive():
+                thread.join(timeout=5)
+
+        print("All servers closed and threads joined.")
         return True
 
     def restart_servers(self):
