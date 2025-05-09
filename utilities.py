@@ -488,4 +488,5 @@ class ReaperDigicoOSCBridge:
 
     def restart_servers(self):
         # Restart the OSC server threads.
+        self.console_name_event = threading.Event()
         self.start_threads()
