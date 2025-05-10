@@ -52,6 +52,8 @@ class ReaperDigicoOSCBridge:
         self.where_to_put_user_data()
         self.check_configuration()
         self.console_name_event = threading.Event()
+        self.reaper_send_lock = threading.Lock()
+        self.console_send_lock = threading.Lock()
 
     def where_to_put_user_data(self):
         # Find a home for our preferences file
@@ -116,7 +118,13 @@ class ReaperDigicoOSCBridge:
 
         with open(location_of_ini, "w") as configfile:
             config.write(configfile)
-        time.sleep(1)
+        timeout = 2
+        start_time = time.time()
+        #Check to make sure the config file has been created before moving on.
+        while not os.path.isfile(location_of_ini):
+            if time.time() - start_time > timeout:
+                raise TimeoutError(f"Failed to create config file at {location_of_ini}")
+            time.sleep(0.1)
         self.set_vars_from_pref(self.ini_prefs)
 
     def update_configuration(self, con_ip, rptr_ip, con_send, con_rcv, fwd_enable, rpr_send, rpr_rcv,
@@ -203,6 +211,9 @@ class ReaperDigicoOSCBridge:
         self.digico_dispatcher = dispatcher.Dispatcher()
         self.receive_console_OSC()
         try:
+            local_ip = self.find_local_ip_in_subnet(settings.console_ip)
+            if not local_ip:
+                raise RuntimeError("No local ip found in console's subnet")
             self.digico_osc_server = osc_server.ThreadingOSCUDPServer((self.find_local_ip_in_subnet
                                                                        (settings.console_ip),
                                                                        settings.receive_port),
@@ -267,18 +278,21 @@ class ReaperDigicoOSCBridge:
     def place_marker_at_current(self):
         # Uses a reaper OSC action to place a marker at the current timeline spot
         print("dropped Marker")
-        self.reaper_client.send_message("/action", 40157)
+        with self.reaper_send_lock:
+            self.reaper_client.send_message("/action", 40157)
 
     def update_last_marker_name(self, name):
-        self.reaper_client.send_message("/lastmarker/name", name)
+        with self.reaper_send_lock:
+            self.reaper_client.send_message("/lastmarker/name", name)
 
     def get_marker_id_by_name(self, name):
         # Asks for current marker information based upon number of markers.
         if self.is_playing is False:
             self.name_to_match = name
-            self.reaper_client.send_message("/device/marker/count", 0)
-            # Is there a better way to handle this in OSC only? Max of 512 markers.
-            self.reaper_client.send_message("/device/marker/count", 512)
+            with self.reaper_send_lock:
+                self.reaper_client.send_message("/device/marker/count", 0)
+                # Is there a better way to handle this in OSC only? Max of 512 markers.
+                self.reaper_client.send_message("/device/marker/count", 512)
 
     def marker_matcher(self, OSCAddress, test_name):
         # Matches a marker composite name with its Reaper ID
@@ -288,7 +302,8 @@ class ReaperDigicoOSCBridge:
             self.goto_marker_by_id(marker_id)
 
     def goto_marker_by_id(self, marker_id):
-        self.reaper_client.send_message("/marker", int(marker_id))
+        with self.reaper_send_lock:
+            self.reaper_client.send_message("/marker", int(marker_id))
 
     def current_transport_state(self, OSCAddress, val):
         # Watches what the Reaper playhead is doing.
@@ -318,17 +333,20 @@ class ReaperDigicoOSCBridge:
             print("reaper is not recording")
 
     def reaper_play(self):
-        self.reaper_client.send_message("/action", 1007)
+        with self.reaper_send_lock:
+            self.reaper_client.send_message("/action", 1007)
 
     def reaper_stop(self):
-        self.reaper_client.send_message("/action", 1016)
+        with self.reaper_send_lock:
+            self.reaper_client.send_message("/action", 1016)
 
     def reaper_rec(self):
         # Sends action to skip to end of project and then record, to prevent overwrites
         settings.marker_mode = "Recording"
         pub.sendMessage("mode_select_osc", selected_mode="Recording")
-        self.reaper_client.send_message("/action", 40043)
-        self.reaper_client.send_message("/action", 1013)
+        with self.reaper_send_lock:
+            self.reaper_client.send_message("/action", 40043)
+            self.reaper_client.send_message("/action", 1013)
 
     def receive_reaper_OSC(self):
         # Receives and distributes OSC from Reaper, based on matching OSC values
@@ -348,11 +366,13 @@ class ReaperDigicoOSCBridge:
 
     def send_to_console(self, OSCAddress, *args):
         # Send an OSC message to the console
-        self.console_client.send_message(OSCAddress, [*args])
+        with self.console_send_lock:
+            self.console_client.send_message(OSCAddress, [*args])
 
     def console_type_and_connected_check(self):
         # Asks the console for its name. This forms the heartbeat function of the UI
-        self.console_client.send_message("/Console/Name/?", None)
+        with self.console_send_lock:
+            self.console_client.send_message("/Console/Name/?", None)
 
     @staticmethod
     def console_name_handler(OSCAddress, ConsoleName):
@@ -380,12 +400,14 @@ class ReaperDigicoOSCBridge:
                 print('requested snapshot info')
             except Exception as e:
                 print(e)
-        self.console_client.send_message("/Snapshots/name/?", CurrentSnapshotNumber)
+        with self.console_send_lock:
+            self.console_client.send_message("/Snapshots/name/?", CurrentSnapshotNumber)
 
     def request_macro_info(self, OSCAddress, pressed):
         # When a Macro is pressed, request the name of the macro
         macro_num = OSCAddress.split("/")[3]
-        self.console_client.send_message("/Macros/name/?", int(macro_num))
+        with self.console_send_lock:
+            self.console_client.send_message("/Macros/name/?", int(macro_num))
 
     def macro_name_handler(self, OSCAddress, *args):
         # If macros match names, then send behavior to Reaper
@@ -455,6 +477,13 @@ class ReaperDigicoOSCBridge:
             except Exception as e:
                 print(e)
 
+    def stop_all_threads(self):
+        for attr in ['digico_osc_thread', 'reaper_osc_thread', 'repeater_osc_thread', 'heartbeat_thread']:
+            thread = getattr(self, attr, None)
+            if thread and isinstance(thread, ManagedThread):
+                thread.stop()
+                thread.join(timeout=1)
+
     def close_servers(self):
         print("Closing OSC servers...")
         self.console_name_event.set()  # Signal heartbeat to exit
@@ -472,16 +501,7 @@ class ReaperDigicoOSCBridge:
         except Exception as e:
             print(f"Error shutting down server: {e}")
 
-        # Wait for threads to end
-        for thread_attr in [
-            'digico_osc_thread',
-            'reaper_osc_thread',
-            'repeater_osc_thread',
-            'heartbeat_thread',
-        ]:
-            thread = getattr(self, thread_attr, None)
-            if thread and thread.is_alive():
-                thread.join(timeout=5)
+        self.stop_all_threads()
 
         print("All servers closed and threads joined.")
         return True
