@@ -72,11 +72,11 @@ class MainPanel(wx.Panel):
         self.DigicoTimer = None
         panel_sizer = wx.BoxSizer(wx.VERTICAL)
         # Font Definitions
-        header_font = wx.Font(20, family=wx.FONTFAMILY_SWISS, style=0, weight=wx.BOLD,
+        header_font = wx.Font(20, family=wx.FONTFAMILY_SWISS, style=0, weight=wx.FONTWEIGHT_BOLD,
                               underline=False, faceName="", encoding=wx.FONTENCODING_DEFAULT)
-        sub_header1_font = wx.Font(17, family=wx.FONTFAMILY_SWISS, style=0, weight=wx.NORMAL,
+        sub_header1_font = wx.Font(17, family=wx.FONTFAMILY_SWISS, style=0, weight=wx.FONTWEIGHT_NORMAL,
                                    underline=False, faceName="", encoding=wx.FONTENCODING_DEFAULT)
-        sub_header2_font = wx.Font(14, family=wx.FONTFAMILY_SWISS, style=0, weight=wx.NORMAL,
+        sub_header2_font = wx.Font(14, family=wx.FONTFAMILY_SWISS, style=0, weight=wx.FONTWEIGHT_NORMAL,
                                    underline=False, faceName="", encoding=wx.FONTENCODING_DEFAULT)
         # Button grid for application mode
         radio_grid = wx.GridSizer(3, 1, 0, 0)
@@ -104,10 +104,10 @@ class MainPanel(wx.Panel):
         digico_con_label.SetFont(sub_header2_font)
         connected_grid.Add(digico_con_label, flag=wx.ALIGN_CENTER_HORIZONTAL)
 
-        self.digico_connected = wx.TextCtrl(self, size=(100, -1), style=wx.TE_CENTER)
+        self.digico_connected = wx.TextCtrl(self, size=wx.Size(100, -1), style=wx.TE_CENTER)
         self.digico_connected.SetLabel("N/C")
         self.digico_connected.SetEditable(False)
-        self.digico_connected.SetBackgroundColour("Red")
+        self.digico_connected.SetBackgroundColour(wx.RED)
         connected_grid.Add(self.digico_connected, flag=wx.ALIGN_CENTER_HORIZONTAL)
 
         panel_sizer.Add(connected_status, flag=wx.ALIGN_CENTER_HORIZONTAL)
@@ -186,7 +186,7 @@ class MainPanel(wx.Panel):
             wx.CallAfter(self.DigicoTimer.Stop)
             # Update the UI to reflect the connected status
             wx.CallAfter(self.digico_connected.SetLabel, consolename)
-            wx.CallAfter(self.digico_connected.SetBackgroundColour,"Green")
+            wx.CallAfter(self.digico_connected.SetBackgroundColour,wx.GREEN)
             # Restart the timeout timer
             self.configuretimers()
 
@@ -194,7 +194,7 @@ class MainPanel(wx.Panel):
             # If the timer was not already running
             # Update UI to reflect connected
             wx.CallAfter(self.digico_connected.SetLabel,consolename)
-            wx.CallAfter(self.digico_connected.SetBackgroundColour,"Green")
+            wx.CallAfter(self.digico_connected.SetBackgroundColour,wx.GREEN)
             # Start the timer
             self.configuretimers()
 
@@ -202,7 +202,7 @@ class MainPanel(wx.Panel):
     def digico_disconnected(self):
         # If timer runs out without being reset, update the UI to N/C
         wx.CallAfter(self.digico_connected.SetLabel,"N/C")
-        wx.CallAfter(self.digico_connected.SetBackgroundColour,"Red")
+        wx.CallAfter(self.digico_connected.SetBackgroundColour,wx.RED)
 
     def reaper_disconnected_listener(self, reapererror, arg2=None):
         dlg = wx.MessageDialog(self,
@@ -245,7 +245,7 @@ class MainPanel(wx.Panel):
 class PrefsWindow(wx.Frame):
     # This is our preferences window pane
     def __init__(self, title, parent):
-        wx.Frame.__init__(self, parent=parent, size=(400, 600), title=title)
+        wx.Frame.__init__(self, parent=parent, size=wx.Size(400, 600), title=title)
         panel = PrefsPanel(parent=wx.GetTopLevelParent(self))
         self.Fit()
         self.Show()
@@ -256,11 +256,11 @@ class PrefsPanel(wx.Panel):
         wx.Panel.__init__(self, parent)
         # Define Fonts:
         self.ip_inspected = False
-        header_font = wx.Font(20, family=wx.FONTFAMILY_MODERN, style=0, weight=wx.BOLD,
+        header_font = wx.Font(20, family=wx.FONTFAMILY_MODERN, style=0, weight=wx.FONTWEIGHT_BOLD,
                               underline=False, faceName="", encoding=wx.FONTENCODING_DEFAULT)
-        sub_header_font = wx.Font(16, family=wx.FONTFAMILY_MODERN, style=0, weight=wx.BOLD,
+        sub_header_font = wx.Font(16, family=wx.FONTFAMILY_MODERN, style=0, weight=wx.FONTWEIGHT_BOLD,
                                   underline=False, faceName="", encoding=wx.FONTENCODING_DEFAULT)
-        base_font = wx.Font(12, family=wx.FONTFAMILY_MODERN, style=0, weight=wx.NORMAL,
+        base_font = wx.Font(12, family=wx.FONTFAMILY_MODERN, style=0, weight=wx.FONTWEIGHT_NORMAL,
                             underline=False, faceName="", encoding=wx.FONTENCODING_DEFAULT)
         # Console IP Label
         panel_sizer = wx.BoxSizer(wx.VERTICAL)

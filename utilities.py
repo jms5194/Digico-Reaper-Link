@@ -120,7 +120,7 @@ class ReaperDigicoOSCBridge:
             config.write(configfile)
         timeout = 2
         start_time = time.time()
-        #Check to make sure the config file has been created before moving on.
+        # Check to make sure the config file has been created before moving on.
         while not os.path.isfile(location_of_ini):
             if time.time() - start_time > timeout:
                 raise TimeoutError(f"Failed to create config file at {location_of_ini}")
