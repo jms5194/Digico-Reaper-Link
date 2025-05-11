@@ -1,3 +1,5 @@
+import threading
+
 import wx
 import ipaddress
 import settings
@@ -142,6 +144,7 @@ class MainPanel(wx.Panel):
         if MainWindow.BridgeFunctions.ValidateReaperPrefs():
             MainWindow.BridgeFunctions.start_threads()
         # Start a timer for Digico timeout
+        self.timer_lock = threading.Lock()
         self.configuretimers()
 
     @staticmethod
@@ -177,8 +180,11 @@ class MainPanel(wx.Panel):
     def configuretimers(self):
         # Builds a 5-second non-blocking timer for console response timeout.
         # Calls self.digico_disconnected if timer runs out.
-        self.DigicoTimer = wx.CallLater(5000, self.digico_disconnected)
-        wx.CallAfter(self.DigicoTimer.Start)
+        with self.timer_lock:
+            if self.DigicoTimer and self.DigicoTimer.IsRunning():
+                self.DigicoTimer.Stop()
+            self.DigicoTimer = wx.CallLater(5000, self.digico_disconnected)
+            wx.CallAfter(self.DigicoTimer.Start)
 
     def digico_connected_listener(self, consolename, arg2=None):
         if self.DigicoTimer.IsRunning():
