@@ -8,7 +8,7 @@ from pythonosc import dispatcher
 from pythonosc import osc_server
 import socket
 import psutil
-import settings
+from app_settings import settings
 import time
 from pubsub import pub
 import configure_reaper
@@ -84,17 +84,7 @@ class ReaperDigicoOSCBridge:
         print("setting vars")
         config = configparser.ConfigParser()
         config.read(config_file_loc)
-        settings.console_ip = config["main"]["default_ip"]
-        settings.repeater_ip = config["main"]["repeater_ip"]
-        settings.console_port = int(config["main"]["default_digico_send_port"])
-        settings.receive_port = int(config["main"]["default_digico_receive_port"])
-        settings.reaper_port = int(config["main"]["default_reaper_send_port"])
-        settings.repeater_port = int(config["main"]["default_repeater_send_port"])
-        settings.repeater_receive_port = int(config["main"]["default_repeater_receive_port"])
-        settings.reaper_receive_port = int(config["main"]["default_reaper_receive_port"])
-        settings.forwarder_enabled = config["main"]["forwarder_enabled"]
-        settings.window_loc = int(config["main"]["window_pos_x"]), int(config["main"]["window_pos_y"])
-        settings.window_size = int(config["main"]["window_size_x"]), int(config["main"]["window_size_y"])
+        settings.update_from_config(config)
 
     def build_initial_ini(self, location_of_ini):
         # Builds a .ini configuration file with default settings.

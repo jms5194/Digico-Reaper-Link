@@ -1,0 +1,197 @@
+import threading
+
+class ThreadSafeSettings:
+    def __init__(self):
+        self._lock = threading.Lock()
+        self._settings = {
+            'console_ip' : "10.10.10.1",
+            'reaper_ip' : "127.0.0.1",
+            'repeater_ip' : "10.10.10.10",
+            'repeater_port' : 9999,
+            'repeater_receive_port' : 9998,
+            'repeater_receive_port' : 9998,
+            'reaper_port' : 49101,
+            'reaper_receive_port' : 49102,
+            'console_port' : 8001,
+            'receive_port' : 8000,
+            'forwarder_enabled' : "False",
+            'marker_mode' : "PlaybackTrack",
+            'window_loc' : (400, 222),
+            'window_size' : (221, 310)
+        }
+
+    @property
+    def console_ip(self):
+        with self._lock:
+            return self._settings['console_ip']
+
+    @console_ip.setter
+    def console_ip(self, value):
+        with self._lock:
+            self._settings['console_ip'] = value
+
+    @property
+    def reaper_ip(self):
+        with self._lock:
+            return self._settings['reaper_ip']
+
+    @reaper_ip.setter
+    def reaper_ip(self, value):
+        with self._lock:
+            self._settings['reaper_ip'] = value
+
+    @property
+    def repeater_ip(self):
+        with self._lock:
+            return self._settings['repeater_ip']
+
+    @repeater_ip.setter
+    def repeater_ip(self, value):
+        with self._lock:
+            self._settings['repeater_ip'] = value
+
+    @property
+    def repeater_port(self):
+        with self._lock:
+            return self._settings['repeater_port']
+
+    @repeater_port.setter
+    def repeater_port(self, value):
+        with self._lock:
+            port_num = int(value)
+            if not 1 <= port_num <= 65535:
+                raise ValueError("Invalid port number")
+            self._settings['repeater_port'] = port_num
+
+    @property
+    def repeater_receive_port(self):
+        with self._lock:
+            return self._settings['repeater_receive_port']
+
+    @repeater_receive_port.setter
+    def repeater_receive_port(self, value):
+        with self._lock:
+            port_num = int(value)
+            if not 1 <= port_num <= 65535:
+                raise ValueError("Invalid port number")
+            self._settings['repeater_receive_port'] = port_num
+
+    @property
+    def reaper_port(self):
+        with self._lock:
+            return self._settings['reaper_port']
+
+    @reaper_port.setter
+    def reaper_port(self, value):
+        with self._lock:
+            port_num = int(value)
+            if not 1 <= port_num <= 65535:
+                raise ValueError("Invalid port number")
+            self._settings['reaper_port'] = port_num
+
+    @property
+    def reaper_receive_port(self):
+        with self._lock:
+            return self._settings['reaper_receive_port']
+
+    @reaper_receive_port.setter
+    def reaper_receive_port(self, value):
+        with self._lock:
+            port_num = int(value)
+            if not 1 <= port_num <= 65535:
+                raise ValueError("Invalid port number")
+            self._settings['reaper_receive_port'] = port_num
+
+    @property
+    def console_port(self):
+        with self._lock:
+            return self._settings['console_port']
+
+    @console_port.setter
+    def console_port(self, value):
+        with self._lock:
+            port_num = int(value)
+            if not 1 <= port_num <= 65535:
+                raise ValueError("Invalid port number")
+            self._settings['console_port'] = port_num
+
+    @property
+    def receive_port(self):
+        with self._lock:
+            return self._settings['receive_port']
+
+    @receive_port.setter
+    def receive_port(self, value):
+        with self._lock:
+            port_num = int(value)
+            if not 1 <= port_num <= 65535:
+                raise ValueError("Invalid port number")
+            self._settings['receive_port'] = port_num
+
+    @property
+    def forwarder_enabled(self):
+        with self._lock:
+            return self._settings['forwarder_enabled']
+
+    @forwarder_enabled.setter
+    def forwarder_enabled(self, value):
+        with self._lock:
+            self._settings['forwarder_enabled'] = value
+
+    @property
+    def marker_mode(self):
+        with self._lock:
+            return self._settings['marker_mode']
+
+    @marker_mode.setter
+    def marker_mode(self, value):
+        with self._lock:
+            self._settings['marker_mode'] = value
+
+    @property
+    def window_loc(self):
+        with self._lock:
+            return self._settings['window_loc']
+
+    @window_loc.setter
+    def window_loc(self, value):
+        with self._lock:
+            self._settings['window_loc'] = value
+
+    @property
+    def window_size(self):
+        with self._lock:
+            return self._settings['window_size']
+
+    @window_size.setter
+    def window_size(self, value):
+        with self._lock:
+            self._settings['window_size'] = value
+
+    def update_from_config(self, config):
+        # Update settings from a ConfigParser object
+        with self._lock:
+            self._settings.update({
+                'console_ip': config["main"]["default_ip"],
+                'repeater_ip': config["main"]["repeater_ip"],
+                'console_port': int(config["main"]["default_digico_send_port"]),
+                'receive_port': int(config["main"]["default_digico_receive_port"]),
+                'reaper_port': int(config["main"]["default_reaper_send_port"]),
+                'repeater_port': int(config["main"]["default_repeater_send_port"]),
+                'repeater_receive_port': int(config["main"]["default_repeater_receive_port"]),
+                'reaper_receive_port': int(config["main"]["default_reaper_receive_port"]),
+                'forwarder_enabled': config["main"]["forwarder_enabled"],
+                'window_loc': (
+                    int(config["main"]["window_pos_x"]),
+                    int(config["main"]["window_pos_y"])
+                ),
+                'window_size': (
+                    int(config["main"]["window_size_x"]),
+                    int(config["main"]["window_size_y"])
+                )
+            })
+
+settings = ThreadSafeSettings()
+
+
+

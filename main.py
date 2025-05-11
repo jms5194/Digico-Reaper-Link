@@ -2,7 +2,7 @@ import threading
 
 import wx
 import ipaddress
-import settings
+from app_settings import settings
 from utilities import ReaperDigicoOSCBridge
 from pubsub import pub
 
