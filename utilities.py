@@ -84,6 +84,9 @@ class ReaperDigicoOSCBridge:
         self.digico_osc_server = None
         self.reaper_osc_server = None
         self.repeater_osc_server = None
+        self.requested_macro_num = None
+        self.requested_snapshot_number = None
+        self.snapshot_ignore_flag = False
         self.name_to_match = ""
         self.is_playing = False
         self.is_recording = False
@@ -95,6 +98,7 @@ class ReaperDigicoOSCBridge:
         self.console_name_event = threading.Event()
         self.reaper_send_lock = threading.Lock()
         self.console_send_lock = threading.Lock()
+        self.snapshot_ignore_lock = threading.Lock()
 
     def where_to_put_user_data(self):
         # Find a home for our preferences file
@@ -273,9 +277,11 @@ class ReaperDigicoOSCBridge:
     def build_repeater_osc_servers(self):
         # Connect to Repeater via OSC
         self.repeater_client = udp_client.SimpleUDPClient(settings.repeater_ip, settings.repeater_port)
+        # Custom dispatcher to deal with corrupted OSC from iPad
         self.repeater_dispatcher = RawMessageDispatcher()
         self.receive_repeater_OSC()
         try:
+            # Raw OSC Server to deal with corrupted OSC from iPad App
             self.repeater_osc_server = RawOSCServer(
                 (self.find_local_ip_in_subnet(settings.console_ip), settings.repeater_receive_port),
                 self.repeater_dispatcher)
@@ -432,48 +438,52 @@ class ReaperDigicoOSCBridge:
         if settings.forwarder_enabled == "True":
             try:
                 self.repeater_client.send_message(OSCAddress, CurrentSnapshotNumber)
-                print('requested snapshot info')
             except Exception as e:
                 print(e)
+        print('requested snapshot info')
+        self.requested_snapshot_number = CurrentSnapshotNumber
         with self.console_send_lock:
             self.console_client.send_message("/Snapshots/name/?", CurrentSnapshotNumber)
 
     def request_macro_info(self, OSCAddress, pressed):
         # When a Macro is pressed, request the name of the macro
-        macro_num = OSCAddress.split("/")[3]
+        self.requested_macro_num = OSCAddress.split("/")[3]
         with self.console_send_lock:
-            self.console_client.send_message("/Macros/name/?", int(macro_num))
+            self.console_client.send_message("/Macros/name/?", int(self.requested_macro_num))
 
     def macro_name_handler(self, OSCAddress, *args):
-        # If macros match names, then send behavior to Reaper
+        #If macros match names, then send behavior to Reaper
         if settings.forwarder_enabled == "True":
             try:
                 self.repeater_client.send_message(OSCAddress, [*args])
             except Exception as e:
                 print(e)
-        macro_name = args[1]
-        macro_name = str(macro_name).lower()
-        print(macro_name)
-        if macro_name in ("reaper,rec", "reaper rec", "rec", "record", "reaper, record", "reaper record"):
-            self.process_transport_macros("rec")
-        elif macro_name in ("reaper,stop", "reaper stop", "stop"):
-            self.process_transport_macros("stop")
-        elif macro_name in ("reaper,play", "reaper play", "play"):
-            self.process_transport_macros("play")
-        elif macro_name in ("reaper,marker", "reaper marker", "marker"):
-            self.process_marker_macro()
-        elif macro_name in ("mode,rec", "mode,record", "mode,recording",
-                            "mode rec", "mode record", "mode recording"):
-            settings.marker_mode = "Recording"
-            pub.sendMessage("mode_select_osc", selected_mode="Recording")
-        elif macro_name in ("mode,track", "mode,tracking", "mode,PB Track",
-                            "mode track", "mode tracking", "mode PB Track"):
-            settings.marker_mode = "PlaybackTrack"
-            pub.sendMessage("mode_select_osc", selected_mode="PlaybackTrack")
-        elif macro_name in ("mode,no track", "mode,no tracking", "mode no track",
-                            "mode no tracking"):
-            settings.marker_mode = "PlaybackNoTrack"
-            pub.sendMessage("mode_select_osc", selected_mode="PlaybackNoTrack")
+        if self.requested_macro_num is not None:
+            if int(self.requested_macro_num) == int(args[0]):
+                macro_name = args[1]
+                macro_name = str(macro_name).lower()
+                print(macro_name)
+                if macro_name in ("reaper,rec", "reaper rec", "rec", "record", "reaper, record", "reaper record"):
+                    self.process_transport_macros("rec")
+                elif macro_name in ("reaper,stop", "reaper stop", "stop"):
+                    self.process_transport_macros("stop")
+                elif macro_name in ("reaper,play", "reaper play", "play"):
+                    self.process_transport_macros("play")
+                elif macro_name in ("reaper,marker", "reaper marker", "marker"):
+                    self.process_marker_macro()
+                elif macro_name in ("mode,rec", "mode,record", "mode,recording",
+                                    "mode rec", "mode record", "mode recording"):
+                    settings.marker_mode = "Recording"
+                    pub.sendMessage("mode_select_osc", selected_mode="Recording")
+                elif macro_name in ("mode,track", "mode,tracking", "mode,PB Track",
+                                    "mode track", "mode tracking", "mode PB Track"):
+                    settings.marker_mode = "PlaybackTrack"
+                    pub.sendMessage("mode_select_osc", selected_mode="PlaybackTrack")
+                elif macro_name in ("mode,no track", "mode,no tracking", "mode no track",
+                                    "mode no tracking"):
+                    settings.marker_mode = "PlaybackNoTrack"
+                    pub.sendMessage("mode_select_osc", selected_mode="PlaybackNoTrack")
+            self.requested_macro_num = None
 
     def process_marker_macro(self):
         self.place_marker_at_current()
@@ -486,13 +496,20 @@ class ReaperDigicoOSCBridge:
                 self.repeater_client.send_message(OSCAddress, [*args])
             except Exception as e:
                 print(e)
-        cue_name = args[3]
-        cue_number = str(args[1] / 100)
-        if settings.marker_mode == "Recording" and self.is_recording is True:
-            self.place_marker_at_current()
-            self.update_last_marker_name(cue_number + " " + cue_name)
-        elif settings.marker_mode == "PlaybackTrack" and self.is_playing is False:
-            self.get_marker_id_by_name(cue_number + " " + cue_name)
+        # Logic to prevent the device at the other end of the repeater function from dropping markers
+        if self.snapshot_ignore_flag is not True:
+            if self.requested_snapshot_number is not None:
+                if self.requested_snapshot_number == int(args[0]):
+                    cue_name = args[3]
+                    cue_number = str(args[1] / 100)
+                    if settings.marker_mode == "Recording" and self.is_recording is True:
+                        self.place_marker_at_current()
+                        self.update_last_marker_name(cue_number + " " + cue_name)
+                    elif settings.marker_mode == "PlaybackTrack" and self.is_playing is False:
+                        self.get_marker_id_by_name(cue_number + " " + cue_name)
+                self.requested_snapshot_number = None
+        with self.snapshot_ignore_lock:
+            self.snapshot_ignore_flag = False
 
     def process_transport_macros(self, transport):
         try:
@@ -508,7 +525,18 @@ class ReaperDigicoOSCBridge:
     # Repeater Functions:
 
     def receive_repeater_OSC(self):
+        self.repeater_dispatcher.map("/Snapshots/Current_Snapshot", self.set_snapshot_flag)
         self.repeater_dispatcher.set_default_handler(self.send_to_console)
+
+    def set_snapshot_flag(self, OSCAddress, *args):
+        # If the iPad app or other device at the end of the forwarding requests the current snapshot,
+        # Do not place a marker with the response to this request
+        with self.snapshot_ignore_lock:
+            self.snapshot_ignore_flag = True
+        try:
+            self.repeater_client.send_message(OSCAddress, [*args])
+        except Exception as e:
+            print(e)
 
     def forward_OSC(self, OSCAddress, *args):
         if settings.forwarder_enabled == "True":

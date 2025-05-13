@@ -239,7 +239,7 @@ class MainPanel(wx.Panel):
     def attemptreconnect(e):
         # Just forces a close/reconnect of the OSC servers by manually updating the configuration.
         MainWindow.BridgeFunctions.update_configuration(con_ip=settings.console_ip,
-                                                        rptr_ip="127.0.0.1", con_send=settings.console_port,
+                                                        rptr_ip=settings.repeater_ip, con_send=settings.console_port,
                                                         con_rcv=settings.receive_port,
                                                         fwd_enable=settings.forwarder_enabled,
                                                         rpr_send=settings.reaper_port,
@@ -251,7 +251,7 @@ class MainPanel(wx.Panel):
 class PrefsWindow(wx.Frame):
     # This is our preferences window pane
     def __init__(self, title, parent):
-        wx.Frame.__init__(self, parent=parent, size=wx.Size(400, 600), title=title)
+        wx.Frame.__init__(self, parent=parent, size=wx.Size(400, 800), title=title)
         panel = PrefsPanel(parent=wx.GetTopLevelParent(self))
         self.Fit()
         self.Show()
@@ -315,6 +315,16 @@ class PrefsPanel(wx.Panel):
         self.repeater_radio_disabled.SetValue(settings.forwarder_enabled == "False")
         panel_sizer.Add(repeater_radio_grid, 0, wx.ALL | wx.EXPAND, 5)
         panel_sizer.Add(0, 10)
+        # Console IP Label
+        repeater_ip_text = wx.StaticText(self, label="Repeat to IP", style=wx.ALIGN_CENTER)
+        repeater_ip_text.SetFont(header_font)
+        panel_sizer.Add(repeater_ip_text, 0, wx.ALL | wx.EXPAND, 5)
+        # Repeater to  IP Input
+        self.repeater_ip_control = wx.TextCtrl(self, style=wx.TE_CENTER)
+        self.repeater_ip_control.SetMaxLength(15)
+        self.repeater_ip_control.SetValue(settings.repeater_ip)
+        panel_sizer.Add(self.repeater_ip_control, 0, wx.ALL | wx.EXPAND, 5)
+        panel_sizer.Add(0, 10)
         # Repeater Ports Label
         repeater_ports_text = wx.StaticText(self, label="Repeater Ports", style=wx.ALIGN_CENTER)
         repeater_ports_text.SetFont(sub_header_font)
@@ -355,6 +365,7 @@ class PrefsPanel(wx.Panel):
         settings.console_ip = self.console_ip_control.GetValue()
         settings.console_port = str(self.digico_send_port_control.GetValue())
         settings.receive_port = str(self.digico_rcv_port_control.GetValue())
+        settings.repeater_ip = self.repeater_ip_control.GetValue()
         settings.repeater_port = str(self.repeater_send_port_control.GetValue())
         settings.repeater_receive_port = str(self.repeater_rcv_port_control.GetValue())
         if self.repeater_radio_enabled.GetValue() is True:
@@ -363,7 +374,7 @@ class PrefsPanel(wx.Panel):
             settings.forwarder_enabled = "False"
         # Force a close/reconnect of the OSC servers by pushing the configuration update.
         MainWindow.BridgeFunctions.update_configuration(con_ip=settings.console_ip,
-                                                        rptr_ip="127.0.0.1", con_send=settings.console_port,
+                                                        rptr_ip=settings.repeater_ip, con_send=settings.console_port,
                                                         con_rcv=settings.receive_port,
                                                         fwd_enable=settings.forwarder_enabled,
                                                         rpr_send=settings.reaper_port,
