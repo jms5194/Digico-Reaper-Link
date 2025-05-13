@@ -525,7 +525,7 @@ class ReaperDigicoOSCBridge:
     # Repeater Functions:
 
     def receive_repeater_OSC(self):
-        self.repeater_dispatcher.map("/Snapshots/Current_Snapshot", self.set_snapshot_flag)
+        self.repeater_dispatcher.map("/Snapshots/Surface_Snapshot/*", self.set_snapshot_flag)
         self.repeater_dispatcher.set_default_handler(self.send_to_console)
 
     def set_snapshot_flag(self, OSCAddress, *args):
@@ -533,8 +533,9 @@ class ReaperDigicoOSCBridge:
         # Do not place a marker with the response to this request
         with self.snapshot_ignore_lock:
             self.snapshot_ignore_flag = True
+            print("set flag")
         try:
-            self.repeater_client.send_message(OSCAddress, [*args])
+            self.send_to_console(OSCAddress, [*args])
         except Exception as e:
             print(e)
 
