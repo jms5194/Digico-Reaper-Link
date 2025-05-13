@@ -95,6 +95,7 @@ class ReaperDigicoOSCBridge:
         self.console_name_event = threading.Event()
         self.reaper_send_lock = threading.Lock()
         self.console_send_lock = threading.Lock()
+        self.transport_state_lock = threading.Lock()
 
     def where_to_put_user_data(self):
         # Find a home for our preferences file
@@ -338,30 +339,31 @@ class ReaperDigicoOSCBridge:
 
     def current_transport_state(self, OSCAddress, val):
         # Watches what the Reaper playhead is doing.
-        playing = None
-        recording = None
-        if OSCAddress == "/play":
-            if val == 0:
-                playing = False
-            elif val == 1:
-                playing = True
-        elif OSCAddress == "/record":
-            if val == 0:
-                recording = False
-            elif val == 1:
-                recording = True
-        if playing is True:
-            self.is_playing = True
-            print("reaper is playing")
-        elif playing is False:
-            self.is_playing = False
-            print("reaper is not playing")
-        if recording is True:
-            self.is_recording = True
-            print("reaper is recording")
-        elif recording is False:
-            self.is_recording = False
-            print("reaper is not recording")
+        with self.transport_state_lock:
+            playing = None
+            recording = None
+            if OSCAddress == "/play":
+                if val == 0:
+                    playing = False
+                elif val == 1:
+                    playing = True
+            elif OSCAddress == "/record":
+                if val == 0:
+                    recording = False
+                elif val == 1:
+                    recording = True
+            if playing is True:
+                self.is_playing = True
+                print("reaper is playing")
+            elif playing is False:
+                self.is_playing = False
+                print("reaper is not playing")
+            if recording is True:
+                self.is_recording = True
+                print("reaper is recording")
+            elif recording is False:
+                self.is_recording = False
+                print("reaper is not recording")
 
     def reaper_play(self):
         with self.reaper_send_lock:
