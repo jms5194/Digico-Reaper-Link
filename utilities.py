@@ -6,6 +6,8 @@ import appdirs
 from pythonosc import udp_client
 from pythonosc import dispatcher
 from pythonosc import osc_server
+from pythonosc.dispatcher import Dispatcher
+from pythonosc.osc_server import ThreadingOSCUDPServer
 import socket
 import psutil
 from app_settings import settings
@@ -14,6 +16,45 @@ from pubsub import pub
 import configure_reaper
 import ipaddress
 import wx
+
+class RawMessageDispatcher(Dispatcher):
+    def handle_error(self, address, *args):
+        # Handles malformed OSC messages, including non-terminated ones
+        try:
+            # The last argument contains the raw message data
+            raw_data = args[-1] if args else None
+            if raw_data:
+                # Forward the raw data exactly as received
+                self.forward_raw_message(raw_data)
+        except Exception as e:
+            print(f"Error in raw message handler: {e}")
+
+    def forward_raw_message(self, raw_data):
+        # Forwards the raw message data without parsing
+        try:
+            # Create a raw UDP socket for forwarding
+            forward_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            # Forward to the Digico console IP and receive port
+            forward_socket.sendto(raw_data, (settings.console_ip,settings.receive_port))
+            forward_socket.close()
+        except Exception as e:
+            print(f"Error forwarding raw message: {e}")
+
+class RawOSCServer(ThreadingOSCUDPServer):
+    def handle_request(self):
+        # Override to get raw data before OSC parsing
+        try:
+            data, client_address = self.socket.recvfrom(65535)
+            # Try normal OSC handling first
+            try:
+                super().handle_request()
+            except Exception:
+                # If OSC parsing fails, handle as raw data
+                if hasattr(self.dispatcher, 'handle_error'):
+                    self.dispatcher.handle_error("/", data)
+        except Exception as e:
+            print(f"Error in raw server handler: {e}")
+
 
 
 class ManagedThread(threading.Thread):
@@ -80,7 +121,7 @@ class ReaperDigicoOSCBridge:
 
     @staticmethod
     def set_vars_from_pref(config_file_loc):
-        # Bring in the vars to fill out settings.py from the preferences file
+        # Bring in the vars to fill out settings from the preferences file
         print("setting vars")
         config = configparser.ConfigParser()
         config.read(config_file_loc)
@@ -232,10 +273,10 @@ class ReaperDigicoOSCBridge:
     def build_repeater_osc_servers(self):
         # Connect to Repeater via OSC
         self.repeater_client = udp_client.SimpleUDPClient(settings.repeater_ip, settings.repeater_port)
-        self.repeater_dispatcher = dispatcher.Dispatcher()
+        self.repeater_dispatcher = RawMessageDispatcher()
         self.receive_repeater_OSC()
         try:
-            self.repeater_osc_server = osc_server.ThreadingOSCUDPServer(
+            self.repeater_osc_server = RawOSCServer(
                 (self.find_local_ip_in_subnet(settings.console_ip), settings.repeater_receive_port),
                 self.repeater_dispatcher)
             print("Repeater OSC server started")
@@ -364,9 +405,13 @@ class ReaperDigicoOSCBridge:
         with self.console_send_lock:
             self.console_client.send_message("/Console/Name/?", None)
 
-    @staticmethod
-    def console_name_handler(OSCAddress, ConsoleName):
+    def console_name_handler(self, OSCAddress, ConsoleName):
         # Receives the console name response and updates the UI.
+        if settings.forwarder_enabled == "True":
+            try:
+                self.repeater_client.send_message(OSCAddress, ConsoleName)
+            except Exception as e:
+                print(e)
         try:
             wx.CallAfter(pub.sendMessage, "console_name", consolename=ConsoleName)
         except Exception as e:
@@ -401,6 +446,11 @@ class ReaperDigicoOSCBridge:
 
     def macro_name_handler(self, OSCAddress, *args):
         # If macros match names, then send behavior to Reaper
+        if settings.forwarder_enabled == "True":
+            try:
+                self.repeater_client.send_message(OSCAddress, [*args])
+            except Exception as e:
+                print(e)
         macro_name = args[1]
         macro_name = str(macro_name).lower()
         print(macro_name)

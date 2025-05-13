@@ -351,7 +351,7 @@ class PrefsPanel(wx.Panel):
         self.Show()
 
     def update_button_pressed(self, e):
-        # Writing the new values from the preferences panel to settings.py
+        # Writing the new values from the preferences panel to settings
         settings.console_ip = self.console_ip_control.GetValue()
         settings.console_port = str(self.digico_send_port_control.GetValue())
         settings.receive_port = str(self.digico_rcv_port_control.GetValue())
