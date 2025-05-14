@@ -502,13 +502,13 @@ class ReaperDigicoOSCBridge:
                 self.repeater_client.send_message(OSCAddress, [*args])
             except Exception as e:
                 print(e)
-            cue_name = args[3]
-            cue_number = str(args[1] / 100)
-            if settings.marker_mode == "Recording" and self.is_recording is True:
-                self.place_marker_at_current()
-                self.update_last_marker_name(cue_number + " " + cue_name)
-            elif settings.marker_mode == "PlaybackTrack" and self.is_playing is False:
-                self.get_marker_id_by_name(cue_number + " " + cue_name)
+        cue_name = args[3]
+        cue_number = str(args[1] / 100)
+        if settings.marker_mode == "Recording" and self.is_recording is True:
+            self.place_marker_at_current()
+            self.update_last_marker_name(cue_number + " " + cue_name)
+        elif settings.marker_mode == "PlaybackTrack" and self.is_playing is False:
+            self.get_marker_id_by_name(cue_number + " " + cue_name)
 
 
     def process_transport_macros(self, transport):
