@@ -29,7 +29,8 @@ class RawMessageDispatcher(Dispatcher):
         except Exception as e:
             print(f"Error in raw message handler: {e}")
 
-    def forward_raw_message(self, raw_data):
+    @staticmethod
+    def forward_raw_message(raw_data):
         # Forwards the raw message data without parsing
         try:
             # Create a raw UDP socket for forwarding
@@ -58,6 +59,7 @@ class RawOSCServer(ThreadingOSCUDPServer):
 
 
 class ManagedThread(threading.Thread):
+    # Building threads that we can more easily control
     def __init__(self, target, name=None, daemon=True):
         super().__init__(target=target, name=name, daemon=daemon)
         self._stop_event = threading.Event()
@@ -441,9 +443,13 @@ class ReaperDigicoOSCBridge:
             except Exception as e:
                 print(e)
         print('requested snapshot info')
-        self.requested_snapshot_number = CurrentSnapshotNumber
-        with self.console_send_lock:
-            self.console_client.send_message("/Snapshots/name/?", CurrentSnapshotNumber)
+        if self.snapshot_ignore_flag is False:
+            self.requested_snapshot_number = CurrentSnapshotNumber
+            with self.console_send_lock:
+                self.console_client.send_message("/Snapshots/name/?", CurrentSnapshotNumber)
+        elif self.snapshot_ignore_flag is True:
+            with self.snapshot_ignore_lock:
+                self.snapshot_ignore_flag = False
 
     def request_macro_info(self, OSCAddress, pressed):
         # When a Macro is pressed, request the name of the macro
@@ -497,19 +503,17 @@ class ReaperDigicoOSCBridge:
             except Exception as e:
                 print(e)
         # Logic to prevent the device at the other end of the repeater function from dropping markers
-        if self.snapshot_ignore_flag is not True:
-            if self.requested_snapshot_number is not None:
-                if self.requested_snapshot_number == int(args[0]):
-                    cue_name = args[3]
-                    cue_number = str(args[1] / 100)
-                    if settings.marker_mode == "Recording" and self.is_recording is True:
-                        self.place_marker_at_current()
-                        self.update_last_marker_name(cue_number + " " + cue_name)
-                    elif settings.marker_mode == "PlaybackTrack" and self.is_playing is False:
-                        self.get_marker_id_by_name(cue_number + " " + cue_name)
-                self.requested_snapshot_number = None
-        with self.snapshot_ignore_lock:
-            self.snapshot_ignore_flag = False
+        if self.requested_snapshot_number is not None:
+            if self.requested_snapshot_number == int(args[0]):
+                cue_name = args[3]
+                cue_number = str(args[1] / 100)
+                if settings.marker_mode == "Recording" and self.is_recording is True:
+                    self.place_marker_at_current()
+                    self.update_last_marker_name(cue_number + " " + cue_name)
+                elif settings.marker_mode == "PlaybackTrack" and self.is_playing is False:
+                    self.get_marker_id_by_name(cue_number + " " + cue_name)
+            self.requested_snapshot_number = None
+
 
     def process_transport_macros(self, transport):
         try:
@@ -526,6 +530,7 @@ class ReaperDigicoOSCBridge:
 
     def receive_repeater_OSC(self):
         self.repeater_dispatcher.map("/Snapshots/Surface_Snapshot/*", self.set_snapshot_flag)
+        self.repeater_dispatcher.map("/Snapshots/Current_Snapshot/*", self.set_snapshot_flag)
         self.repeater_dispatcher.set_default_handler(self.send_to_console)
 
     def set_snapshot_flag(self, OSCAddress, *args):
