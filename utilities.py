@@ -19,7 +19,7 @@ import wx
 
 class RawMessageDispatcher(Dispatcher):
     def handle_error(self, address, *args):
-        # Handles malformed OSC messages, including non-terminated ones
+        # Handles malformed OSC messages and forwards on to console
         try:
             # The last argument contains the raw message data
             raw_data = args[-1] if args else None
@@ -46,6 +46,10 @@ class RawOSCServer(ThreadingOSCUDPServer):
         # Override to get raw data before OSC parsing
         try:
             data, client_address = self.socket.recvfrom(65535)
+            # If the raw data is not a multiple of 4 bytes, pad until it is
+            # Let's fix the bad OSC from the iPad app
+            while len(data) % 4 != 0:
+                data.append(0x00)
             # Try normal OSC handling first
             try:
                 super().handle_request()
@@ -100,7 +104,6 @@ class ReaperDigicoOSCBridge:
         self.console_name_event = threading.Event()
         self.reaper_send_lock = threading.Lock()
         self.console_send_lock = threading.Lock()
-        self.snapshot_ignore_lock = threading.Lock()
 
     def where_to_put_user_data(self):
         # Find a home for our preferences file
@@ -396,7 +399,7 @@ class ReaperDigicoOSCBridge:
     # Digico Functions:
     def receive_console_OSC(self):
         # Receives and distributes OSC from Digico, based on matching OSC values
-        self.digico_dispatcher.map("/Snapshots/Current_Snapshot", self.request_snapshot_info)
+        self.digico_dispatcher.map("/Snapshots/Recall_Snapshot/*", self.request_snapshot_info)
         self.digico_dispatcher.map("/Snapshots/name", self.snapshot_OSC_handler)
         self.digico_dispatcher.map("/Macros/Recall_Macro/*", self.request_macro_info)
         self.digico_dispatcher.map("/Macros/name", self.macro_name_handler)
@@ -435,21 +438,18 @@ class ReaperDigicoOSCBridge:
                 print(f"Heartbeat error: {e}")
             time.sleep(3)
 
-    def request_snapshot_info(self, OSCAddress, CurrentSnapshotNumber):
+    def request_snapshot_info(self, OSCAddress, *args):
         # Receives the OSC for the Current Snapshot Number and uses that to request the cue number/name
         if settings.forwarder_enabled == "True":
             try:
-                self.repeater_client.send_message(OSCAddress, CurrentSnapshotNumber)
+                self.repeater_client.send_message(OSCAddress, *args)
             except Exception as e:
                 print(e)
         print('requested snapshot info')
-        if self.snapshot_ignore_flag is False:
-            self.requested_snapshot_number = CurrentSnapshotNumber
-            with self.console_send_lock:
-                self.console_client.send_message("/Snapshots/name/?", CurrentSnapshotNumber)
-        elif self.snapshot_ignore_flag is True:
-            with self.snapshot_ignore_lock:
-                self.snapshot_ignore_flag = False
+        CurrentSnapshotNumber = int(OSCAddress.split("/")[3])
+        with self.console_send_lock:
+            self.console_client.send_message("/Snapshots/name/?", CurrentSnapshotNumber)
+
 
     def request_macro_info(self, OSCAddress, pressed):
         # When a Macro is pressed, request the name of the macro
@@ -502,17 +502,13 @@ class ReaperDigicoOSCBridge:
                 self.repeater_client.send_message(OSCAddress, [*args])
             except Exception as e:
                 print(e)
-        # Logic to prevent the device at the other end of the repeater function from dropping markers
-        if self.requested_snapshot_number is not None:
-            if self.requested_snapshot_number == int(args[0]):
-                cue_name = args[3]
-                cue_number = str(args[1] / 100)
-                if settings.marker_mode == "Recording" and self.is_recording is True:
-                    self.place_marker_at_current()
-                    self.update_last_marker_name(cue_number + " " + cue_name)
-                elif settings.marker_mode == "PlaybackTrack" and self.is_playing is False:
-                    self.get_marker_id_by_name(cue_number + " " + cue_name)
-            self.requested_snapshot_number = None
+            cue_name = args[3]
+            cue_number = str(args[1] / 100)
+            if settings.marker_mode == "Recording" and self.is_recording is True:
+                self.place_marker_at_current()
+                self.update_last_marker_name(cue_number + " " + cue_name)
+            elif settings.marker_mode == "PlaybackTrack" and self.is_playing is False:
+                self.get_marker_id_by_name(cue_number + " " + cue_name)
 
 
     def process_transport_macros(self, transport):
@@ -529,20 +525,7 @@ class ReaperDigicoOSCBridge:
     # Repeater Functions:
 
     def receive_repeater_OSC(self):
-        self.repeater_dispatcher.map("/Snapshots/Surface_Snapshot/*", self.set_snapshot_flag)
-        self.repeater_dispatcher.map("/Snapshots/Current_Snapshot/*", self.set_snapshot_flag)
         self.repeater_dispatcher.set_default_handler(self.send_to_console)
-
-    def set_snapshot_flag(self, OSCAddress, *args):
-        # If the iPad app or other device at the end of the forwarding requests the current snapshot,
-        # Do not place a marker with the response to this request
-        with self.snapshot_ignore_lock:
-            self.snapshot_ignore_flag = True
-            print("set flag")
-        try:
-            self.send_to_console(OSCAddress, [*args])
-        except Exception as e:
-            print(e)
 
     def forward_OSC(self, OSCAddress, *args):
         if settings.forwarder_enabled == "True":
