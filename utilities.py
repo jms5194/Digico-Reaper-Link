@@ -16,10 +16,12 @@ from pubsub import pub
 import configure_reaper
 import ipaddress
 import wx
+from logger_config import logger
 
 class RawMessageDispatcher(Dispatcher):
-    def handle_error(self, address, *args):
+    def handle_error(self, OSCAddress, *args):
         # Handles malformed OSC messages and forwards on to console
+        logger.debug(f"Received malformed OSC message at address: {OSCAddress}")
         try:
             # The last argument contains the raw message data
             raw_data = args[-1] if args else None
@@ -27,11 +29,12 @@ class RawMessageDispatcher(Dispatcher):
                 # Forward the raw data exactly as received
                 self.forward_raw_message(raw_data)
         except Exception as e:
-            print(f"Error in raw message handler: {e}")
+            logger.error(f"Error forwarding malformed OSC message: {e}")
 
     @staticmethod
     def forward_raw_message(raw_data):
         # Forwards the raw message data without parsing
+        logger.debug("Forwarding raw message.")
         try:
             # Create a raw UDP socket for forwarding
             forward_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -39,7 +42,7 @@ class RawMessageDispatcher(Dispatcher):
             forward_socket.sendto(raw_data, (settings.console_ip,settings.receive_port))
             forward_socket.close()
         except Exception as e:
-            print(f"Error forwarding raw message: {e}")
+            logger.error(f"Error forwarding raw message: {e}")
 
 class RawOSCServer(ThreadingOSCUDPServer):
     def handle_request(self):
@@ -47,18 +50,20 @@ class RawOSCServer(ThreadingOSCUDPServer):
         try:
             data, client_address = self.socket.recvfrom(65535)
             # If the raw data is not a multiple of 4 bytes, pad until it is
-            # Let's fix the bad OSC from the iPad app
+            # Let's at least try to make the data from the Ipad valid OSC
             while len(data) % 4 != 0:
-                data.append(0x00)
+                data += bytes([0x00])
+                logger.debug("Padding raw data to make it valid OSC.")
             # Try normal OSC handling first
             try:
                 super().handle_request()
-            except Exception:
+            except Exception as e:
                 # If OSC parsing fails, handle as raw data
+                logger.debug(f"OSC parsing failed, handling as raw data. {e}")
                 if hasattr(self.dispatcher, 'handle_error'):
                     self.dispatcher.handle_error("/", data)
         except Exception as e:
-            print(f"Error in raw server handler: {e}")
+            logger.error(f"Error in raw server handler: {e}")
 
 
 
@@ -78,6 +83,7 @@ class ManagedThread(threading.Thread):
 class ReaperDigicoOSCBridge:
 
     def __init__(self):
+        logger.info("Initializing ReaperDigicoOSCBridge")
         self.repeater_osc_thread = None
         self.reaper_osc_thread = None
         self.digico_osc_thread = None
@@ -125,13 +131,13 @@ class ReaperDigicoOSCBridge:
             else:
                 self.build_initial_ini(self.ini_prefs)
         except Exception as e:
-            print(e)
+            logger.error(f"Failed to check/initialize config file: {e}")
             self.build_initial_ini(self.ini_prefs)
 
     @staticmethod
     def set_vars_from_pref(config_file_loc):
         # Bring in the vars to fill out settings from the preferences file
-        print("setting vars")
+        logger.info("Setting variables from preferences file")
         config = configparser.ConfigParser()
         config.read(config_file_loc)
         settings.update_from_config(config)
@@ -139,7 +145,7 @@ class ReaperDigicoOSCBridge:
     def build_initial_ini(self, location_of_ini):
         # Builds a .ini configuration file with default settings.
         # What should our defaults be? All zeros? Something technically valid?
-        print("writing an initial config")
+        logger.info("Building initial .ini config file")
         config = configparser.ConfigParser()
         config["main"] = {}
         config["main"]["default_ip"] = "10.10.13.10"
@@ -170,6 +176,7 @@ class ReaperDigicoOSCBridge:
     def update_configuration(self, con_ip, rptr_ip, con_send, con_rcv, fwd_enable, rpr_send, rpr_rcv,
                              rptr_snd, rptr_rcv):
         # Given new values from the GUI, update the config file and restart the OSC Server
+        logger.info("Updating configuration file")
         updater = ConfigUpdater()
         updater.read(self.ini_prefs)
         try:
@@ -183,7 +190,7 @@ class ReaperDigicoOSCBridge:
             updater["main"]["default_repeater_receive_port"] = str(rptr_rcv)
             updater["main"]["forwarder_enabled"] = str(fwd_enable)
         except Exception as e:
-            print(e)
+            logger.error(f"Failed to update config file: {e}")
         updater.update_file()
         self.set_vars_from_pref(self.ini_prefs)
         self.close_servers()
@@ -192,6 +199,7 @@ class ReaperDigicoOSCBridge:
     @staticmethod
     def CheckReaperPrefs(rpr_rcv, rpr_send):
         if configure_reaper.osc_interface_exists(configure_reaper.get_resource_path(True), rpr_rcv, rpr_send):
+            logger.info("Reaper OSC interface config already exists")
             return True
 
     @staticmethod
@@ -200,23 +208,25 @@ class ReaperDigicoOSCBridge:
 
     def update_pos_in_config(self, win_pos_tuple):
         # Receives the position of the window from the UI and stores it in the preferences file
+        logger.info("Updating window position in config file")
         updater = ConfigUpdater()
         updater.read(self.ini_prefs)
         try:
             updater["main"]["window_pos_x"] = str(win_pos_tuple[0])
             updater["main"]["window_pos_y"] = str(win_pos_tuple[1])
         except Exception as e:
-            print(e)
+            logger.error(f"Failed to update window position in config file: {e}")
         updater.update_file()
 
     def update_size_in_config(self, win_size_tuple):
+        logger.info("Updating window size in config file")
         updater = ConfigUpdater()
         updater.read(self.ini_prefs)
         try:
             updater["main"]["window_size_x"] = str(win_size_tuple[0])
             updater["main"]["window_size_y"] = str(win_size_tuple[1])
         except Exception as e:
-            print(e)
+            logger.error(f"Failed to update window size in config file: {e}")
         updater.update_file()
 
     def ValidateReaperPrefs(self):
@@ -228,7 +238,7 @@ class ReaperDigicoOSCBridge:
             return True
         except RuntimeError as e:
             # If reaper is not running, send an error to the UI
-            print(e)
+            logger.debug(f"Reaper not running: {e}")
             pub.sendMessage('reaper_error', reapererror=e)
 
     def start_managed_thread(self, attr_name, target):
@@ -239,6 +249,7 @@ class ReaperDigicoOSCBridge:
 
     def start_threads(self):
         # Start all OSC server threads
+        logger.info("Starting OSC Server threads")
         self.start_managed_thread('digico_osc_thread', self.build_digico_osc_servers)
         self.start_managed_thread('reaper_osc_thread', self.build_reaper_osc_servers)
         if settings.forwarder_enabled == "True":
@@ -247,6 +258,7 @@ class ReaperDigicoOSCBridge:
 
     def build_digico_osc_servers(self):
         # Connect to the Digico console
+        logger.info("Starting Digico OSC server")
         self.console_client = udp_client.SimpleUDPClient(settings.console_ip, settings.console_port)
         self.digico_dispatcher = dispatcher.Dispatcher()
         self.receive_console_OSC()
@@ -258,29 +270,29 @@ class ReaperDigicoOSCBridge:
                                                                        (settings.console_ip),
                                                                        settings.receive_port),
                                                                       self.digico_dispatcher)
-            print("Digico OSC server started.")
+            logger.info("Digico OSC server started")
             self.console_type_and_connected_check()
             self.digico_osc_server.serve_forever()
         except Exception as e:
-            print(e)
-            print("Unable to establish connection to Digico")
+            logger.error(f"Digico OSC server startup error: {e}")
 
     def build_reaper_osc_servers(self):
         # Connect to Reaper via OSC
+        logger.info("Starting Reaper OSC server")
         self.reaper_client = udp_client.SimpleUDPClient(settings.reaper_ip, settings.reaper_port)
         self.reaper_dispatcher = dispatcher.Dispatcher()
         self.receive_reaper_OSC()
         try:
             self.reaper_osc_server = osc_server.ThreadingOSCUDPServer(("127.0.0.1", settings.reaper_receive_port),
                                                                       self.reaper_dispatcher)
-            print("Reaper OSC server started")
+            logger.info("Reaper OSC server started")
             self.reaper_osc_server.serve_forever()
         except Exception as e:
-            print(e)
-            print("Unable to establish connection to Reaper")
+            logger.error(f"Reaper OSC server startup error: {e}")
 
     def build_repeater_osc_servers(self):
         # Connect to Repeater via OSC
+        logger.info("Starting Repeater OSC server")
         self.repeater_client = udp_client.SimpleUDPClient(settings.repeater_ip, settings.repeater_port)
         # Custom dispatcher to deal with corrupted OSC from iPad
         self.repeater_dispatcher = RawMessageDispatcher()
@@ -290,10 +302,10 @@ class ReaperDigicoOSCBridge:
             self.repeater_osc_server = RawOSCServer(
                 (self.find_local_ip_in_subnet(settings.console_ip), settings.repeater_receive_port),
                 self.repeater_dispatcher)
-            print("Repeater OSC server started")
+            logger.info("Repeater OSC server started")
             self.repeater_osc_server.serve_forever()
         except Exception as e:
-            print("Unable to establish connection to repeater")
+            logger.error(f"Repeater OSC server startup error: {e}")
 
     @staticmethod
     def find_local_ip_in_subnet(console_ip):
@@ -319,7 +331,7 @@ class ReaperDigicoOSCBridge:
 
     def place_marker_at_current(self):
         # Uses a reaper OSC action to place a marker at the current timeline spot
-        print("dropped Marker")
+        logger.info("Placing marker at current time")
         with self.reaper_send_lock:
             self.reaper_client.send_message("/action", 40157)
 
@@ -422,11 +434,11 @@ class ReaperDigicoOSCBridge:
             try:
                 self.repeater_client.send_message(OSCAddress, ConsoleName)
             except Exception as e:
-                print(e)
+                logger.error(f"Console name cannot be repeated: {e}")
         try:
             wx.CallAfter(pub.sendMessage, "console_name", consolename=ConsoleName)
         except Exception as e:
-            print(f"Console Name Handler Error: {e}")
+            logger.error(f"Console Name Handler Error: {e}")
 
     def heartbeat_loop(self):
         # Periodically requests the console name every 3 seconds
@@ -435,7 +447,7 @@ class ReaperDigicoOSCBridge:
             try:
                 self.console_type_and_connected_check()
             except Exception as e:
-                print(f"Heartbeat error: {e}")
+                logger.error(f"Heartbeat loop error: {e}")
             time.sleep(3)
 
     def request_snapshot_info(self, OSCAddress, *args):
@@ -444,8 +456,8 @@ class ReaperDigicoOSCBridge:
             try:
                 self.repeater_client.send_message(OSCAddress, *args)
             except Exception as e:
-                print(e)
-        print('requested snapshot info')
+                logger.error(f"Snapshot info cannot be repeated: {e}")
+        logger.info("Requested snapshot info")
         CurrentSnapshotNumber = int(OSCAddress.split("/")[3])
         with self.console_send_lock:
             self.console_client.send_message("/Snapshots/name/?", CurrentSnapshotNumber)
@@ -463,7 +475,7 @@ class ReaperDigicoOSCBridge:
             try:
                 self.repeater_client.send_message(OSCAddress, [*args])
             except Exception as e:
-                print(e)
+                logger.error(f"Macro name cannot be repeated: {e}")
         if self.requested_macro_num is not None:
             if int(self.requested_macro_num) == int(args[0]):
                 macro_name = args[1]
@@ -501,7 +513,7 @@ class ReaperDigicoOSCBridge:
             try:
                 self.repeater_client.send_message(OSCAddress, [*args])
             except Exception as e:
-                print(e)
+                logger.error(f"Snapshot cue number cannot be repeated: {e}")
         cue_name = args[3]
         cue_number = str(args[1] / 100)
         if settings.marker_mode == "Recording" and self.is_recording is True:
@@ -520,7 +532,7 @@ class ReaperDigicoOSCBridge:
             elif transport == "rec":
                 self.reaper_rec()
         except Exception as e:
-            print(e)
+            logger.error(f"Could not process transport macro: {e}")
 
     # Repeater Functions:
 
@@ -532,9 +544,10 @@ class ReaperDigicoOSCBridge:
             try:
                 self.repeater_client.send_message(OSCAddress, [*args])
             except Exception as e:
-                print(e)
+                logger.error(f"Forwarder error: {e}")
 
     def stop_all_threads(self):
+        logger.info("Stopping all threads")
         for attr in ['digico_osc_thread', 'reaper_osc_thread', 'repeater_osc_thread', 'heartbeat_thread']:
             thread = getattr(self, attr, None)
             if thread and isinstance(thread, ManagedThread):
@@ -542,7 +555,7 @@ class ReaperDigicoOSCBridge:
                 thread.join(timeout=1)
 
     def close_servers(self):
-        print("Closing OSC servers...")
+        logger.info("Closing OSC servers...")
         self.console_name_event.set()  # Signal heartbeat to exit
 
         try:
@@ -556,14 +569,15 @@ class ReaperDigicoOSCBridge:
                 self.repeater_osc_server.shutdown()
                 self.repeater_osc_server.server_close()
         except Exception as e:
-            print(f"Error shutting down server: {e}")
+            logger.error(f"Error shutting down server: {e}")
 
         self.stop_all_threads()
 
-        print("All servers closed and threads joined.")
+        logger.info("All servers closed and threads joined.")
         return True
 
     def restart_servers(self):
         # Restart the OSC server threads.
+        logger.info("Restarting OSC Server threads")
         self.console_name_event = threading.Event()
         self.start_threads()

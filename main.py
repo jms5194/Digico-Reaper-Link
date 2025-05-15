@@ -5,6 +5,7 @@ import ipaddress
 from app_settings import settings
 from utilities import ReaperDigicoOSCBridge
 from pubsub import pub
+from logger_config import logger
 
 
 class MainWindow(wx.Frame):
@@ -12,6 +13,7 @@ class MainWindow(wx.Frame):
     BridgeFunctions = ReaperDigicoOSCBridge()
 
     def __init__(self):
+        logger.info("Initializing main window")
         wx.Frame.__init__(self, parent=None, title="Digico-Reaper Link")
         self.SetPosition(settings.window_loc)
         self.SetSize(settings.window_size)
@@ -48,6 +50,7 @@ class MainWindow(wx.Frame):
     def on_close(self, event):
         # Let's close the window and destroy the UI
         # But let's remember where we left the window for next time
+        logger.info("Closing Application")
         cur_pos = self.GetTopLevelParent().GetPosition()
         cur_size = self.GetTopLevelParent().GetSize()
         self.GetTopLevelParent().BridgeFunctions.update_pos_in_config(cur_pos)
@@ -64,12 +67,13 @@ class MainWindow(wx.Frame):
                 try:
                     self.GetTopLevelParent().Destroy()
                 except Exception as e:
-                    print(e)
+                    logger.error(f"Error closing application: {e}")
 
 
 class MainPanel(wx.Panel):
     # This is our main window UI
     def __init__(self, parent):
+        logger.info("Initializing main panel")
         wx.Panel.__init__(self, parent)
         self.DigicoTimer = None
         panel_sizer = wx.BoxSizer(wx.VERTICAL)
@@ -209,10 +213,12 @@ class MainPanel(wx.Panel):
 
     def digico_disconnected(self):
         # If timer runs out without being reset, update the UI to N/C
+        logger.info("Digico timer ran out. Updating UI to N/C.")
         wx.CallAfter(self.digico_connected.SetLabel,"N/C")
         wx.CallAfter(self.digico_connected.SetBackgroundColour,wx.RED)
 
     def reaper_disconnected_listener(self, reapererror, arg2=None):
+        logger.info("Reaper not connected. Reporting to user.")
         dlg = wx.MessageDialog(self,
                                "Reaper is not currently open. Please open and press OK.",
                                "Reaper Disconnected", wx.OK | wx.CANCEL | wx.ICON_QUESTION)
@@ -224,12 +230,13 @@ class MainPanel(wx.Panel):
                 try:
                     self.GetTopLevelParent().Destroy()
                 except Exception as e:
-                    print(e)
+                    logger.error(f"Failed to close Reaper disconnected dialog: {e}")
         elif result == wx.ID_OK:
             if MainWindow.BridgeFunctions.ValidateReaperPrefs():
                 MainWindow.BridgeFunctions.start_threads()
 
     def callforreaperrestart(self, resetreaper, arg2=None):
+        logger.info("Reaper has been configured. Requesting restart")
         dlg = wx.MessageDialog(self,
                                "Reaper has been configured for use with Digico-Reaper Link. "
                                "Please restart Reaper and press OK",
@@ -239,6 +246,7 @@ class MainPanel(wx.Panel):
 
     @staticmethod
     def attemptreconnect(e):
+        logger.info("Manual reconnection requested.")
         # Just forces a close/reconnect of the OSC servers by manually updating the configuration.
         MainWindow.BridgeFunctions.update_configuration(con_ip=settings.console_ip,
                                                         rptr_ip=settings.repeater_ip, con_send=settings.console_port,
@@ -253,6 +261,7 @@ class MainPanel(wx.Panel):
 class PrefsWindow(wx.Frame):
     # This is our preferences window pane
     def __init__(self, title, parent):
+        logger.info("Creating PrefsWindow")
         wx.Frame.__init__(self, parent=parent, size=wx.Size(400, 800), title=title)
         panel = PrefsPanel(parent=wx.GetTopLevelParent(self))
         self.Fit()
@@ -261,6 +270,7 @@ class PrefsWindow(wx.Frame):
 
 class PrefsPanel(wx.Panel):
     def __init__(self, parent):
+        logger.info("Creating PrefsPanel")
         wx.Panel.__init__(self, parent)
         # Define Fonts:
         self.ip_inspected = False
@@ -363,28 +373,32 @@ class PrefsPanel(wx.Panel):
         self.Show()
 
     def update_button_pressed(self, e):
+        logger.info("Updating configuration settings.")
         # Writing the new values from the preferences panel to settings
-        settings.console_ip = self.console_ip_control.GetValue()
-        settings.console_port = str(self.digico_send_port_control.GetValue())
-        settings.receive_port = str(self.digico_rcv_port_control.GetValue())
-        settings.repeater_ip = self.repeater_ip_control.GetValue()
-        settings.repeater_port = str(self.repeater_send_port_control.GetValue())
-        settings.repeater_receive_port = str(self.repeater_rcv_port_control.GetValue())
-        if self.repeater_radio_enabled.GetValue() is True:
-            settings.forwarder_enabled = "True"
-        elif self.repeater_radio_enabled.GetValue() is False:
-            settings.forwarder_enabled = "False"
-        # Force a close/reconnect of the OSC servers by pushing the configuration update.
-        MainWindow.BridgeFunctions.update_configuration(con_ip=settings.console_ip,
-                                                        rptr_ip=settings.repeater_ip, con_send=settings.console_port,
-                                                        con_rcv=settings.receive_port,
-                                                        fwd_enable=settings.forwarder_enabled,
-                                                        rpr_send=settings.reaper_port,
-                                                        rpr_rcv=settings.reaper_receive_port,
-                                                        rptr_snd=settings.repeater_port,
-                                                        rptr_rcv=settings.repeater_receive_port)
-        # Close the preferences window when update is pressed.
-        self.Parent.Destroy()
+        try:
+            settings.console_ip = self.console_ip_control.GetValue()
+            settings.console_port = str(self.digico_send_port_control.GetValue())
+            settings.receive_port = str(self.digico_rcv_port_control.GetValue())
+            settings.repeater_ip = self.repeater_ip_control.GetValue()
+            settings.repeater_port = str(self.repeater_send_port_control.GetValue())
+            settings.repeater_receive_port = str(self.repeater_rcv_port_control.GetValue())
+            if self.repeater_radio_enabled.GetValue() is True:
+                settings.forwarder_enabled = "True"
+            elif self.repeater_radio_enabled.GetValue() is False:
+                settings.forwarder_enabled = "False"
+            # Force a close/reconnect of the OSC servers by pushing the configuration update.
+            MainWindow.BridgeFunctions.update_configuration(con_ip=settings.console_ip,
+                                                            rptr_ip=settings.repeater_ip, con_send=settings.console_port,
+                                                            con_rcv=settings.receive_port,
+                                                            fwd_enable=settings.forwarder_enabled,
+                                                            rpr_send=settings.reaper_port,
+                                                            rpr_rcv=settings.reaper_receive_port,
+                                                            rptr_snd=settings.repeater_port,
+                                                            rptr_rcv=settings.repeater_receive_port)
+            # Close the preferences window when update is pressed.
+            self.Parent.Destroy()
+        except Exception as e:
+            logger.error(f"Error updating configuration: {e}")
 
     def changed_console_ip(self, e):
         # Flag to know if the console IP has been modified in the prefs window
@@ -400,6 +414,7 @@ class PrefsPanel(wx.Panel):
             try:
                 ipaddress.ip_address(ip)
             except ValueError:
+                logger.warning(f"Invalid IP address entered: {ip}")
                 # If the input is not a valid IP address, catch the exception and show a dialog
                 dlg = wx.MessageDialog(self, "This is not a valid IP address for the console. Please try again",
                                        "Digico-Reaper Link", wx.OK)
@@ -410,6 +425,10 @@ class PrefsPanel(wx.Panel):
 
 
 if __name__ == "__main__":
-    app = wx.App(False)
-    frame = MainWindow()
-    app.MainLoop()
+    try:
+        logger.info("Starting Digico-Reaper Link Application")
+        app = wx.App(False)
+        frame = MainWindow()
+        app.MainLoop()
+    except Exception as e:
+        logger.critical(f"Fatal Error: {e}", exc_info=True)
