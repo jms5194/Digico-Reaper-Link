@@ -50,7 +50,7 @@ class RawOSCServer(ThreadingOSCUDPServer):
         try:
             data, client_address = self.socket.recvfrom(65535)
             # If the raw data is not a multiple of 4 bytes, pad until it is
-            # Let's at least try to make the data from the Ipad valid OSC
+            # Let's at least try to make the data from the iPad valid OSC
             while len(data) % 4 != 0:
                 data += bytes([0x00])
                 logger.debug("Padding raw data to make it valid OSC.")
@@ -201,6 +201,9 @@ class ReaperDigicoOSCBridge:
         if configure_reaper.osc_interface_exists(configure_reaper.get_resource_path(True), rpr_rcv, rpr_send):
             logger.info("Reaper OSC interface config already exists")
             return True
+        else:
+            logger.info("Reaper OSC interface config does not exist")
+            return False
 
     @staticmethod
     def AddReaperPrefs(rpr_rcv, rpr_send):
@@ -240,6 +243,7 @@ class ReaperDigicoOSCBridge:
             # If reaper is not running, send an error to the UI
             logger.debug(f"Reaper not running: {e}")
             pub.sendMessage('reaper_error', reapererror=e)
+            return False
 
     def start_managed_thread(self, attr_name, target):
         # Start a ManagedThread that can be signaled to stop
