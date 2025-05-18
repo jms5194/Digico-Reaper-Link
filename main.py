@@ -314,6 +314,19 @@ class PrefsPanel(wx.Panel):
         panel_sizer.Add(digico_ports_grid, 0, wx.ALL | wx.EXPAND, 5)
         panel_sizer.Add(0, 25)
 
+        # Match mode radio buttons
+        match_mode_text = wx.StaticText(self, label="Matching Mode", style=wx.ALIGN_CENTER)
+        match_mode_text.SetFont(header_font)
+        panel_sizer.Add(match_mode_text, 0, wx.ALL | wx.EXPAND, 5)
+        match_mode_radio_grid = wx.GridSizer(1,2,0,0)
+        self.mode_match_all_radio = wx.RadioButton(self, label="Number & Name", style=wx.RB_GROUP)
+        match_mode_radio_grid.Add(self.mode_match_all_radio, 0, wx.ALL | wx.EXPAND, 5)
+        self.mode_match_all_radio.SetValue(settings.name_only_match == "False")
+        self.mode_match_name_radio = wx.RadioButton(self, label="Name Only")
+        match_mode_radio_grid.Add(self.mode_match_name_radio, 0, wx.ALL | wx.EXPAND, 5)
+        self.mode_match_name_radio.SetValue(settings.name_only_match == "True")
+        panel_sizer.Add(match_mode_radio_grid, 0, wx.ALL | wx.EXPAND, 5)
+
         # OSC Repeater Label
         osc_repeater_text = wx.StaticText(self, label="OSC Repeater", style=wx.ALIGN_CENTER)
         osc_repeater_text.SetFont(header_font)
@@ -382,6 +395,10 @@ class PrefsPanel(wx.Panel):
             settings.repeater_ip = self.repeater_ip_control.GetValue()
             settings.repeater_port = str(self.repeater_send_port_control.GetValue())
             settings.repeater_receive_port = str(self.repeater_rcv_port_control.GetValue())
+            if self.mode_match_name_radio.GetValue() is True:
+                settings.name_only_match = "True"
+            elif self.mode_match_name_radio.GetValue() is False:
+                settings.name_only_match = "False"
             if self.repeater_radio_enabled.GetValue() is True:
                 settings.forwarder_enabled = "True"
             elif self.repeater_radio_enabled.GetValue() is False:
@@ -394,7 +411,8 @@ class PrefsPanel(wx.Panel):
                                                             rpr_send=settings.reaper_port,
                                                             rpr_rcv=settings.reaper_receive_port,
                                                             rptr_snd=settings.repeater_port,
-                                                            rptr_rcv=settings.repeater_receive_port)
+                                                            rptr_rcv=settings.repeater_receive_port,
+                                                            name_only=settings.name_only_match)
             # Close the preferences window when update is pressed.
             self.Parent.Destroy()
         except Exception as e:

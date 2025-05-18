@@ -9,7 +9,6 @@ class ThreadSafeSettings:
             'repeater_ip' : "10.10.10.10",
             'repeater_port' : 9999,
             'repeater_receive_port' : 9998,
-            'repeater_receive_port' : 9998,
             'reaper_port' : 49101,
             'reaper_receive_port' : 49102,
             'console_port' : 8001,
@@ -17,7 +16,8 @@ class ThreadSafeSettings:
             'forwarder_enabled' : "False",
             'marker_mode' : "PlaybackTrack",
             'window_loc' : (400, 222),
-            'window_size' : (221, 310)
+            'window_size' : (221, 310),
+            'name_only_match' : False
         }
 
     @property
@@ -168,6 +168,16 @@ class ThreadSafeSettings:
         with self._lock:
             self._settings['window_size'] = value
 
+    @property
+    def name_only_match(self):
+        with self._lock:
+            return self._settings['name_only_match']
+
+    @name_only_match.setter
+    def name_only_match(self, value):
+        with self._lock:
+            self._settings['name_only_match'] = value
+
     def update_from_config(self, config):
         # Update settings from a ConfigParser object
         with self._lock:
@@ -188,7 +198,8 @@ class ThreadSafeSettings:
                 'window_size': (
                     int(config["main"]["window_size_x"]),
                     int(config["main"]["window_size_y"])
-                )
+                ),
+                'name_only_match' : config["main"]["name_only_match"]
             })
 
 settings = ThreadSafeSettings()

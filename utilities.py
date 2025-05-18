@@ -44,6 +44,7 @@ class RawMessageDispatcher(Dispatcher):
         except Exception as e:
             logger.error(f"Error forwarding raw message: {e}")
 
+
 class RawOSCServer(ThreadingOSCUDPServer):
     def handle_request(self):
         # Override to get raw data before OSC parsing
@@ -161,6 +162,7 @@ class ReaperDigicoOSCBridge:
         config["main"]["window_pos_y"] = "222"
         config["main"]["window_size_x"] = "221"
         config["main"]["window_size_y"] = "310"
+        config["main"]["name_only_match"] = "False"
 
         with open(location_of_ini, "w") as configfile:
             config.write(configfile)
@@ -174,7 +176,7 @@ class ReaperDigicoOSCBridge:
         self.set_vars_from_pref(self.ini_prefs)
 
     def update_configuration(self, con_ip, rptr_ip, con_send, con_rcv, fwd_enable, rpr_send, rpr_rcv,
-                             rptr_snd, rptr_rcv):
+                             rptr_snd, rptr_rcv, name_only):
         # Given new values from the GUI, update the config file and restart the OSC Server
         logger.info("Updating configuration file")
         updater = ConfigUpdater()
@@ -189,6 +191,7 @@ class ReaperDigicoOSCBridge:
             updater["main"]["default_repeater_send_port"] = str(rptr_snd)
             updater["main"]["default_repeater_receive_port"] = str(rptr_rcv)
             updater["main"]["forwarder_enabled"] = str(fwd_enable)
+            updater["main"]["name_only_match"] = str(name_only)
         except Exception as e:
             logger.error(f"Failed to update config file: {e}")
         updater.update_file()
@@ -347,6 +350,9 @@ class ReaperDigicoOSCBridge:
         # Asks for current marker information based upon number of markers.
         if self.is_playing is False:
             self.name_to_match = name
+        if settings.name_only_match is True:
+            self.name_to_match = self.name_to_match.split(" ")
+            self.name_to_match = self.name_to_match[1:]
             with self.reaper_send_lock:
                 self.reaper_client.send_message("/device/marker/count", 0)
                 # Is there a better way to handle this in OSC only? Max of 512 markers.
@@ -356,6 +362,9 @@ class ReaperDigicoOSCBridge:
         # Matches a marker composite name with its Reaper ID
         address_split = OSCAddress.split("/")
         marker_id = address_split[2]
+        if settings.name_only_match is True:
+            test_name = test_name.split(" ")
+            test_name = test_name[1:]
         if test_name == self.name_to_match:
             self.goto_marker_by_id(marker_id)
 
