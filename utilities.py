@@ -350,21 +350,23 @@ class ReaperDigicoOSCBridge:
         # Asks for current marker information based upon number of markers.
         if self.is_playing is False:
             self.name_to_match = name
-        if settings.name_only_match is True:
+        if settings.name_only_match == "True":
             self.name_to_match = self.name_to_match.split(" ")
             self.name_to_match = self.name_to_match[1:]
-            with self.reaper_send_lock:
-                self.reaper_client.send_message("/device/marker/count", 0)
-                # Is there a better way to handle this in OSC only? Max of 512 markers.
-                self.reaper_client.send_message("/device/marker/count", 512)
+            self.name_to_match = " ".join(self.name_to_match)
+        with self.reaper_send_lock:
+            self.reaper_client.send_message("/device/marker/count", 0)
+            # Is there a better way to handle this in OSC only? Max of 512 markers.
+            self.reaper_client.send_message("/device/marker/count", 512)
 
     def marker_matcher(self, OSCAddress, test_name):
         # Matches a marker composite name with its Reaper ID
         address_split = OSCAddress.split("/")
         marker_id = address_split[2]
-        if settings.name_only_match is True:
+        if settings.name_only_match == "True":
             test_name = test_name.split(" ")
             test_name = test_name[1:]
+            test_name = " ".join(test_name)
         if test_name == self.name_to_match:
             self.goto_marker_by_id(marker_id)
 
