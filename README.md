@@ -37,10 +37,14 @@ You don't need to do any configuration in Reaper. When you open Digico-Reaper Li
 
 When Digico-Reaper Link is open, go to File-->Preferences, and input your consoles IP address and the ports you are using, and you should be all set!
 
-<img width="515" alt="Digico-Reaper Prefs" src="https://github.com/user-attachments/assets/df3b424a-42d1-4b2b-9c0b-373d3d6d67fd">
+<img width="450" alt="Digico-Reaper Perfs" src="https://github.com/user-attachments/assets/8e558378-8921-4c10-b77e-2066b84c90c0" />
 
 
-New features:
+Features (Updated 5/23/25):
+
+Name Only Mode- There is now a preference to match on name of Cue/Snapshot only. If you are reordering your snapshots, and want it to jump to the marker disregarding the cue number, this preference will make it match on name only. Obviously, this assumes your cue names are unique, if they are not, it will just go to the first marker that matches the name of the cue. 
+
+Repeater- If you want OSC to pass through this app to another device (such as an ipad)- you can now set that up in the preferences page of the app, and the app will repeat OSC to another IP address/ports. 
 
 Heartbeat with Digico- In the UI window, the red square that says N/C will turn to green and have the type of console in it when a Digico console connection is established. This status is refreshed every 5 seconds, so you should be able to easily tell if you've lost connection with the console. 
 
