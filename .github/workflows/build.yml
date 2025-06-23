@@ -149,7 +149,6 @@ jobs:
         run: |
           chmod a+x "dist/Digico-Reaper Link.app"
           brew update
-          brew upgrade
           brew install create-dmg
           create-dmg \
           --volname "Digico-Reaper Link Installer" \
