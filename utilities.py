@@ -21,54 +21,24 @@ from consoles import Console, DiGiCo, StuderVista
 from logger_config import logger
 
 
-class RawMessageDispatcher(Dispatcher):
-    def handle_error(self, OSCAddress, *args):
-        # Handles malformed OSC messages and forwards on to console
-        logger.debug(f"Received malformed OSC message at address: {OSCAddress}")
-        try:
-            # The last argument contains the raw message data
-            raw_data = args[-1] if args else None
-            if raw_data:
-                # Forward the raw data exactly as received
-                self.forward_raw_message(raw_data)
-        except Exception as e:
-            logger.error(f"Error forwarding malformed OSC message: {e}")
-
-    @staticmethod
-    def forward_raw_message(raw_data):
-        # Forwards the raw message data without parsing
-        logger.debug("Forwarding raw message.")
-        try:
-            # Create a raw UDP socket for forwarding
-            forward_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            # Forward to the Digico console IP and receive port
-            forward_socket.sendto(raw_data, (settings.console_ip,settings.receive_port))
-            forward_socket.close()
-        except Exception as e:
-            logger.error(f"Error forwarding raw message: {e}")
-
-
-class RawOSCServer(ThreadingOSCUDPServer):
-    def handle_request(self):
-        # Override to get raw data before OSC parsing
-        try:
-            data, client_address = self.socket.recvfrom(65535)
-            # If the raw data is not a multiple of 4 bytes, pad until it is
-            # Let's at least try to make the data from the iPad valid OSC
-            while len(data) % 4 != 0:
-                data += bytes([0x00])
-                logger.debug("Padding raw data to make it valid OSC.")
-            # Try normal OSC handling first
-            try:
-                super().handle_request()
-            except Exception as e:
-                # If OSC parsing fails, handle as raw data
-                logger.debug(f"OSC parsing failed, handling as raw data. {e}")
-                if hasattr(self.dispatcher, 'handle_error'):
-                    self.dispatcher.handle_error("/", data)
-        except Exception as e:
-            logger.error(f"Error in raw server handler: {e}")
-
+def find_local_ip_in_subnet(console_ip):
+    # Find our local interface in the same network as the console interface
+    ipv4_interfaces = []
+    # Make a list of all the network interfaces on our machine
+    for interface, snics in psutil.net_if_addrs().items():
+        for snic in snics:
+            if snic.family == socket.AF_INET:
+                ipv4_interfaces.append((snic.address, snic.netmask))
+    # Iterate through network interfaces to see if any are in the same subnet as console
+    for i in ipv4_interfaces:
+        # Convert tuples to strings like 192.168.1.0/255.255.255.0 since thats what ipaddress expects
+        interface_ip_string = i[0] + "/" + i[1]
+        # If strict is off, then the user bits of the computer IP will be masked automatically
+        # Need to add error handling here
+        if ipaddress.IPv4Address(console_ip) in ipaddress.IPv4Network(interface_ip_string, False):
+            return i[0]
+        else:
+            pass
 
 
 class ManagedThread(threading.Thread):
@@ -114,9 +84,10 @@ class ReaperDigicoOSCBridge:
         self.check_configuration()
         self.console_name_event = threading.Event()
         self.reaper_send_lock = threading.Lock()
-        self.console_send_lock = threading.Lock()
         self._console = Console()
         pub.subscribe(self.handle_cue_load, "handle_cue_load")
+        pub.subscribe(self.place_marker_with_name, "place_marker_with_name")
+        pub.subscribe(self.incoming_transport_action, "incoming_transport_action")
 
     def where_to_put_user_data(self):
         # Find a home for our preferences file
@@ -280,15 +251,8 @@ class ReaperDigicoOSCBridge:
         self.start_managed_thread("reaper_osc_thread", self.build_reaper_osc_servers)
         self.start_managed_thread("heartbeat_thread", self.heartbeat_loop)
         if settings.console_type == DiGiCo.type:
-            logger.info("Starting OSC Server threads")
-            self.start_managed_thread(
-                "console_connection_thread", self.build_digico_osc_servers
-            )
-            if settings.forwarder_enabled == "True":
-                self.start_managed_thread(
-                    "repeater_osc_thread", self.build_repeater_osc_servers
-                )
             self.console = DiGiCo()
+            self.console.start_managed_threads(self.start_managed_thread)
         elif settings.console_type == StuderVista.type:
             self.console = StuderVista()
             self.console.start_managed_threads(self.start_managed_thread)
@@ -302,25 +266,6 @@ class ReaperDigicoOSCBridge:
         self._console = value
         pub.sendMessage("console_type_updated", console=value)
 
-    def build_digico_osc_servers(self):
-        # Connect to the Digico console
-        logger.info("Starting Digico OSC server")
-        self.console_client = udp_client.SimpleUDPClient(settings.console_ip, settings.console_port)
-        self.digico_dispatcher = dispatcher.Dispatcher()
-        self.receive_console_OSC()
-        try:
-            local_ip = self.find_local_ip_in_subnet(settings.console_ip)
-            if not local_ip:
-                raise RuntimeError("No local ip found in console's subnet")
-            self.digico_osc_server = osc_server.ThreadingOSCUDPServer((self.find_local_ip_in_subnet
-                                                                       (settings.console_ip),
-                                                                       settings.receive_port),
-                                                                      self.digico_dispatcher)
-            logger.info("Digico OSC server started")
-            self.console_type_and_connected_check()
-            self.digico_osc_server.serve_forever()
-        except Exception as e:
-            logger.error(f"Digico OSC server startup error: {e}")
 
     def build_reaper_osc_servers(self):
         # Connect to Reaper via OSC
@@ -336,43 +281,6 @@ class ReaperDigicoOSCBridge:
         except Exception as e:
             logger.error(f"Reaper OSC server startup error: {e}")
 
-    def build_repeater_osc_servers(self):
-        # Connect to Repeater via OSC
-        logger.info("Starting Repeater OSC server")
-        self.repeater_client = udp_client.SimpleUDPClient(settings.repeater_ip, settings.repeater_port)
-        # Custom dispatcher to deal with corrupted OSC from iPad
-        self.repeater_dispatcher = RawMessageDispatcher()
-        self.receive_repeater_OSC()
-        try:
-            # Raw OSC Server to deal with corrupted OSC from iPad App
-            self.repeater_osc_server = RawOSCServer(
-                (self.find_local_ip_in_subnet(settings.console_ip), settings.repeater_receive_port),
-                self.repeater_dispatcher)
-            logger.info("Repeater OSC server started")
-            self.repeater_osc_server.serve_forever()
-        except Exception as e:
-            logger.error(f"Repeater OSC server startup error: {e}")
-
-    @staticmethod
-    def find_local_ip_in_subnet(console_ip):
-        # Find our local interface in the same network as the console interface
-        ipv4_interfaces = []
-        # Make a list of all the network interfaces on our machine
-        for interface, snics in psutil.net_if_addrs().items():
-            for snic in snics:
-                if snic.family == socket.AF_INET:
-                    ipv4_interfaces.append((snic.address, snic.netmask))
-        # Iterate through network interfaces to see if any are in the same subnet as console
-        for i in ipv4_interfaces:
-            # Convert tuples to strings like 192.168.1.0/255.255.255.0 since thats what ipaddress expects
-            interface_ip_string = i[0] + "/" + i[1]
-            # If strict is off, then the user bits of the computer IP will be masked automatically
-            # Need to add error handling here
-            if ipaddress.IPv4Address(console_ip) in ipaddress.IPv4Network(interface_ip_string, False):
-                return i[0]
-            else:
-                pass
-
     # Reaper Functions:
 
     def place_marker_at_current(self):
@@ -384,6 +292,11 @@ class ReaperDigicoOSCBridge:
     def update_last_marker_name(self, name):
         with self.reaper_send_lock:
             self.reaper_client.send_message("/lastmarker/name", name)
+
+    def place_marker_with_name(self, marker_name):
+        with self.reaper_send_lock:
+            self.reaper_client.send_message("/action", 40157)
+            self.reaper_client.send_message("/lastmarker/name", marker_name)
 
     def get_marker_id_by_name(self, name):
         # Asks for current marker information based upon number of markers.
@@ -440,6 +353,14 @@ class ReaperDigicoOSCBridge:
             self.is_recording = False
             logger.info("Reaper is not recording")
 
+    def incoming_transport_action(self, transport_action):
+        if transport_action == "play":
+            self.reaper_play()
+        elif transport_action == "stop":
+            self.reaper_stop()
+        elif transport_action == "rec":
+            self.reaper_rec()
+
     def reaper_play(self):
         with self.reaper_send_lock:
             self.reaper_client.send_message("/action", 1007)
@@ -462,20 +383,7 @@ class ReaperDigicoOSCBridge:
         self.reaper_dispatcher.map("/play", self.current_transport_state)
         self.reaper_dispatcher.map("/record", self.current_transport_state)
 
-    # Digico Functions:
-    def receive_console_OSC(self):
-        # Receives and distributes OSC from Digico, based on matching OSC values
-        self.digico_dispatcher.map("/Snapshots/Recall_Snapshot/*", self.request_snapshot_info)
-        self.digico_dispatcher.map("/Snapshots/name", self.snapshot_OSC_handler)
-        self.digico_dispatcher.map("/Macros/Recall_Macro/*", self.request_macro_info)
-        self.digico_dispatcher.map("/Macros/name", self.macro_name_handler)
-        self.digico_dispatcher.map("/Console/Name", self.console_name_handler)
-        self.digico_dispatcher.set_default_handler(self.forward_OSC)
-
-    def send_to_console(self, OSCAddress, *args):
-        # Send an OSC message to the console
-        with self.console_send_lock:
-            self.console_client.send_message(OSCAddress, [*args])
+    # Console Functions:
 
     def console_type_and_connected_check(self):
         if isinstance(self.console, Console) and not isinstance(self.console, DiGiCo):
@@ -490,17 +398,6 @@ class ReaperDigicoOSCBridge:
                 assert isinstance(self.console_client, udp_client.UDPClient)
                 self.console_client.send_message("/Console/Name/?", None)
 
-    def console_name_handler(self, OSCAddress, ConsoleName):
-        # Receives the console name response and updates the UI.
-        if settings.forwarder_enabled == "True":
-            try:
-                self.repeater_client.send_message(OSCAddress, ConsoleName)
-            except Exception as e:
-                logger.error(f"Console name cannot be repeated: {e}")
-        try:
-            wx.CallAfter(pub.sendMessage, "console_connected", consolename=ConsoleName)
-        except Exception as e:
-            logger.error(f"Console Name Handler Error: {e}")
 
     def heartbeat_loop(self):
         # Periodically requests the console name every 3 seconds
@@ -511,74 +408,6 @@ class ReaperDigicoOSCBridge:
             except Exception as e:
                 logger.error(f"Heartbeat loop error: {e}")
             time.sleep(3)
-
-    def request_snapshot_info(self, OSCAddress, *args):
-        # Receives the OSC for the Current Snapshot Number and uses that to request the cue number/name
-        if settings.forwarder_enabled == "True":
-            try:
-                self.repeater_client.send_message(OSCAddress, *args)
-            except Exception as e:
-                logger.error(f"Snapshot info cannot be repeated: {e}")
-        logger.info("Requested snapshot info")
-        CurrentSnapshotNumber = int(OSCAddress.split("/")[3])
-        with self.console_send_lock:
-            self.console_client.send_message("/Snapshots/name/?", CurrentSnapshotNumber)
-
-
-    def request_macro_info(self, OSCAddress, pressed):
-        # When a Macro is pressed, request the name of the macro
-        self.requested_macro_num = OSCAddress.split("/")[3]
-        with self.console_send_lock:
-            self.console_client.send_message("/Macros/name/?", int(self.requested_macro_num))
-
-    def macro_name_handler(self, OSCAddress, *args):
-        #If macros match names, then send behavior to Reaper
-        if settings.forwarder_enabled == "True":
-            try:
-                self.repeater_client.send_message(OSCAddress, [*args])
-            except Exception as e:
-                logger.error(f"Macro name cannot be repeated: {e}")
-        if self.requested_macro_num is not None:
-            if int(self.requested_macro_num) == int(args[0]):
-                macro_name = args[1]
-                macro_name = str(macro_name).lower()
-                print(macro_name)
-                if macro_name in ("reaper,rec", "reaper rec", "rec", "record", "reaper, record", "reaper record"):
-                    self.process_transport_macros("rec")
-                elif macro_name in ("reaper,stop", "reaper stop", "stop"):
-                    self.process_transport_macros("stop")
-                elif macro_name in ("reaper,play", "reaper play", "play"):
-                    self.process_transport_macros("play")
-                elif macro_name in ("reaper,marker", "reaper marker", "marker"):
-                    self.process_marker_macro()
-                elif macro_name in ("mode,rec", "mode,record", "mode,recording",
-                                    "mode rec", "mode record", "mode recording"):
-                    settings.marker_mode = "Recording"
-                    pub.sendMessage("mode_select_osc", selected_mode="Recording")
-                elif macro_name in ("mode,track", "mode,tracking", "mode,PB Track",
-                                    "mode track", "mode tracking", "mode PB Track"):
-                    settings.marker_mode = "PlaybackTrack"
-                    pub.sendMessage("mode_select_osc", selected_mode="PlaybackTrack")
-                elif macro_name in ("mode,no track", "mode,no tracking", "mode no track",
-                                    "mode no tracking"):
-                    settings.marker_mode = "PlaybackNoTrack"
-                    pub.sendMessage("mode_select_osc", selected_mode="PlaybackNoTrack")
-            self.requested_macro_num = None
-
-    def process_marker_macro(self):
-        self.place_marker_at_current()
-        self.update_last_marker_name("Marker from Console")
-
-    def snapshot_OSC_handler(self, OSCAddress, *args):
-        # Processes the current cue number
-        if settings.forwarder_enabled == "True":
-            try:
-                self.repeater_client.send_message(OSCAddress, [*args])
-            except Exception as e:
-                logger.error(f"Snapshot cue number cannot be repeated: {e}")
-        cue_name = args[3]
-        cue_number = str(args[1] / 100)
-        self.handle_cue_load(cue_number + " " + cue_name)
 
     def handle_cue_load(self, cue: str) -> None:
         if settings.marker_mode == "Recording" and self.is_recording is True:
@@ -598,17 +427,6 @@ class ReaperDigicoOSCBridge:
         except Exception as e:
             logger.error(f"Could not process transport macro: {e}")
 
-    # Repeater Functions:
-
-    def receive_repeater_OSC(self):
-        self.repeater_dispatcher.set_default_handler(self.send_to_console)
-
-    def forward_OSC(self, OSCAddress, *args):
-        if settings.forwarder_enabled == "True":
-            try:
-                self.repeater_client.send_message(OSCAddress, [*args])
-            except Exception as e:
-                logger.error(f"Forwarder error: {e}")
 
     def stop_all_threads(self):
         logger.info("Stopping all threads")
