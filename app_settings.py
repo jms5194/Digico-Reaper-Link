@@ -1,5 +1,5 @@
 import threading
-from consoles.digico import Digico
+from consoles import DiGiCo
 
 class ThreadSafeSettings:
     def __init__(self):
@@ -19,7 +19,7 @@ class ThreadSafeSettings:
             'window_loc' : (400, 222),
             'window_size' : (221, 310),
             'name_only_match' : False,
-            'console_type': Digico.type
+            'console_type': DiGiCo.type
         }
 
     @property

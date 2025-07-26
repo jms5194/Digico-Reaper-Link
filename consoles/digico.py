@@ -1,6 +1,6 @@
-from .console import Console, Feature
+from . import Console, Feature
 
 
-class Digico(Console):
-    type = "Digico"
+class DiGiCo(Console):
+    type = "DiGiCo"
     supported_features = [Feature.CUE_NUMBER, Feature.REPEATER]

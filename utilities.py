@@ -17,9 +17,7 @@ from pythonosc.osc_server import ThreadingOSCUDPServer
 
 import configure_reaper
 from app_settings import settings
-from consoles.console import Console
-from consoles.digico import Digico
-from consoles.studervista import StuderVista
+from consoles import Console, DiGiCo, StuderVista
 from logger_config import logger
 
 
@@ -171,7 +169,7 @@ class ReaperDigicoOSCBridge:
         config["main"]["window_size_x"] = "221"
         config["main"]["window_size_y"] = "310"
         config["main"]["name_only_match"] = "False"
-        config["main"]["console_type"] = Digico.type
+        config["main"]["console_type"] = DiGiCo.type
 
         with open(location_of_ini, "w") as configfile:
             config.write(configfile)
@@ -281,7 +279,7 @@ class ReaperDigicoOSCBridge:
         logger.info("Starting OSC Server threads")
         self.start_managed_thread("reaper_osc_thread", self.build_reaper_osc_servers)
         self.start_managed_thread("heartbeat_thread", self.heartbeat_loop)
-        if settings.console_type == Digico.type:
+        if settings.console_type == DiGiCo.type:
             logger.info("Starting OSC Server threads")
             self.start_managed_thread(
                 "console_connection_thread", self.build_digico_osc_servers
@@ -290,7 +288,7 @@ class ReaperDigicoOSCBridge:
                 self.start_managed_thread(
                     "repeater_osc_thread", self.build_repeater_osc_servers
                 )
-            self.console = Digico()
+            self.console = DiGiCo()
         elif settings.console_type == StuderVista.type:
             self.console = StuderVista()
             self.console.start_managed_threads(self.start_managed_thread)
@@ -480,7 +478,7 @@ class ReaperDigicoOSCBridge:
             self.console_client.send_message(OSCAddress, [*args])
 
     def console_type_and_connected_check(self):
-        if isinstance(self.console, Console) and not isinstance(self.console, Digico):
+        if isinstance(self.console, Console) and not isinstance(self.console, DiGiCo):
             heartbeat=self.console.heartbeat()
             if isinstance(heartbeat,str):
                 pub.sendMessage("console_connected", consolename=heartbeat)

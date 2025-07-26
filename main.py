@@ -5,9 +5,7 @@ import wx
 from pubsub import pub
 
 from app_settings import settings
-from consoles.console import Console
-from consoles.digico import Digico
-from consoles.studervista import StuderVista
+from consoles import Console, DiGiCo, StuderVista
 from logger_config import logger
 from utilities import ReaperDigicoOSCBridge
 
@@ -345,7 +343,7 @@ class PrefsPanel(wx.Panel):
         console_model_radio_grid = wx.GridSizer(1,2,0,0)
         self.console_model_radio_digico = wx.RadioButton(self, label="Digico", style=wx.RB_GROUP)
         console_model_radio_grid.Add(self.console_model_radio_digico, 0, wx.ALL | wx.EXPAND, 5)
-        self.console_model_radio_digico.SetValue(isinstance(MainWindow.BridgeFunctions.console, Digico) | (MainWindow.BridgeFunctions.console is None))
+        self.console_model_radio_digico.SetValue(isinstance(MainWindow.BridgeFunctions.console, DiGiCo) | (MainWindow.BridgeFunctions.console is None))
         self.console_model_radio_studer = wx.RadioButton(self, label="Studer Vista")
         console_model_radio_grid.Add(self.console_model_radio_studer, 0, wx.ALL | wx.EXPAND, 5)
         self.console_model_radio_studer.SetValue(isinstance(MainWindow.BridgeFunctions.console, StuderVista))
@@ -428,7 +426,7 @@ class PrefsPanel(wx.Panel):
             elif self.repeater_radio_enabled.GetValue() is False:
                 settings.forwarder_enabled = "False"
             if self.console_model_radio_digico.GetValue() is True:
-                settings.console_type = Digico.type
+                settings.console_type = DiGiCo.type
             elif self.console_model_radio_studer.GetValue():
                 settings.console_type = StuderVista.type
             # Force a close/reconnect of the OSC servers by pushing the configuration update.

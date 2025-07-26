@@ -4,10 +4,9 @@ from typing import Any, Callable, List
 import asn1
 from pubsub import pub
 
-from app_settings import settings
 from logger_config import logger
 
-from .console import Console
+from . import Console
 
 
 class StuderVista(Console):
@@ -22,6 +21,8 @@ class StuderVista(Console):
         # TODO: Handling exiting this thread properly
 
     def _console_client_thread(self):
+        from app_settings import settings
+
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as self.client_socket:
             try:
                 self.client_socket.connect((settings.console_ip, settings.console_port))
