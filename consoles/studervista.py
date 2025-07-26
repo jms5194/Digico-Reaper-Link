@@ -41,7 +41,10 @@ class StuderVista(Console):
                 decoder.start(result_bytes)
                 _, value = decoder.read()
                 decoded_message = self._decode_message(value)
-                if len(decoded_message) > 0:
+                if (
+                    len(decoded_message) > 0
+                    and decoded_message != "Last Recalled Snapshot"
+                ):
                     decoded_message = decoded_message[-1:][0]
                     pub.sendMessage("handle_cue_load", cue=decoded_message)
 
