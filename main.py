@@ -5,7 +5,7 @@ import wx
 from pubsub import pub
 
 from app_settings import settings
-from consoles import Console, DiGiCo, StuderVista
+from consoles import Console
 from logger_config import logger
 from utilities import ReaperDigicoOSCBridge
 
@@ -336,18 +336,9 @@ class PrefsPanel(wx.Panel):
         self.mode_match_name_radio.SetValue(settings.name_only_match == "True")
         panel_sizer.Add(match_mode_radio_grid, 0, wx.ALL | wx.EXPAND, 5)
 
-        # Console model radio buttons
-        console_model_text = wx.StaticText(self, label="Console Model", style=wx.ALIGN_CENTER)
-        console_model_text.SetFont(header_font)
-        panel_sizer.Add(console_model_text, 0, wx.ALL | wx.EXPAND, 5)
-        console_model_radio_grid = wx.GridSizer(1,2,0,0)
-        self.console_model_radio_digico = wx.RadioButton(self, label="Digico", style=wx.RB_GROUP)
-        console_model_radio_grid.Add(self.console_model_radio_digico, 0, wx.ALL | wx.EXPAND, 5)
-        self.console_model_radio_digico.SetValue(isinstance(MainWindow.BridgeFunctions.console, DiGiCo) | (MainWindow.BridgeFunctions.console is None))
-        self.console_model_radio_studer = wx.RadioButton(self, label="Studer Vista")
-        console_model_radio_grid.Add(self.console_model_radio_studer, 0, wx.ALL | wx.EXPAND, 5)
-        self.console_model_radio_studer.SetValue(isinstance(MainWindow.BridgeFunctions.console, StuderVista))
-        panel_sizer.Add(console_model_radio_grid, 0, wx.ALL | wx.EXPAND, 5)
+        # Console type radio box
+        self.console_type_radio_box = wx.RadioBox(self, label="Console Type", majorDimension=2, choices=[console.type for console in Console.__subclasses__()])
+        panel_sizer.Add(self.console_type_radio_box, 0, wx.ALL | wx.EXPAND, 5)
           
         # OSC Repeater Label
         osc_repeater_text = wx.StaticText(self, label="OSC Repeater", style=wx.ALIGN_CENTER)
@@ -425,10 +416,7 @@ class PrefsPanel(wx.Panel):
                 settings.forwarder_enabled = "True"
             elif self.repeater_radio_enabled.GetValue() is False:
                 settings.forwarder_enabled = "False"
-            if self.console_model_radio_digico.GetValue() is True:
-                settings.console_type = DiGiCo.type
-            elif self.console_model_radio_studer.GetValue():
-                settings.console_type = StuderVista.type
+            settings.console_type = self.console_type_radio_box.GetString(self.console_type_radio_box.GetSelection())
             # Force a close/reconnect of the OSC servers by pushing the configuration update.
             MainWindow.BridgeFunctions.update_configuration(con_ip=settings.console_ip,
                                                             rptr_ip=settings.repeater_ip, con_send=settings.console_port,
