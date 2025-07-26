@@ -41,6 +41,7 @@ class StuderVista(Console):
                 decoder.start(result_bytes)
                 _, value = decoder.read()
                 decoded_message = self._decode_message(value)
+                pub.sendMessage("console_connected", consolename="Connected")
                 if (
                     len(decoded_message) > 0
                     and decoded_message != "Last Recalled Snapshot"
@@ -63,11 +64,8 @@ class StuderVista(Console):
                 b"\x7f\x8f\xff\xfe\xd9\\\x800\x80\xa1\x181\x16\xa2\x141\x12\xa1\x101\x0e\xa1\x0c1\n\xe4\x081\x06\x7f \x03\x02\x01\x01\x00\x00\x00\x00"
             )
 
-    def heartbeat(self) -> bool:
-        try:
+    def heartbeat(self) -> None:
+        if hasattr(self, "client_socket"):
             self.client_socket.sendall(
                 b"\x7f\x8f\xff\xfe\xd9\\\x800\x80\x00\x00\x00\x00"
             )
-            return True
-        except Exception:
-            return False

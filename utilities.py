@@ -385,23 +385,16 @@ class ReaperDigicoOSCBridge:
 
     # Console Functions:
 
-    def console_type_and_connected_check(self):
-        if isinstance(self.console, Console):
-            heartbeat=self.console.heartbeat()
-            if isinstance(heartbeat,str):
-                pub.sendMessage("console_connected", consolename=heartbeat)
-            elif heartbeat:
-                pub.sendMessage("console_connected", consolename="Connected")
-
-
     def heartbeat_loop(self):
         # Periodically requests the console name every 3 seconds
         # to verify connection status and update the UI
         while not self.console_name_event.is_set():
             try:
-                self.console_type_and_connected_check()
+                if isinstance(self.console, Console):
+                    self.console.heartbeat()
             except Exception as e:
                 logger.error(f"Heartbeat loop error: {e}")
+                pub.sendMessage("console_disconnected")
             time.sleep(3)
 
     def handle_cue_load(self, cue: str) -> None:

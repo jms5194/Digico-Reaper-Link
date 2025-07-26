@@ -232,9 +232,7 @@ class DiGiCo(Console):
             except Exception as e:
                 logger.error(f"Forwarder error: {e}")
     
-    def heartbeat(self) -> bool:
-        # TODO: fix return value 
+    def heartbeat(self) -> None:
         with self.console_send_lock:
             assert isinstance(self.console_client, udp_client.UDPClient)
             self.console_client.send_message("/Console/Name/?", None)
-        return True

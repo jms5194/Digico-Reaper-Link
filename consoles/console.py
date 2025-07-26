@@ -14,8 +14,8 @@ class Console:
     def __init__(self) -> None:
         pass
 
-    def heartbeat(self) -> bool | str:
-        return False
+    def heartbeat(self) -> None:
+        pass
 
     def start_managed_threads(
         self, start_managed_thread: Callable[[str, Callable], None]

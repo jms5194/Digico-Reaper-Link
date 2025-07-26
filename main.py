@@ -187,7 +187,7 @@ class MainPanel(wx.Panel):
 
     def configuretimers(self):
         # Builds a 5-second non-blocking timer for console response timeout.
-        # Calls self.digico_disconnected if timer runs out.
+        # Calls self.console_disconnected if timer runs out.
         with self.timer_lock:
             def safe_timer_config():
                 if self.DigicoTimer and self.DigicoTimer.IsRunning():
