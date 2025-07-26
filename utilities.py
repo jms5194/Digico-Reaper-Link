@@ -480,7 +480,7 @@ class ReaperDigicoOSCBridge:
             self.console_client.send_message(OSCAddress, [*args])
 
     def console_type_and_connected_check(self):
-        if isinstance(self.console, Console):
+        if isinstance(self.console, Console) and not isinstance(self.console, Digico):
             heartbeat=self.console.heartbeat()
             if isinstance(heartbeat,str):
                 pub.sendMessage("console_connected", consolename=heartbeat)
