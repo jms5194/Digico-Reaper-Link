@@ -3,6 +3,6 @@
 /venv/
 /venv2/
 /.idea/
-/__pycache__/
+__pycache__/
 .DS_Store
 /venv4/
