@@ -386,17 +386,12 @@ class ReaperDigicoOSCBridge:
     # Console Functions:
 
     def console_type_and_connected_check(self):
-        if isinstance(self.console, Console) and not isinstance(self.console, DiGiCo):
+        if isinstance(self.console, Console):
             heartbeat=self.console.heartbeat()
             if isinstance(heartbeat,str):
                 pub.sendMessage("console_connected", consolename=heartbeat)
             elif heartbeat:
                 pub.sendMessage("console_connected", consolename="Connected")
-        else:
-            # Asks the console for its name. This forms the heartbeat function of the UI
-            with self.console_send_lock:
-                assert isinstance(self.console_client, udp_client.UDPClient)
-                self.console_client.send_message("/Console/Name/?", None)
 
 
     def heartbeat_loop(self):

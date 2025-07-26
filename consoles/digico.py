@@ -231,3 +231,10 @@ class DiGiCo(Console):
                 self.repeater_client.send_message(OSCAddress, [*args])
             except Exception as e:
                 logger.error(f"Forwarder error: {e}")
+    
+    def heartbeat(self) -> bool:
+        # TODO: fix return value 
+        with self.console_send_lock:
+            assert isinstance(self.console_client, udp_client.UDPClient)
+            self.console_client.send_message("/Console/Name/?", None)
+        return True
