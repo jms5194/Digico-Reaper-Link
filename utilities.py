@@ -1,22 +1,27 @@
-import threading
-import os.path
 import configparser
-from configupdater import ConfigUpdater
+import ipaddress
+import os.path
+import socket
+import threading
+import time
+from typing import Callable
+
 import appdirs
-from pythonosc import udp_client
-from pythonosc import dispatcher
-from pythonosc import osc_server
+import psutil
+import wx
+from configupdater import ConfigUpdater
+from pubsub import pub
+from pythonosc import dispatcher, osc_server, udp_client
 from pythonosc.dispatcher import Dispatcher
 from pythonosc.osc_server import ThreadingOSCUDPServer
-import socket
-import psutil
-from app_settings import settings
-import time
-from pubsub import pub
+
 import configure_reaper
-import ipaddress
-import wx
+from app_settings import settings
+from consoles.console import Console
+from consoles.digico import Digico
+from consoles.studervista import StuderVista
 from logger_config import logger
+
 
 class RawMessageDispatcher(Dispatcher):
     def handle_error(self, OSCAddress, *args):
@@ -82,12 +87,13 @@ class ManagedThread(threading.Thread):
 
 
 class ReaperDigicoOSCBridge:
+    _console: Console
 
     def __init__(self):
         logger.info("Initializing ReaperDigicoOSCBridge")
         self.repeater_osc_thread = None
         self.reaper_osc_thread = None
-        self.digico_osc_thread = None
+        self.console_connection_thread = None
         self.digico_dispatcher = None
         self.reaper_dispatcher = None
         self.repeater_dispatcher = None
@@ -111,6 +117,8 @@ class ReaperDigicoOSCBridge:
         self.console_name_event = threading.Event()
         self.reaper_send_lock = threading.Lock()
         self.console_send_lock = threading.Lock()
+        self._console = Console()
+        pub.subscribe(self.handle_cue_load, "handle_cue_load")
 
     def where_to_put_user_data(self):
         # Find a home for our preferences file
@@ -163,6 +171,7 @@ class ReaperDigicoOSCBridge:
         config["main"]["window_size_x"] = "221"
         config["main"]["window_size_y"] = "310"
         config["main"]["name_only_match"] = "False"
+        config["main"]["console_type"] = Digico.type
 
         with open(location_of_ini, "w") as configfile:
             config.write(configfile)
@@ -175,8 +184,20 @@ class ReaperDigicoOSCBridge:
             time.sleep(0.1)
         self.set_vars_from_pref(self.ini_prefs)
 
-    def update_configuration(self, con_ip, rptr_ip, con_send, con_rcv, fwd_enable, rpr_send, rpr_rcv,
-                             rptr_snd, rptr_rcv, name_only):
+    def update_configuration(
+        self,
+        con_ip,
+        rptr_ip,
+        con_send,
+        con_rcv,
+        fwd_enable,
+        rpr_send,
+        rpr_rcv,
+        rptr_snd,
+        rptr_rcv,
+        name_only,
+        console_type,
+    ):
         # Given new values from the GUI, update the config file and restart the OSC Server
         logger.info("Updating configuration file")
         updater = ConfigUpdater()
@@ -192,6 +213,7 @@ class ReaperDigicoOSCBridge:
             updater["main"]["default_repeater_receive_port"] = str(rptr_rcv)
             updater["main"]["forwarder_enabled"] = str(fwd_enable)
             updater["main"]["name_only_match"] = str(name_only)
+            updater["main"]["console_type"] = str(console_type)
         except Exception as e:
             logger.error(f"Failed to update config file: {e}")
         updater.update_file()
@@ -248,7 +270,7 @@ class ReaperDigicoOSCBridge:
             pub.sendMessage('reaper_error', reapererror=e)
             return False
 
-    def start_managed_thread(self, attr_name, target):
+    def start_managed_thread(self, attr_name: str, target: Callable) -> None:
         # Start a ManagedThread that can be signaled to stop
         thread = ManagedThread(target=target, daemon=True)
         setattr(self, attr_name, thread)
@@ -257,11 +279,30 @@ class ReaperDigicoOSCBridge:
     def start_threads(self):
         # Start all OSC server threads
         logger.info("Starting OSC Server threads")
-        self.start_managed_thread('digico_osc_thread', self.build_digico_osc_servers)
-        self.start_managed_thread('reaper_osc_thread', self.build_reaper_osc_servers)
-        if settings.forwarder_enabled == "True":
-            self.start_managed_thread('repeater_osc_thread', self.build_repeater_osc_servers)
-        self.start_managed_thread('heartbeat_thread', self.heartbeat_loop)
+        self.start_managed_thread("reaper_osc_thread", self.build_reaper_osc_servers)
+        self.start_managed_thread("heartbeat_thread", self.heartbeat_loop)
+        if settings.console_type == Digico.type:
+            logger.info("Starting OSC Server threads")
+            self.start_managed_thread(
+                "console_connection_thread", self.build_digico_osc_servers
+            )
+            if settings.forwarder_enabled == "True":
+                self.start_managed_thread(
+                    "repeater_osc_thread", self.build_repeater_osc_servers
+                )
+            self.console = Digico()
+        elif settings.console_type == StuderVista.type:
+            self.console = StuderVista()
+            self.console.start_managed_threads(self.start_managed_thread)
+
+    @property
+    def console(self) -> Console:
+        return self._console
+
+    @console.setter
+    def console(self, value: Console) -> None:
+        self._console = value
+        pub.sendMessage("console_type_updated", console=value)
 
     def build_digico_osc_servers(self):
         # Connect to the Digico console
@@ -439,9 +480,17 @@ class ReaperDigicoOSCBridge:
             self.console_client.send_message(OSCAddress, [*args])
 
     def console_type_and_connected_check(self):
-        # Asks the console for its name. This forms the heartbeat function of the UI
-        with self.console_send_lock:
-            self.console_client.send_message("/Console/Name/?", None)
+        if isinstance(self.console, Console):
+            heartbeat=self.console.heartbeat()
+            if isinstance(heartbeat,str):
+                pub.sendMessage("console_connected", consolename=heartbeat)
+            elif heartbeat:
+                pub.sendMessage("console_connected", consolename="Connected")
+        else:
+            # Asks the console for its name. This forms the heartbeat function of the UI
+            with self.console_send_lock:
+                assert isinstance(self.console_client, udp_client.UDPClient)
+                self.console_client.send_message("/Console/Name/?", None)
 
     def console_name_handler(self, OSCAddress, ConsoleName):
         # Receives the console name response and updates the UI.
@@ -451,7 +500,7 @@ class ReaperDigicoOSCBridge:
             except Exception as e:
                 logger.error(f"Console name cannot be repeated: {e}")
         try:
-            wx.CallAfter(pub.sendMessage, "console_name", consolename=ConsoleName)
+            wx.CallAfter(pub.sendMessage, "console_connected", consolename=ConsoleName)
         except Exception as e:
             logger.error(f"Console Name Handler Error: {e}")
 
@@ -531,12 +580,14 @@ class ReaperDigicoOSCBridge:
                 logger.error(f"Snapshot cue number cannot be repeated: {e}")
         cue_name = args[3]
         cue_number = str(args[1] / 100)
+        self.handle_cue_load(cue_number + " " + cue_name)
+
+    def handle_cue_load(self, cue: str) -> None:
         if settings.marker_mode == "Recording" and self.is_recording is True:
             self.place_marker_at_current()
-            self.update_last_marker_name(cue_number + " " + cue_name)
+            self.update_last_marker_name(cue)
         elif settings.marker_mode == "PlaybackTrack" and self.is_playing is False:
-            self.get_marker_id_by_name(cue_number + " " + cue_name)
-
+            self.get_marker_id_by_name(cue)
 
     def process_transport_macros(self, transport):
         try:
@@ -563,7 +614,12 @@ class ReaperDigicoOSCBridge:
 
     def stop_all_threads(self):
         logger.info("Stopping all threads")
-        for attr in ['digico_osc_thread', 'reaper_osc_thread', 'repeater_osc_thread', 'heartbeat_thread']:
+        for attr in [
+            "console_connection_thread",
+            "reaper_osc_thread",
+            "repeater_osc_thread",
+            "heartbeat_thread",
+        ]:
             thread = getattr(self, attr, None)
             if thread and isinstance(thread, ManagedThread):
                 thread.stop()

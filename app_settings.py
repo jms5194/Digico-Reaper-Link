@@ -1,4 +1,5 @@
 import threading
+from consoles.digico import Digico
 
 class ThreadSafeSettings:
     def __init__(self):
@@ -17,7 +18,8 @@ class ThreadSafeSettings:
             'marker_mode' : "PlaybackTrack",
             'window_loc' : (400, 222),
             'window_size' : (221, 310),
-            'name_only_match' : False
+            'name_only_match' : False,
+            'console_type': Digico.type
         }
 
     @property
@@ -178,6 +180,16 @@ class ThreadSafeSettings:
         with self._lock:
             self._settings['name_only_match'] = value
 
+    @property
+    def console_type(self):
+        with self._lock:
+            return self._settings["console_type"]
+
+    @console_type.setter
+    def console_type(self, value):
+        with self._lock:
+            self._settings["console_type"] = value
+
     def update_from_config(self, config):
         # Update settings from a ConfigParser object
         with self._lock:
@@ -199,10 +211,8 @@ class ThreadSafeSettings:
                     int(config["main"]["window_size_x"]),
                     int(config["main"]["window_size_y"])
                 ),
-                'name_only_match' : config["main"]["name_only_match"]
+                'name_only_match' : config["main"]["name_only_match"],
+                'console_type': config["main"]["console_type"]
             })
 
 settings = ThreadSafeSettings()
-
-
-

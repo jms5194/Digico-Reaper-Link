@@ -1,11 +1,15 @@
+import ipaddress
 import threading
 
 import wx
-import ipaddress
-from app_settings import settings
-from utilities import ReaperDigicoOSCBridge
 from pubsub import pub
+
+from app_settings import settings
+from consoles.console import Console
+from consoles.digico import Digico
+from consoles.studervista import StuderVista
 from logger_config import logger
+from utilities import ReaperDigicoOSCBridge
 
 
 class MainWindow(wx.Frame):
@@ -75,7 +79,7 @@ class MainPanel(wx.Panel):
     def __init__(self, parent):
         logger.info("Initializing main panel")
         wx.Panel.__init__(self, parent)
-        self.DigicoTimer = None
+        self.DigicoTimer: wx.CallLater | None = None
         panel_sizer = wx.BoxSizer(wx.VERTICAL)
         # Font Definitions
         header_font = wx.Font(20, family=wx.FONTFAMILY_SWISS, style=0, weight=wx.FONTWEIGHT_BOLD,
@@ -105,10 +109,10 @@ class MainPanel(wx.Panel):
 
         connected_grid = wx.GridSizer(3, 1, 5, 5)
 
-        digico_con_label = wx.StaticText(self)
-        digico_con_label.SetLabel("Digico")
-        digico_con_label.SetFont(sub_header2_font)
-        connected_grid.Add(digico_con_label, flag=wx.ALIGN_CENTER_HORIZONTAL)
+        self.console_type_connection_label = wx.StaticText(self)
+        self.console_type_connection_label.SetLabel(MainWindow.BridgeFunctions.console.type)
+        self.console_type_connection_label.SetFont(sub_header2_font)
+        connected_grid.Add(self.console_type_connection_label, flag=wx.ALIGN_CENTER_HORIZONTAL)
 
         self.digico_connected = wx.TextCtrl(self, size=wx.Size(100, -1), style=wx.TE_CENTER)
         self.digico_connected.SetLabel("N/C")
@@ -141,7 +145,9 @@ class MainPanel(wx.Panel):
         self.Bind(wx.EVT_RADIOBUTTON, self.trackmode, self.track_button_cntl)
         self.Bind(wx.EVT_RADIOBUTTON, self.notrackmode, self.notrack_button_cntl)
         # Subscribing to the OSC response for console name to reset the timeout timer
-        pub.subscribe(self.digico_connected_listener, "console_name")
+        pub.subscribe(self.console_connected, "console_connected")
+        pub.subscribe(self.console_disconnected, "console_disconnected")
+        pub.subscribe(self.console_type_updated, "console_type_updated")
         pub.subscribe(self.reaper_disconnected_listener, "reaper_error")
         pub.subscribe(self.callforreaperrestart, "reset_reaper")
         pub.subscribe(self.update_mode_select_gui_from_osc, "mode_select_osc")
@@ -188,12 +194,15 @@ class MainPanel(wx.Panel):
             def safe_timer_config():
                 if self.DigicoTimer and self.DigicoTimer.IsRunning():
                     self.DigicoTimer.Stop()
-                self.DigicoTimer = wx.CallLater(5000, self.digico_disconnected)
+                self.DigicoTimer = wx.CallLater(5000, self.console_disconnected)
                 self.DigicoTimer.Start()
             wx.CallAfter(safe_timer_config)
 
-    def digico_connected_listener(self, consolename, arg2=None):
-        if self.DigicoTimer.IsRunning():
+    def console_type_updated(self, console: Console) -> None:
+        wx.CallAfter(self.console_type_connection_label.SetLabel, console.type)
+
+    def console_connected(self, consolename):
+        if isinstance(self.DigicoTimer, wx.CallLater) and self.DigicoTimer.IsRunning():
             # When a response is received from the console, reset the timeout timer if running
             wx.CallAfter(self.DigicoTimer.Stop)
             # Update the UI to reflect the connected status
@@ -211,7 +220,7 @@ class MainPanel(wx.Panel):
             self.configuretimers()
 
 
-    def digico_disconnected(self):
+    def console_disconnected(self):
         # If timer runs out without being reset, update the UI to N/C
         logger.info("Digico timer ran out. Updating UI to N/C.")
         wx.CallAfter(self.digico_connected.SetLabel,"N/C")
@@ -255,7 +264,9 @@ class MainPanel(wx.Panel):
                                                         rpr_send=settings.reaper_port,
                                                         rpr_rcv=settings.reaper_receive_port,
                                                         rptr_snd=settings.repeater_port,
-                                                        rptr_rcv=settings.repeater_receive_port)
+                                                        rptr_rcv=settings.repeater_receive_port,
+                                                        name_only=settings.name_only_match,
+                                                        console_type=settings.console_type)
 
 
 class PrefsWindow(wx.Frame):
@@ -327,6 +338,19 @@ class PrefsPanel(wx.Panel):
         self.mode_match_name_radio.SetValue(settings.name_only_match == "True")
         panel_sizer.Add(match_mode_radio_grid, 0, wx.ALL | wx.EXPAND, 5)
 
+        # Console model radio buttons
+        console_model_text = wx.StaticText(self, label="Console Model", style=wx.ALIGN_CENTER)
+        console_model_text.SetFont(header_font)
+        panel_sizer.Add(console_model_text, 0, wx.ALL | wx.EXPAND, 5)
+        console_model_radio_grid = wx.GridSizer(1,2,0,0)
+        self.console_model_radio_digico = wx.RadioButton(self, label="Digico", style=wx.RB_GROUP)
+        console_model_radio_grid.Add(self.console_model_radio_digico, 0, wx.ALL | wx.EXPAND, 5)
+        self.console_model_radio_digico.SetValue(isinstance(MainWindow.BridgeFunctions.console, Digico) | (MainWindow.BridgeFunctions.console is None))
+        self.console_model_radio_studer = wx.RadioButton(self, label="Studer Vista")
+        console_model_radio_grid.Add(self.console_model_radio_studer, 0, wx.ALL | wx.EXPAND, 5)
+        self.console_model_radio_studer.SetValue(isinstance(MainWindow.BridgeFunctions.console, StuderVista))
+        panel_sizer.Add(console_model_radio_grid, 0, wx.ALL | wx.EXPAND, 5)
+          
         # OSC Repeater Label
         osc_repeater_text = wx.StaticText(self, label="OSC Repeater", style=wx.ALIGN_CENTER)
         osc_repeater_text.SetFont(header_font)
@@ -403,6 +427,10 @@ class PrefsPanel(wx.Panel):
                 settings.forwarder_enabled = "True"
             elif self.repeater_radio_enabled.GetValue() is False:
                 settings.forwarder_enabled = "False"
+            if self.console_model_radio_digico.GetValue() is True:
+                settings.console_type = Digico.type
+            elif self.console_model_radio_studer.GetValue():
+                settings.console_type = StuderVista.type
             # Force a close/reconnect of the OSC servers by pushing the configuration update.
             MainWindow.BridgeFunctions.update_configuration(con_ip=settings.console_ip,
                                                             rptr_ip=settings.repeater_ip, con_send=settings.console_port,
@@ -412,7 +440,8 @@ class PrefsPanel(wx.Panel):
                                                             rpr_rcv=settings.reaper_receive_port,
                                                             rptr_snd=settings.repeater_port,
                                                             rptr_rcv=settings.repeater_receive_port,
-                                                            name_only=settings.name_only_match)
+                                                            name_only=settings.name_only_match,
+                                                            console_type=settings.console_type)
             # Close the preferences window when update is pressed.
             self.Parent.Destroy()
         except Exception as e:
