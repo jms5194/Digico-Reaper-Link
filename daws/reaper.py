@@ -87,7 +87,7 @@ class Reaper(Daw):
         from app_settings import settings
         address_split = OSCAddress.split("/")
         marker_id = address_split[2]
-        if settings.name_only_match == "True":
+        if settings.name_only_match:
             test_name = test_name.split(" ")
             test_name = test_name[1:]
             test_name = " ".join(test_name)
@@ -135,7 +135,7 @@ class Reaper(Daw):
         from app_settings import settings
         if self.is_playing is False:
             self.name_to_match = name
-        if settings.name_only_match == "True":
+        if settings.name_only_match:
             self.name_to_match = self.name_to_match.split(" ")
             self.name_to_match = self.name_to_match[1:]
             self.name_to_match = " ".join(self.name_to_match)

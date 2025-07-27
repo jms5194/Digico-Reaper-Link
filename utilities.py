@@ -77,16 +77,12 @@ class DawConsoleBridge:
         self.ini_prefs = self.config_dir + "/settingsV3.ini"
 
     def check_configuration(self):
-        # Checking if a .ini config already exists for this app, if not call
-        # build_initial_ini
+        # Load an existing configuration file, if one exists
         try:
             if os.path.isfile(self.ini_prefs):
                 self.set_vars_from_pref(self.ini_prefs)
-            else:
-                self.build_initial_ini(self.ini_prefs)
         except Exception as e:
             logger.error(f"Failed to check/initialize config file: {e}")
-            self.build_initial_ini(self.ini_prefs)
 
     @staticmethod
     def set_vars_from_pref(config_file_loc):
@@ -95,40 +91,6 @@ class DawConsoleBridge:
         config = configparser.ConfigParser()
         config.read(config_file_loc)
         settings.update_from_config(config)
-
-    def build_initial_ini(self, location_of_ini):
-        # Builds a .ini configuration file with default settings.
-        # What should our defaults be? All zeros? Something technically valid?
-        logger.info("Building initial .ini config file")
-        config = configparser.ConfigParser()
-        config["main"] = {}
-        config["main"]["default_ip"] = "10.10.13.10"
-        config["main"]["repeater_ip"] = "10.10.13.11"
-        config["main"]["default_digico_send_port"] = "8001"
-        config["main"]["default_digico_receive_port"] = "8000"
-        config["main"]["default_reaper_send_port"] = "49102"
-        config["main"]["default_reaper_receive_port"] = "49101"
-        config["main"]["default_repeater_send_port"] = "9999"
-        config["main"]["default_repeater_receive_port"] = "9998"
-        config["main"]["forwarder_enabled"] = "False"
-        config["main"]["window_pos_x"] = "400"
-        config["main"]["window_pos_y"] = "222"
-        config["main"]["window_size_x"] = "221"
-        config["main"]["window_size_y"] = "310"
-        config["main"]["name_only_match"] = "False"
-        config["main"]["console_type"] = DiGiCo.type
-        config["main"]["daw_type"] = Reaper.type
-
-        with open(location_of_ini, "w") as configfile:
-            config.write(configfile)
-        timeout = 2
-        start_time = time.time()
-        # Check to make sure the config file has been created before moving on.
-        while not os.path.isfile(location_of_ini):
-            if time.time() - start_time > timeout:
-                raise TimeoutError(f"Failed to create config file at {location_of_ini}")
-            time.sleep(0.1)
-        self.set_vars_from_pref(self.ini_prefs)
 
     def update_configuration(
         self,
@@ -150,6 +112,9 @@ class DawConsoleBridge:
         updater = ConfigUpdater()
         updater.read(self.ini_prefs)
         try:
+            if not updater.has_section('main'):
+                print("Adding main section")
+                updater.add_section('main')
             updater["main"]["default_ip"] = con_ip
             updater["main"]["repeater_ip"] = rptr_ip
             updater["main"]["default_digico_send_port"] = str(con_send)
@@ -176,8 +141,8 @@ class DawConsoleBridge:
         updater = ConfigUpdater()
         updater.read(self.ini_prefs)
         try:
-            updater["main"]["window_pos_x"] = str(win_pos_tuple[0])
-            updater["main"]["window_pos_y"] = str(win_pos_tuple[1])
+            updater.set("main", "window_pos_x", str(win_pos_tuple[0]))
+            updater.set("main", "window_pos_y", str(win_pos_tuple[1]))
         except Exception as e:
             logger.error(f"Failed to update window position in config file: {e}")
         updater.update_file()

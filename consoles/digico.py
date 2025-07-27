@@ -76,7 +76,7 @@ class DiGiCo(Console):
         start_managed_thread(
             "console_connection_thread", self._build_digico_osc_servers
         )
-        if settings.forwarder_enabled == "True":
+        if settings.forwarder_enabled:
             start_managed_thread(
                 "repeater_osc_thread", self._build_repeater_osc_servers
             )
@@ -141,7 +141,7 @@ class DiGiCo(Console):
     def _console_name_handler(self, OSCAddress: str, console_name: str):
         # Receives the console name response and updates the UI.
         from app_settings import settings
-        if settings.forwarder_enabled == "True":
+        if settings.forwarder_enabled:
             try:
                 self.repeater_client.send_message(OSCAddress, console_name)
             except Exception as e:
@@ -154,7 +154,7 @@ class DiGiCo(Console):
     def _request_snapshot_info(self, OSCAddress: str, *args):
         # Receives the OSC for the Current Snapshot Number and uses that to request the cue number/name
         from app_settings import settings
-        if settings.forwarder_enabled == "True":
+        if settings.forwarder_enabled:
             try:
                 self.repeater_client.send_message(OSCAddress, *args)
             except Exception as e:
@@ -173,7 +173,7 @@ class DiGiCo(Console):
     def _macro_name_handler(self, OSCAddress: str, *args):
         #If macros match names, then send behavior to Reaper
         from app_settings import settings
-        if settings.forwarder_enabled == "True":
+        if settings.forwarder_enabled:
             try:
                 self.repeater_client.send_message(OSCAddress, [*args])
             except Exception as e:
@@ -212,7 +212,7 @@ class DiGiCo(Console):
     def snapshot_OSC_handler(self, OSCAddress: str, *args):
         # Processes the current cue number
         from app_settings import settings
-        if settings.forwarder_enabled == "True":
+        if settings.forwarder_enabled:
             try:
                 self.repeater_client.send_message(OSCAddress, [*args])
             except Exception as e:
@@ -229,7 +229,7 @@ class DiGiCo(Console):
 
     def _forward_OSC(self, OSCAddress: str, *args):
         from app_settings import settings
-        if settings.forwarder_enabled == "True":
+        if settings.forwarder_enabled:
             try:
                 self.repeater_client.send_message(OSCAddress, [*args])
             except Exception as e:
