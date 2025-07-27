@@ -333,7 +333,7 @@ class PrefsPanel(wx.Panel):
         self.mode_match_all_radio.SetValue(not settings.name_only_match)
         self.mode_match_name_radio = wx.RadioButton(self, label="Name Only")
         match_mode_radio_grid.Add(self.mode_match_name_radio, 0, wx.ALL | wx.EXPAND, 5)
-        self.mode_match_name_radio.SetValue(settings.name_only_match == "True")
+        self.mode_match_name_radio.SetValue(settings.name_only_match)
         panel_sizer.Add(match_mode_radio_grid, 0, wx.ALL | wx.EXPAND, 5)
 
         # Console type radio box
