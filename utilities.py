@@ -8,16 +8,15 @@ from typing import Callable
 
 import appdirs
 import psutil
-import wx
 from configupdater import ConfigUpdater
 from pubsub import pub
 from pythonosc import dispatcher, osc_server, udp_client
-from pythonosc.dispatcher import Dispatcher
-from pythonosc.osc_server import ThreadingOSCUDPServer
+
 
 import configure_reaper
 from app_settings import settings
 from consoles import Console, DiGiCo, StuderVista
+from daws import Daw, Reaper, ProTools
 from logger_config import logger
 
 
@@ -74,20 +73,15 @@ class ReaperDigicoOSCBridge:
         self.requested_macro_num = None
         self.requested_snapshot_number = None
         self.snapshot_ignore_flag = False
-        self.name_to_match = ""
-        self.is_playing = False
-        self.is_recording = False
         self.ini_prefs = ""
         self.config_dir = ""
         self.lock = threading.Lock()
         self.where_to_put_user_data()
         self.check_configuration()
         self.console_name_event = threading.Event()
-        self.reaper_send_lock = threading.Lock()
         self._console = Console()
-        pub.subscribe(self.handle_cue_load, "handle_cue_load")
-        pub.subscribe(self.place_marker_with_name, "place_marker_with_name")
-        pub.subscribe(self.incoming_transport_action, "incoming_transport_action")
+        self._daw = Daw()
+
 
     def where_to_put_user_data(self):
         # Find a home for our preferences file
@@ -141,6 +135,7 @@ class ReaperDigicoOSCBridge:
         config["main"]["window_size_y"] = "310"
         config["main"]["name_only_match"] = "False"
         config["main"]["console_type"] = DiGiCo.type
+        config["main"]["daw_type"] = Reaper.type
 
         with open(location_of_ini, "w") as configfile:
             config.write(configfile)
@@ -166,6 +161,7 @@ class ReaperDigicoOSCBridge:
         rptr_rcv,
         name_only,
         console_type,
+        daw_type
     ):
         # Given new values from the GUI, update the config file and restart the OSC Server
         logger.info("Updating configuration file")
@@ -183,6 +179,7 @@ class ReaperDigicoOSCBridge:
             updater["main"]["forwarder_enabled"] = str(fwd_enable)
             updater["main"]["name_only_match"] = str(name_only)
             updater["main"]["console_type"] = str(console_type)
+            updater["main"]["daw_type"] = str(daw_type)
         except Exception as e:
             logger.error(f"Failed to update config file: {e}")
         updater.update_file()
@@ -190,18 +187,6 @@ class ReaperDigicoOSCBridge:
         self.close_servers()
         self.restart_servers()
 
-    @staticmethod
-    def CheckReaperPrefs(rpr_rcv, rpr_send):
-        if configure_reaper.osc_interface_exists(configure_reaper.get_resource_path(True), rpr_rcv, rpr_send):
-            logger.info("Reaper OSC interface config already exists")
-            return True
-        else:
-            logger.info("Reaper OSC interface config does not exist")
-            return False
-
-    @staticmethod
-    def AddReaperPrefs(rpr_rcv, rpr_send):
-        configure_reaper.add_OSC_interface(configure_reaper.get_resource_path(True), rpr_rcv, rpr_send)
 
     def update_pos_in_config(self, win_pos_tuple):
         # Receives the position of the window from the UI and stores it in the preferences file
@@ -226,18 +211,6 @@ class ReaperDigicoOSCBridge:
             logger.error(f"Failed to update window size in config file: {e}")
         updater.update_file()
 
-    def ValidateReaperPrefs(self):
-        # If the Reaper .ini file does not contain an entry for Digico-Reaper Link, add one.
-        try:
-            if not self.CheckReaperPrefs(settings.reaper_receive_port, settings.reaper_port):
-                self.AddReaperPrefs(settings.reaper_receive_port, settings.reaper_port)
-                pub.sendMessage("reset_reaper", resetreaper=True)
-            return True
-        except RuntimeError as e:
-            # If reaper is not running, send an error to the UI
-            logger.debug(f"Reaper not running: {e}")
-            pub.sendMessage('reaper_error', reapererror=e)
-            return False
 
     def start_managed_thread(self, attr_name: str, target: Callable) -> None:
         # Start a ManagedThread that can be signaled to stop
@@ -248,7 +221,12 @@ class ReaperDigicoOSCBridge:
     def start_threads(self):
         # Start all OSC server threads
         logger.info("Starting OSC Server threads")
-        self.start_managed_thread("reaper_osc_thread", self.build_reaper_osc_servers)
+        if settings.daw_type == Reaper.type:
+            self.daw = Reaper()
+            self.daw.start_managed_threads(self.start_managed_thread)
+        elif settings.daw_type == ProTools.type:
+            self.daw = ProTools()
+            self.daw.start_managed_threads(self.start_managed_thread)
         self.start_managed_thread("heartbeat_thread", self.heartbeat_loop)
         if settings.console_type == DiGiCo.type:
             self.console = DiGiCo()
@@ -266,122 +244,15 @@ class ReaperDigicoOSCBridge:
         self._console = value
         pub.sendMessage("console_type_updated", console=value)
 
+    @property
+    def daw(self) -> Daw:
+        return self._daw
 
-    def build_reaper_osc_servers(self):
-        # Connect to Reaper via OSC
-        logger.info("Starting Reaper OSC server")
-        self.reaper_client = udp_client.SimpleUDPClient(settings.reaper_ip, settings.reaper_port)
-        self.reaper_dispatcher = dispatcher.Dispatcher()
-        self.receive_reaper_OSC()
-        try:
-            self.reaper_osc_server = osc_server.ThreadingOSCUDPServer(("127.0.0.1", settings.reaper_receive_port),
-                                                                      self.reaper_dispatcher)
-            logger.info("Reaper OSC server started")
-            self.reaper_osc_server.serve_forever()
-        except Exception as e:
-            logger.error(f"Reaper OSC server startup error: {e}")
+    @daw.setter
+    def daw(self, value: Daw) -> None:
+        self._daw = value
+        pub.sendMessage("daw_type_updated", daw=value)
 
-    # Reaper Functions:
-
-    def place_marker_at_current(self):
-        # Uses a reaper OSC action to place a marker at the current timeline spot
-        logger.info("Placing marker at current time")
-        with self.reaper_send_lock:
-            self.reaper_client.send_message("/action", 40157)
-
-    def update_last_marker_name(self, name):
-        with self.reaper_send_lock:
-            self.reaper_client.send_message("/lastmarker/name", name)
-
-    def place_marker_with_name(self, marker_name):
-        with self.reaper_send_lock:
-            self.reaper_client.send_message("/action", 40157)
-            self.reaper_client.send_message("/lastmarker/name", marker_name)
-
-    def get_marker_id_by_name(self, name):
-        # Asks for current marker information based upon number of markers.
-        if self.is_playing is False:
-            self.name_to_match = name
-        if settings.name_only_match == "True":
-            self.name_to_match = self.name_to_match.split(" ")
-            self.name_to_match = self.name_to_match[1:]
-            self.name_to_match = " ".join(self.name_to_match)
-        with self.reaper_send_lock:
-            self.reaper_client.send_message("/device/marker/count", 0)
-            # Is there a better way to handle this in OSC only? Max of 512 markers.
-            self.reaper_client.send_message("/device/marker/count", 512)
-
-    def marker_matcher(self, OSCAddress, test_name):
-        # Matches a marker composite name with its Reaper ID
-        address_split = OSCAddress.split("/")
-        marker_id = address_split[2]
-        if settings.name_only_match == "True":
-            test_name = test_name.split(" ")
-            test_name = test_name[1:]
-            test_name = " ".join(test_name)
-        if test_name == self.name_to_match:
-            self.goto_marker_by_id(marker_id)
-
-    def goto_marker_by_id(self, marker_id):
-        with self.reaper_send_lock:
-            self.reaper_client.send_message("/marker", int(marker_id))
-
-    def current_transport_state(self, OSCAddress, val):
-        # Watches what the Reaper playhead is doing.
-        playing = None
-        recording = None
-        if OSCAddress == "/play":
-            if val == 0:
-                playing = False
-            elif val == 1:
-                playing = True
-        elif OSCAddress == "/record":
-            if val == 0:
-                recording = False
-            elif val == 1:
-                recording = True
-        if playing is True:
-            self.is_playing = True
-            logger.info("Reaper is playing")
-        elif playing is False:
-            self.is_playing = False
-            logger.info("Reaper is not playing")
-        if recording is True:
-            self.is_recording = True
-            logger.info("Reaper is recording")
-        elif recording is False:
-            self.is_recording = False
-            logger.info("Reaper is not recording")
-
-    def incoming_transport_action(self, transport_action):
-        if transport_action == "play":
-            self.reaper_play()
-        elif transport_action == "stop":
-            self.reaper_stop()
-        elif transport_action == "rec":
-            self.reaper_rec()
-
-    def reaper_play(self):
-        with self.reaper_send_lock:
-            self.reaper_client.send_message("/action", 1007)
-
-    def reaper_stop(self):
-        with self.reaper_send_lock:
-            self.reaper_client.send_message("/action", 1016)
-
-    def reaper_rec(self):
-        # Sends action to skip to end of project and then record, to prevent overwrites
-        settings.marker_mode = "Recording"
-        pub.sendMessage("mode_select_osc", selected_mode="Recording")
-        with self.reaper_send_lock:
-            self.reaper_client.send_message("/action", 40043)
-            self.reaper_client.send_message("/action", 1013)
-
-    def receive_reaper_OSC(self):
-        # Receives and distributes OSC from Reaper, based on matching OSC values
-        self.reaper_dispatcher.map("/marker/*/name", self.marker_matcher)
-        self.reaper_dispatcher.map("/play", self.current_transport_state)
-        self.reaper_dispatcher.map("/record", self.current_transport_state)
 
     # Console Functions:
 
@@ -396,24 +267,6 @@ class ReaperDigicoOSCBridge:
                 logger.error(f"Heartbeat loop error: {e}")
                 pub.sendMessage("console_disconnected")
             time.sleep(3)
-
-    def handle_cue_load(self, cue: str) -> None:
-        if settings.marker_mode == "Recording" and self.is_recording is True:
-            self.place_marker_at_current()
-            self.update_last_marker_name(cue)
-        elif settings.marker_mode == "PlaybackTrack" and self.is_playing is False:
-            self.get_marker_id_by_name(cue)
-
-    def process_transport_macros(self, transport):
-        try:
-            if transport == "play":
-                self.reaper_play()
-            elif transport == "stop":
-                self.reaper_stop()
-            elif transport == "rec":
-                self.reaper_rec()
-        except Exception as e:
-            logger.error(f"Could not process transport macro: {e}")
 
 
     def stop_all_threads(self):

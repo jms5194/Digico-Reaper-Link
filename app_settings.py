@@ -1,5 +1,6 @@
 import threading
 from consoles import DiGiCo
+from daws import Reaper
 
 class ThreadSafeSettings:
     def __init__(self):
@@ -19,7 +20,8 @@ class ThreadSafeSettings:
             'window_loc' : (400, 222),
             'window_size' : (221, 310),
             'name_only_match' : False,
-            'console_type': DiGiCo.type
+            'console_type': DiGiCo.type,
+            'daw_type' : Reaper.type
         }
 
     @property
@@ -190,6 +192,16 @@ class ThreadSafeSettings:
         with self._lock:
             self._settings["console_type"] = value
 
+    @property
+    def daw_type(self):
+        with self._lock:
+            return self._settings["daw_type"]
+
+    @daw_type.setter
+    def daw_type(self, value):
+        with self._lock:
+            self._settings["daw_type"] = value
+
     def update_from_config(self, config):
         # Update settings from a ConfigParser object
         with self._lock:
@@ -212,7 +224,8 @@ class ThreadSafeSettings:
                     int(config["main"]["window_size_y"])
                 ),
                 'name_only_match' : config["main"]["name_only_match"],
-                'console_type': config["main"]["console_type"]
+                'console_type': config["main"]["console_type"],
+                'daw_type' : config["main"]["daw_type"]
             })
 
 settings = ThreadSafeSettings()

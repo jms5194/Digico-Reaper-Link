@@ -10,7 +10,7 @@ import wx
 import threading
 
 class RawMessageDispatcher(Dispatcher):
-    def handle_error(self, OSCAddress, *args):
+    def handle_error(self, OSCAddress: str, *args):
         # Handles malformed OSC messages and forwards on to console
         logger.debug(f"Received malformed OSC message at address: {OSCAddress}")
         try:
@@ -130,25 +130,25 @@ class DiGiCo(Console):
         self.digico_dispatcher.map("/Console/Name", self._console_name_handler)
         self.digico_dispatcher.set_default_handler(self._forward_OSC)
 
-    def send_to_console(self, OSCAddress, *args):
+    def send_to_console(self, OSCAddress: str, *args):
         # Send an OSC message to the console
         with self.console_send_lock:
             self.console_client.send_message(OSCAddress, [*args])
 
-    def _console_name_handler(self, OSCAddress, ConsoleName):
+    def _console_name_handler(self, OSCAddress: str, console_name: str):
         # Receives the console name response and updates the UI.
         from app_settings import settings
         if settings.forwarder_enabled == "True":
             try:
-                self.repeater_client.send_message(OSCAddress, ConsoleName)
+                self.repeater_client.send_message(OSCAddress, console_name)
             except Exception as e:
                 logger.error(f"Console name cannot be repeated: {e}")
         try:
-            wx.CallAfter(pub.sendMessage, "console_connected", consolename=ConsoleName)
+            wx.CallAfter(pub.sendMessage, "console_connected", consolename=console_name)
         except Exception as e:
             logger.error(f"Console Name Handler Error: {e}")
 
-    def _request_snapshot_info(self, OSCAddress, *args):
+    def _request_snapshot_info(self, OSCAddress: str, *args):
         # Receives the OSC for the Current Snapshot Number and uses that to request the cue number/name
         from app_settings import settings
         if settings.forwarder_enabled == "True":
@@ -157,17 +157,17 @@ class DiGiCo(Console):
             except Exception as e:
                 logger.error(f"Snapshot info cannot be repeated: {e}")
         logger.info("Requested snapshot info")
-        CurrentSnapshotNumber = int(OSCAddress.split("/")[3])
+        current_snapshot_number = int(OSCAddress.split("/")[3])
         with self.console_send_lock:
-            self.console_client.send_message("/Snapshots/name/?", CurrentSnapshotNumber)
+            self.console_client.send_message("/Snapshots/name/?", current_snapshot_number)
 
-    def _request_macro_info(self, OSCAddress, pressed):
+    def _request_macro_info(self, OSCAddress: str, pressed):
         # When a Macro is pressed, request the name of the macro
         self.requested_macro_num = OSCAddress.split("/")[3]
         with self.console_send_lock:
             self.console_client.send_message("/Macros/name/?", int(self.requested_macro_num))
 
-    def _macro_name_handler(self, OSCAddress, *args):
+    def _macro_name_handler(self, OSCAddress: str, *args):
         #If macros match names, then send behavior to Reaper
         from app_settings import settings
         if settings.forwarder_enabled == "True":
@@ -202,11 +202,11 @@ class DiGiCo(Console):
                     pub.sendMessage("mode_select_osc", selected_mode="PlaybackNoTrack")
             self.requested_macro_num = None
 
-    def process_marker_macro(self):
+    @staticmethod
+    def process_marker_macro():
         pub.sendMessage("place_marker_with_name", marker_name="Marker from Console")
 
-
-    def snapshot_OSC_handler(self, OSCAddress, *args):
+    def snapshot_OSC_handler(self, OSCAddress: str, *args):
         # Processes the current cue number
         from app_settings import settings
         if settings.forwarder_enabled == "True":
@@ -224,7 +224,7 @@ class DiGiCo(Console):
     def _receive_repeater_OSC(self):
         self.repeater_dispatcher.set_default_handler(self.send_to_console)
 
-    def _forward_OSC(self, OSCAddress, *args):
+    def _forward_OSC(self, OSCAddress: str, *args):
         from app_settings import settings
         if settings.forwarder_enabled == "True":
             try:

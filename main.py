@@ -6,6 +6,7 @@ from pubsub import pub
 
 from app_settings import settings
 from consoles import Console
+from daws import Daw
 from logger_config import logger
 from utilities import ReaperDigicoOSCBridge
 
@@ -149,8 +150,7 @@ class MainPanel(wx.Panel):
         pub.subscribe(self.reaper_disconnected_listener, "reaper_error")
         pub.subscribe(self.callforreaperrestart, "reset_reaper")
         pub.subscribe(self.update_mode_select_gui_from_osc, "mode_select_osc")
-        if MainWindow.BridgeFunctions.ValidateReaperPrefs():
-            MainWindow.BridgeFunctions.start_threads()
+        MainWindow.BridgeFunctions.start_threads()
         # Start a timer for Digico timeout
         self.timer_lock = threading.Lock()
         self.configuretimers()
@@ -339,7 +339,11 @@ class PrefsPanel(wx.Panel):
         # Console type radio box
         self.console_type_radio_box = wx.RadioBox(self, label="Console Type", majorDimension=2, choices=[console.type for console in Console.__subclasses__()])
         panel_sizer.Add(self.console_type_radio_box, 0, wx.ALL | wx.EXPAND, 5)
-          
+
+        # Daw type radio box
+        self.daw_type_radio_box = wx.RadioBox(self, label="DAW Type", majorDimension=2, choices=[daw.type for daw in Daw.__subclasses__()])
+        panel_sizer.Add(self.daw_type_radio_box, 0, wx.ALL | wx.EXPAND, 5)
+
         # OSC Repeater Label
         osc_repeater_text = wx.StaticText(self, label="OSC Repeater", style=wx.ALIGN_CENTER)
         osc_repeater_text.SetFont(header_font)
@@ -417,6 +421,7 @@ class PrefsPanel(wx.Panel):
             elif self.repeater_radio_enabled.GetValue() is False:
                 settings.forwarder_enabled = "False"
             settings.console_type = self.console_type_radio_box.GetString(self.console_type_radio_box.GetSelection())
+            settings.daw_type = self.daw_type_radio_box.GetString(self.daw_type_radio_box.GetSelection())
             # Force a close/reconnect of the OSC servers by pushing the configuration update.
             MainWindow.BridgeFunctions.update_configuration(con_ip=settings.console_ip,
                                                             rptr_ip=settings.repeater_ip, con_send=settings.console_port,
@@ -427,7 +432,8 @@ class PrefsPanel(wx.Panel):
                                                             rptr_snd=settings.repeater_port,
                                                             rptr_rcv=settings.repeater_receive_port,
                                                             name_only=settings.name_only_match,
-                                                            console_type=settings.console_type)
+                                                            console_type=settings.console_type,
+                                                            daw_type=settings.daw_type)
             # Close the preferences window when update is pressed.
             self.Parent.Destroy()
         except Exception as e:
