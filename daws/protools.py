@@ -1,3 +1,5 @@
+from setuptools.command.build_ext import if_dl
+
 from . import Daw
 import ptsl
 from ptsl import PTSL_pb2 as pt
@@ -5,8 +7,8 @@ from pubsub import pub
 from typing import Any, Callable
 from logger_config import logger
 import threading
-import time
 import sys
+import time
 from typing import Optional
 
 class ProTools(Daw):
@@ -30,27 +32,11 @@ class ProTools(Daw):
         )
 
     def _open_protools_connection(self):
-        self.pt_engine_connection = ptsl.client.Client(company_name="JSSD",
+        self.pt_engine_connection = ptsl.engine.Engine(company_name="JSSD",
                                          application_name=sys.argv[0])
         if self.pt_engine_connection is not None:
             logger.info("Connection established to Pro Tools")
 
-    def run_command_on_session(self, command_id: pt.CommandId,
-                               args: dict) -> Optional[dict]:
-        if self.pt_engine_connection is None:
-            logger.error("Command failed, not connected to Pro Tools")
-            return None
-
-        try:
-            r = self.pt_engine_connection.run_command(command_id, args)
-            return r
-        except ptsl.errors.CommandError as e:
-            if e.error_type == pt.PT_NoOpenedSession:
-                logger.error("Command failed, no session is currently open in Pro Tools")
-                return None
-        except Exception:
-            logger.error("Command failed, Pro Tools may not be running")
-            return None
 
     def do_newmemloc(self, args):
         'Create a new marker memory location: NEWMEMLOC start-time'
@@ -75,13 +61,61 @@ class ProTools(Daw):
         self.run_command_on_session(pt.CreateMemoryLocation, command_args)
 
     def _place_marker_with_name(self, marker_name):
-        self.do_newmemloc("00:01:00:00")
+        assert self.pt_engine_connection
+        #print(self.pt_engine_connection.get_main_counter())
+        self.pt_engine_connection.create_memory_location(name=marker_name)
+
 
     def _incoming_transport_action(self, transport_action):
-        pass
+        try:
+            if transport_action == "play":
+                self._pro_tools_play()
+            elif transport_action == "stop":
+                self._pro_tools_stop()
+            elif transport_action == "rec":
+                self._pro_tools_rec()
+        except Exception as e:
+            logger.error(f"Error processing transport macros: {e}")
 
     def _handle_cue_load(self, cue: str):
         pass
+
+
+    def _pro_tools_play(self):
+        assert self.pt_engine_connection
+        current_transport_state = self.pt_engine_connection.transport_state()
+        if current_transport_state not in ("TS_TransportPlaying", "TS_TransportRecording"):
+            try:
+                self.pt_engine_connection.toggle_play_state()
+            except ptsl.errors.CommandError as e:
+                if e.error_type == pt.PT_NoOpenedSession:
+                    logger.error("Play command failed, no session is currently open")
+                    return False
+
+    def _pro_tools_stop(self):
+        assert self.pt_engine_connection
+        current_transport_state = self.pt_engine_connection.transport_state()
+        if current_transport_state not in ("TS_TransportStopped", "TS_TransportStopping"):
+            try:
+                self.pt_engine_connection.toggle_play_state()
+            except ptsl.errors.CommandError as e:
+                if e.error_type == pt.PT_NoOpenedSession:
+                    logger.error("Play command failed, no session is currently open")
+                    return False
+
+    def _pro_tools_rec(self):
+        assert self.pt_engine_connection
+        current_transport_state = self.pt_engine_connection.transport_state()
+        current_armed_state = self.pt_engine_connection.transport_armed()
+        if not current_armed_state:
+            self.pt_engine_connection.toggle_record_enable()
+            if current_transport_state is not "TS_TransportRecording":
+                try:
+                    self.pt_engine_connection.toggle_play_state()
+                except ptsl.errors.CommandError as e:
+                    if e.error_type == pt.PT_NoOpenedSession:
+                        logger.error("Play command failed, no session is currently open")
+                        return False
 
     def _shutdown_servers(self):
         try:

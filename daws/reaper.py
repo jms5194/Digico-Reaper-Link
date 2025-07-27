@@ -147,23 +147,23 @@ class Reaper(Daw):
     def _incoming_transport_action(self, transport_action):
         try:
             if transport_action == "play":
-                self.reaper_play()
+                self._reaper_play()
             elif transport_action == "stop":
-                self.reaper_stop()
+                self._reaper_stop()
             elif transport_action == "rec":
-                self.reaper_rec()
+                self._reaper_rec()
         except Exception as e:
             logger.error(f"Error processing transport macros: {e}")
 
-    def reaper_play(self):
+    def _reaper_play(self):
         with self.reaper_send_lock:
             self.reaper_client.send_message("/action", 1007)
 
-    def reaper_stop(self):
+    def _reaper_stop(self):
         with self.reaper_send_lock:
             self.reaper_client.send_message("/action", 1016)
 
-    def reaper_rec(self):
+    def _reaper_rec(self):
         # Sends action to skip to end of project and then record, to prevent overwrites
         from app_settings import settings
         settings.marker_mode = "Recording"
