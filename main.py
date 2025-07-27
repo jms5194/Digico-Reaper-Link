@@ -263,7 +263,8 @@ class MainPanel(wx.Panel):
                                                         rptr_snd=settings.repeater_port,
                                                         rptr_rcv=settings.repeater_receive_port,
                                                         name_only=settings.name_only_match,
-                                                        console_type=settings.console_type)
+                                                        console_type=settings.console_type,
+                                                        daw_type=settings.daw_type)
 
 
 class PrefsWindow(wx.Frame):
@@ -329,7 +330,7 @@ class PrefsPanel(wx.Panel):
         match_mode_radio_grid = wx.GridSizer(1,2,0,0)
         self.mode_match_all_radio = wx.RadioButton(self, label="Number & Name", style=wx.RB_GROUP)
         match_mode_radio_grid.Add(self.mode_match_all_radio, 0, wx.ALL | wx.EXPAND, 5)
-        self.mode_match_all_radio.SetValue(settings.name_only_match == "False")
+        self.mode_match_all_radio.SetValue(not settings.name_only_match)
         self.mode_match_name_radio = wx.RadioButton(self, label="Name Only")
         match_mode_radio_grid.Add(self.mode_match_name_radio, 0, wx.ALL | wx.EXPAND, 5)
         self.mode_match_name_radio.SetValue(settings.name_only_match == "True")
@@ -350,10 +351,10 @@ class PrefsPanel(wx.Panel):
         repeater_radio_grid = wx.GridSizer(1, 2, 0, 0)
         self.repeater_radio_enabled = wx.RadioButton(self, label="Repeater Enabled", style=wx.RB_GROUP)
         repeater_radio_grid.Add(self.repeater_radio_enabled, 0, wx.ALL | wx.EXPAND, 5)
-        self.repeater_radio_enabled.SetValue(settings.forwarder_enabled == "True")
+        self.repeater_radio_enabled.SetValue(settings.forwarder_enabled)
         self.repeater_radio_disabled = wx.RadioButton(self, label="Repeater Disabled")
         repeater_radio_grid.Add(self.repeater_radio_disabled, 0, wx.ALL | wx.EXPAND, 5)
-        self.repeater_radio_disabled.SetValue(settings.forwarder_enabled == "False")
+        self.repeater_radio_disabled.SetValue(not settings.forwarder_enabled)
         panel_sizer.Add(repeater_radio_grid, 0, wx.ALL | wx.EXPAND, 5)
         panel_sizer.Add(0, 10)
         # Console IP Label
@@ -411,14 +412,8 @@ class PrefsPanel(wx.Panel):
             settings.repeater_ip = self.repeater_ip_control.GetValue()
             settings.repeater_port = str(self.repeater_send_port_control.GetValue())
             settings.repeater_receive_port = str(self.repeater_rcv_port_control.GetValue())
-            if self.mode_match_name_radio.GetValue() is True:
-                settings.name_only_match = "True"
-            elif self.mode_match_name_radio.GetValue() is False:
-                settings.name_only_match = "False"
-            if self.repeater_radio_enabled.GetValue() is True:
-                settings.forwarder_enabled = "True"
-            elif self.repeater_radio_enabled.GetValue() is False:
-                settings.forwarder_enabled = "False"
+            settings.name_only_match = self.mode_match_name_radio.GetValue()
+            settings.forwarder_enabled = self.repeater_radio_enabled.GetValue()
             settings.console_type = self.console_type_radio_box.GetString(self.console_type_radio_box.GetSelection())
             settings.daw_type = self.daw_type_radio_box.GetString(self.daw_type_radio_box.GetSelection())
             # Force a close/reconnect of the OSC servers by pushing the configuration update.
