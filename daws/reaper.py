@@ -145,12 +145,15 @@ class Reaper(Daw):
             self.reaper_client.send_message("/device/marker/count", 512)
 
     def _incoming_transport_action(self, transport_action):
-        if transport_action == "play":
-            self.reaper_play()
-        elif transport_action == "stop":
-            self.reaper_stop()
-        elif transport_action == "rec":
-            self.reaper_rec()
+        try:
+            if transport_action == "play":
+                self.reaper_play()
+            elif transport_action == "stop":
+                self.reaper_stop()
+            elif transport_action == "rec":
+                self.reaper_rec()
+        except Exception as e:
+            logger.error(f"Error processing transport macros: {e}")
 
     def reaper_play(self):
         with self.reaper_send_lock:
@@ -172,21 +175,9 @@ class Reaper(Daw):
     def _handle_cue_load(self, cue: str) -> None:
         from app_settings import settings
         if settings.marker_mode == "Recording" and self.is_recording is True:
-            self.place_marker_at_current()
-            self.update_last_marker_name(cue)
+            self._place_marker_with_name(cue)
         elif settings.marker_mode == "PlaybackTrack" and self.is_playing is False:
             self.get_marker_id_by_name(cue)
-
-    def process_transport_macros(self, transport):
-        try:
-            if transport == "play":
-                self.reaper_play()
-            elif transport == "stop":
-                self.reaper_stop()
-            elif transport == "rec":
-                self.reaper_rec()
-        except Exception as e:
-            logger.error(f"Could not process transport macro: {e}")
 
     def _shutdown_servers(self):
         try:
