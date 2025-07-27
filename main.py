@@ -336,11 +336,15 @@ class PrefsPanel(wx.Panel):
         panel_sizer.Add(match_mode_radio_grid, 0, wx.ALL | wx.EXPAND, 5)
 
         # Console type radio box
-        self.console_type_radio_box = wx.RadioBox(self, label="Console Type", majorDimension=2, choices=[console.type for console in Console.__subclasses__()])
+        console_types = [console.type for console in Console.__subclasses__()]
+        self.console_type_radio_box = wx.RadioBox(self, label="Console Type", majorDimension=2, choices=console_types)
+        self.console_type_radio_box.SetSelection(console_types.index(settings.console_type))
         panel_sizer.Add(self.console_type_radio_box, 0, wx.ALL | wx.EXPAND, 5)
 
         # Daw type radio box
-        self.daw_type_radio_box = wx.RadioBox(self, label="DAW Type", majorDimension=2, choices=[daw.type for daw in Daw.__subclasses__()])
+        daw_types = [daw.type for daw in Daw.__subclasses__()]
+        self.daw_type_radio_box = wx.RadioBox(self, label="DAW Type", majorDimension=2, choices=daw_types)
+        self.daw_type_radio_box.SetSelection(daw_types.index(settings.daw_type))
         panel_sizer.Add(self.daw_type_radio_box, 0, wx.ALL | wx.EXPAND, 5)
 
         # OSC Repeater Label

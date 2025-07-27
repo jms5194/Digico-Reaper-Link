@@ -211,7 +211,7 @@ class ThreadSafeSettings:
                 "console_ip": "default_ip",
                 "repeater_ip": "repeater_ip",
                 "console_type": "console_type",
-                # 'daw_type': 'daw_type',
+                "daw_type": "daw_type",
             }
             for settings_name, config_name in string_properties.items():
                 self._settings[settings_name] = config.get(
