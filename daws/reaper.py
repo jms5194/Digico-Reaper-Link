@@ -14,7 +14,7 @@ class Reaper(Daw):
 
     def __init__(self):
         super().__init__()
-        self.reaper_send_lock = threading.Lock
+        self.reaper_send_lock = threading.Lock()
         self.name_to_match = ""
         self.is_playing = False
         self.is_recording = False
