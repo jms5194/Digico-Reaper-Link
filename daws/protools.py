@@ -1,16 +1,19 @@
 from . import Daw
-from ptsl import open_engine
+import ptsl
+from ptsl import PTSL_pb2 as pt
 from pubsub import pub
 from typing import Any, Callable
 from logger_config import logger
 import threading
 import time
+import sys
 
 class ProTools(Daw):
     type = "ProTools"
 
     def __init__(self):
         super().__init__()
+        self.pt_engine_connection = None
         self.pt_send_lock = threading.Lock()
         pub.subscribe(self._place_marker_with_name, "place_marker_with_name")
         pub.subscribe(self._incoming_transport_action, "incoming_transport_action")
@@ -26,9 +29,11 @@ class ProTools(Daw):
         )
 
     def _open_protools_connection(self):
-        with open_engine(company_name="MY_COMPANY", application_name="MY_TOOL") as engine:
-            session_name = engine.session_name()
-            print(session_name)
+        self.pt_engine_connection = ptsl.client.Client(company_name="JSSD",
+                                         application_name=sys.argv[0])
+        if self.pt_engine_connection is not None:
+            if self.pt_engine_connection.host_ready_check():
+                print("connected")
 
     def _place_marker_with_name(self, marker_name):
         pass
