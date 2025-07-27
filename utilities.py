@@ -50,7 +50,7 @@ class ManagedThread(threading.Thread):
         return self._stop_event.is_set()
 
 
-class ReaperDigicoOSCBridge:
+class DawConsoleBridge:
     _console: Console
 
     def __init__(self):

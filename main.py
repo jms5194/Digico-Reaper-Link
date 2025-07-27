@@ -8,12 +8,12 @@ from app_settings import settings
 from consoles import Console
 from daws import Daw
 from logger_config import logger
-from utilities import ReaperDigicoOSCBridge
+from utilities import DawConsoleBridge
 
 
 class MainWindow(wx.Frame):
     # Bringing the logic from utilities as an attribute of MainWindow
-    BridgeFunctions = ReaperDigicoOSCBridge()
+    BridgeFunctions = DawConsoleBridge()
 
     def __init__(self):
         logger.info("Initializing main window")
