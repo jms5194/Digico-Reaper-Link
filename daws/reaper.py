@@ -21,7 +21,7 @@ class Reaper(Daw):
         self.reaper_osc_server = None
         pub.subscribe(self._place_marker_with_name, "place_marker_with_name")
         pub.subscribe(self._incoming_transport_action, "incoming_transport_action")
-        pub.subscribe(self.handle_cue_load, "handle_cue_load")
+        pub.subscribe(self._handle_cue_load, "handle_cue_load")
         pub.subscribe(self._shutdown_servers, "shutdown_servers")
         self._validate_reaper_prefs()
 
@@ -179,7 +179,7 @@ class Reaper(Daw):
             self.reaper_client.send_message("/action", 40043)
             self.reaper_client.send_message("/action", 1013)
 
-    def handle_cue_load(self, cue: str) -> None:
+    def _handle_cue_load(self, cue: str) -> None:
         from app_settings import settings
         if settings.marker_mode == "Recording" and self.is_recording is True:
             self.place_marker_at_current()

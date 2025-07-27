@@ -12,9 +12,10 @@ class ProTools(Daw):
     def __init__(self):
         super().__init__()
         self.pt_engine_connection = None
+        self.pt_send_lock = threading.Lock()
         pub.subscribe(self._place_marker_with_name, "place_marker_with_name")
         pub.subscribe(self._incoming_transport_action, "incoming_transport_action")
-        pub.subscribe(self.handle_cue_load, "handle_cue_load")
+        pub.subscribe(self._handle_cue_load, "handle_cue_load")
         pub.subscribe(self._shutdown_servers, "shutdown_servers")
 
     def start_managed_threads(
@@ -32,6 +33,15 @@ class ProTools(Daw):
                     logger.info("Successfully connected to Pro Tools")
         except Exception as e:
             logger.error(f"Unable to establish connection to Reaper: {e}")
+
+    def _place_marker_with_name(self, marker_name):
+        pass
+
+    def _incoming_transport_action(self, transport_action):
+        pass
+
+    def _handle_cue_load(self, cue: str):
+        pass
 
     def _shutdown_servers(self):
         try:
