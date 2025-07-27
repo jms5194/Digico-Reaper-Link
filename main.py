@@ -238,8 +238,7 @@ class MainPanel(wx.Panel):
                 except Exception as e:
                     logger.error(f"Failed to close Reaper disconnected dialog: {e}")
         elif result == wx.ID_OK:
-            if MainWindow.BridgeFunctions.ValidateReaperPrefs():
-                MainWindow.BridgeFunctions.start_threads()
+            MainWindow.BridgeFunctions.start_threads()
 
     def callforreaperrestart(self, resetreaper, arg2=None):
         logger.info("Reaper has been configured. Requesting restart")

@@ -4,14 +4,13 @@ from pubsub import pub
 from typing import Any, Callable
 from logger_config import logger
 import threading
-
+import time
 
 class ProTools(Daw):
     type = "ProTools"
 
     def __init__(self):
         super().__init__()
-        self.pt_engine_connection = None
         self.pt_send_lock = threading.Lock()
         pub.subscribe(self._place_marker_with_name, "place_marker_with_name")
         pub.subscribe(self._incoming_transport_action, "incoming_transport_action")
@@ -27,12 +26,9 @@ class ProTools(Daw):
         )
 
     def _open_protools_connection(self):
-        try:
-            with open_engine(company_name="JSSD", application_name="CONSOLE_LINK") as self.pt_engine_connection:
-                if self.pt_engine_connection.host_ready_check():
-                    logger.info("Successfully connected to Pro Tools")
-        except Exception as e:
-            logger.error(f"Unable to establish connection to Reaper: {e}")
+        with open_engine(company_name="MY_COMPANY", application_name="MY_TOOL") as engine:
+            session_name = engine.session_name()
+            print(session_name)
 
     def _place_marker_with_name(self, marker_name):
         pass
