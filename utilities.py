@@ -202,20 +202,18 @@ class DawConsoleBridge:
 
     def start_threads(self):
         # Start all OSC server threads
-        logger.info("Starting OSC Server threads")
+        logger.info("Starting threads")
         if settings.daw_type == Reaper.type:
             self.daw = Reaper()
-            self.daw.start_managed_threads(self.start_managed_thread)
         elif settings.daw_type == ProTools.type:
             self.daw = ProTools()
-            self.daw.start_managed_threads(self.start_managed_thread)
+        self.daw.start_managed_threads(self.start_managed_thread)
         self.start_managed_thread("heartbeat_thread", self.heartbeat_loop)
         if settings.console_type == DiGiCo.type:
             self.console = DiGiCo()
-            self.console.start_managed_threads(self.start_managed_thread)
         elif settings.console_type == StuderVista.type:
             self.console = StuderVista()
-            self.console.start_managed_threads(self.start_managed_thread)
+        self.console.start_managed_threads(self.start_managed_thread)
 
     @property
     def console(self) -> Console:
@@ -274,6 +272,6 @@ class DawConsoleBridge:
 
     def restart_servers(self):
         # Restart the OSC server threads.
-        logger.info("Restarting OSC Server threads")
+        logger.info("Restarting server threads")
         self.console_name_event = threading.Event()
         self.start_threads()
