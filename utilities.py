@@ -10,10 +10,7 @@ import appdirs
 import psutil
 from configupdater import ConfigUpdater
 from pubsub import pub
-from pythonosc import dispatcher, osc_server, udp_client
 
-
-import configure_reaper
 from app_settings import settings
 from consoles import Console, DiGiCo, StuderVista
 from daws import Daw, Reaper, ProTools
