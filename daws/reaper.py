@@ -125,16 +125,6 @@ class Reaper(Daw):
         with self.reaper_send_lock:
             self.reaper_client.send_message("/marker", int(marker_id))
 
-    def place_marker_at_current(self):
-        # Uses a reaper OSC action to place a marker at the current timeline spot
-        logger.info("Placing marker at current time")
-        with self.reaper_send_lock:
-            self.reaper_client.send_message("/action", 40157)
-
-    def update_last_marker_name(self, name):
-        with self.reaper_send_lock:
-            self.reaper_client.send_message("/lastmarker/name", name)
-
     def _place_marker_with_name(self, marker_name):
         with self.reaper_send_lock:
             self.reaper_client.send_message("/action", 40157)

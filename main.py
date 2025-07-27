@@ -158,8 +158,7 @@ class MainPanel(wx.Panel):
     @staticmethod
     def place_marker(e):
         # Manually places a marker in Reaper from the UI
-        MainWindow.BridgeFunctions.place_marker_at_current()
-        MainWindow.BridgeFunctions.update_last_marker_name("Marker from UI")
+        pub.sendMessage("place_marker_with_name", marker_name="Marker from UI")
 
     def exitapp(self, e):
         # Calls on_close for the parent window
