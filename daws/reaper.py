@@ -23,14 +23,14 @@ class Reaper(Daw):
         pub.subscribe(self._incoming_transport_action, "incoming_transport_action")
         pub.subscribe(self.handle_cue_load, "handle_cue_load")
         pub.subscribe(self._shutdown_servers, "shutdown_servers")
-        self.ValidateReaperPrefs()
+        self._validate_reaper_prefs()
 
-    def ValidateReaperPrefs(self):
+    def _validate_reaper_prefs(self):
         # If the Reaper .ini file does not contain an entry for Digico-Reaper Link, add one.
         from app_settings import settings
         try:
-            if not self.CheckReaperPrefs(settings.reaper_receive_port, settings.reaper_port):
-                self.AddReaperPrefs(settings.reaper_receive_port, settings.reaper_port)
+            if not self._check_reaper_prefs(settings.reaper_receive_port, settings.reaper_port):
+                self._add_reaper_prefs(settings.reaper_receive_port, settings.reaper_port)
                 pub.sendMessage("reset_reaper", resetreaper=True)
             return True
         except RuntimeError as e:
@@ -40,7 +40,7 @@ class Reaper(Daw):
             return False
 
     @staticmethod
-    def CheckReaperPrefs(rpr_rcv, rpr_send):
+    def _check_reaper_prefs(rpr_rcv, rpr_send):
         if configure_reaper.osc_interface_exists(configure_reaper.get_resource_path(True), rpr_rcv, rpr_send):
             logger.info("Reaper OSC interface config already exists")
             return True
@@ -49,7 +49,7 @@ class Reaper(Daw):
             return False
 
     @staticmethod
-    def AddReaperPrefs(rpr_rcv, rpr_send):
+    def _add_reaper_prefs(rpr_rcv, rpr_send):
         configure_reaper.add_OSC_interface(configure_reaper.get_resource_path(True), rpr_rcv, rpr_send)
         logger.info("Added OSC interface to Reaper preferences")
 
