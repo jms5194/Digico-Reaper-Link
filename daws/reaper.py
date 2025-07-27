@@ -18,9 +18,11 @@ class Reaper(Daw):
         self.name_to_match = ""
         self.is_playing = False
         self.is_recording = False
+        self.reaper_osc_server = None
         pub.subscribe(self._place_marker_with_name, "place_marker_with_name")
         pub.subscribe(self._incoming_transport_action, "incoming_transport_action")
         pub.subscribe(self.handle_cue_load, "handle_cue_load")
+        pub.subscribe(self._shutdown_servers, "shutdown_servers")
         self.ValidateReaperPrefs()
 
     def ValidateReaperPrefs(self):
@@ -56,7 +58,7 @@ class Reaper(Daw):
     ) -> None:
         logger.info("Starting Reaper Connection threads")
         start_managed_thread(
-            "reaper_connection_thread", self._build_reaper_osc_servers
+            "daw_connection_thread", self._build_reaper_osc_servers
         )
 
     def _build_reaper_osc_servers(self):
@@ -196,3 +198,11 @@ class Reaper(Daw):
         except Exception as e:
             logger.error(f"Could not process transport macro: {e}")
 
+    def _shutdown_servers(self):
+        try:
+            if self.reaper_osc_server:
+                self.reaper_osc_server.shutdown()
+                self.reaper_osc_server.server_close()
+            logger.info(f"Reaper OSC Server shutdown completed")
+        except Exception as e:
+            logger.error(f"Error shutting down Reaper server: {e}")

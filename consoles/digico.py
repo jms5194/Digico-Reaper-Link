@@ -64,6 +64,9 @@ class DiGiCo(Console):
     def __init__(self):
         super().__init__()
         self.console_send_lock = threading.Lock()
+        self.digico_osc_server = None
+        self.repeater_osc_server = None
+        pub.subscribe(self._shutdown_servers, "shutdown_servers")
 
     def start_managed_threads(
         self, start_managed_thread: Callable[[str, Any], None]
@@ -236,3 +239,19 @@ class DiGiCo(Console):
         with self.console_send_lock:
             assert isinstance(self.console_client, udp_client.UDPClient)
             self.console_client.send_message("/Console/Name/?", None)
+
+    def _shutdown_servers(self):
+        try:
+            if self.digico_osc_server:
+                self.digico_osc_server.shutdown()
+                self.digico_osc_server.server_close()
+                logger.info(f"Digico OSC Server shutdown completed")
+        except Exception as e:
+            logger.error(f"Error shutting down Digico server: {e}")
+        try:
+            if self.repeater_osc_server:
+                self.repeater_osc_server.shutdown()
+                self.repeater_osc_server.server_close()
+                logger.info(f"Repeater OSC Server shutdown completed")
+        except Exception as e:
+            logger.error(f"Error shutting down OSC Repeater server: {e}")

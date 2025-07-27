@@ -58,21 +58,6 @@ class ReaperDigicoOSCBridge:
 
     def __init__(self):
         logger.info("Initializing ReaperDigicoOSCBridge")
-        self.repeater_osc_thread = None
-        self.reaper_osc_thread = None
-        self.console_connection_thread = None
-        self.digico_dispatcher = None
-        self.reaper_dispatcher = None
-        self.repeater_dispatcher = None
-        self.console_client = None
-        self.reaper_client = None
-        self.repeater_client = None
-        self.digico_osc_server = None
-        self.reaper_osc_server = None
-        self.repeater_osc_server = None
-        self.requested_macro_num = None
-        self.requested_snapshot_number = None
-        self.snapshot_ignore_flag = False
         self.ini_prefs = ""
         self.config_dir = ""
         self.lock = threading.Lock()
@@ -273,7 +258,7 @@ class ReaperDigicoOSCBridge:
         logger.info("Stopping all threads")
         for attr in [
             "console_connection_thread",
-            "reaper_osc_thread",
+            "daw_connection_thread",
             "repeater_osc_thread",
             "heartbeat_thread",
         ]:
@@ -285,22 +270,8 @@ class ReaperDigicoOSCBridge:
     def close_servers(self):
         logger.info("Closing OSC servers...")
         self.console_name_event.set()  # Signal heartbeat to exit
-
-        try:
-            if self.digico_osc_server:
-                self.digico_osc_server.shutdown()
-                self.digico_osc_server.server_close()
-            if self.reaper_osc_server:
-                self.reaper_osc_server.shutdown()
-                self.reaper_osc_server.server_close()
-            if self.repeater_osc_server:
-                self.repeater_osc_server.shutdown()
-                self.repeater_osc_server.server_close()
-        except Exception as e:
-            logger.error(f"Error shutting down server: {e}")
-
+        pub.sendMessage("shutdown_servers")
         self.stop_all_threads()
-
         logger.info("All servers closed and threads joined.")
         return True
 
