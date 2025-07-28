@@ -4,6 +4,7 @@ import time
 from typing import Any, Callable, List
 
 import asn1
+import wx
 from pubsub import pub
 
 from logger_config import logger
@@ -16,11 +17,13 @@ class StuderVista(Console):
     supported_features = []
     _client_socket: socket.socket
     _shutdown_server_event = threading.Event()
+    _received_real_data = threading.Event()
 
     def start_managed_threads(
         self, start_managed_thread: Callable[[str, Any], None]
     ) -> None:
         self._shutdown_server_event.clear()
+        self._received_real_data.clear()
         start_managed_thread("console_connection_thread", self._console_client_thread)
         pub.subscribe(self._shutdown_server_event.set, "shutdown_servers")
 
@@ -50,16 +53,12 @@ class StuderVista(Console):
                     decoder.start(result_bytes)
                     _, value = decoder.read()
                     decoded_message = self._decode_message(value)
-                    pub.sendMessage("console_connected", consolename="Connected")
-                    if len(decoded_message) > 0:
+                    if decoded_message:
+                        pub.sendMessage("console_connected", consolename="Connected")
+                        self._received_real_data.set()
                         if decoded_message != "Last Recalled Snapshot":
                             decoded_message = decoded_message[-1:][0]
                             pub.sendMessage("handle_cue_load", cue=decoded_message)
-                        else:
-                            logger.warning(
-                                "Studer hasn't loaded a snapshot yet, we can't subscribe yet"
-                            )
-                            self._send_subscribe()
             time.sleep(5000)
 
     def _decode_message(self, value: Any) -> List[str]:
@@ -79,9 +78,15 @@ class StuderVista(Console):
     def heartbeat(self) -> None:
         if hasattr(self, "_client_socket"):
             try:
-                self._client_socket.sendall(
-                    b"\x7f\x8f\xff\xfe\xd9\\\x800\x80\x00\x00\x00\x00"
-                )
-                pub.sendMessage("console_connected", consolename="Connected")
+                if self._received_real_data.is_set():
+                    self._client_socket.sendall(
+                        b"\x7f\x8f\xff\xfe\xd9\\\x800\x80\x00\x00\x00\x00"
+                    )
+                    pub.sendMessage("console_connected", consolename="Connected")
+                else:
+                    self._send_subscribe()
+                    pub.sendMessage(
+                        "console_connected", consolename="Starting", colour=wx.YELLOW
+                    )
             except OSError:
                 pub.sendMessage("console_disconnected")
