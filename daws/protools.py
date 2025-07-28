@@ -1,4 +1,4 @@
-from setuptools.command.build_ext import if_dl
+import time
 
 from . import Daw
 import ptsl
@@ -31,17 +31,24 @@ class ProTools(Daw):
 
     def _open_protools_connection(self):
         # Open a connection to Pro Tools using the PTSL scripting interface
-        self.pt_engine_connection = ptsl.engine.Engine(company_name="JSSD",
-                                         application_name=sys.argv[0])
-        if self.pt_engine_connection is not None:
-            logger.info("Connection established to Pro Tools")
+        try:
+            self.pt_engine_connection = ptsl.engine.Engine(company_name="JSSD",
+                                             application_name=sys.argv[0])
+            if self.pt_engine_connection is not None:
+                logger.info("Connection established to Pro Tools")
+        except Exception as e:
+            logger.error("Unable to connect to Pro Tools. Retrying")
+            time.sleep(5)
+            self._open_protools_connection()
 
     def _place_marker_with_name(self, marker_name):
         with self.pt_send_lock:
             assert self.pt_engine_connection
             try:
                 self.pt_engine_connection.create_memory_location(memory_number=-1, start_time="current_pos", name=marker_name, location="MLC_MainRuler")
-                #start_time as current_pos is a hacky way to get it to drop where the playhead is- but throws an error
+                # -1 seems to be a magic number for the next available memory_number.
+                # Start_time as current_pos is a hacky way to get it to drop where the playhead is- but throws an error.
+                # There must be a constant to put here that doesn't throw the error.
             except ptsl.errors.CommandError as e:
                 if e.error_type == pt.PT_InvalidParameter:
                     logger.error("Bad parameter input to create_memory_location")
@@ -69,17 +76,17 @@ class ProTools(Daw):
     def _get_marker_id_by_name(self, name):
         # Match marker by name to the MemoryLocation object it represents
         from app_settings import settings
+        name_to_match = name
         if self._get_current_transport_state() not in ("TS_TransportPlaying", "TS_TransportRecording"):
-            name_to_match = name
-        if settings.name_only_match:
-            name_to_match = name_to_match.split(" ")
-            name_to_match = name_to_match[1:]
-            name_to_match = " ".join(name_to_match)
-        with self.pt_send_lock:
-            mem_locs = self.pt_engine_connection.get_memory_locations()
-            for pt.MemoryLocation in mem_locs:
-                if name_to_match == pt.MemoryLocation.name:
-                    self._goto_marker_by_loc(pt.MemoryLocation)
+            if settings.name_only_match:
+                name_to_match = name_to_match.split(" ")
+                name_to_match = name_to_match[1:]
+                name_to_match = " ".join(name_to_match)
+            with self.pt_send_lock:
+                mem_locs = self.pt_engine_connection.get_memory_locations()
+                for pt.MemoryLocation in mem_locs:
+                    if name_to_match == pt.MemoryLocation.name:
+                        self._goto_marker_by_loc(pt.MemoryLocation)
 
     def _goto_marker_by_loc(self, memory_loc):
         # Jump playhead to the given memory location
