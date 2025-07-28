@@ -5,7 +5,7 @@ import wx
 from pubsub import pub
 
 from app_settings import settings
-from consoles import Console
+from consoles import CONSOLES, Console, Feature
 from daws import Daw
 from logger_config import logger
 from utilities import DawConsoleBridge
@@ -48,7 +48,7 @@ class MainWindow(wx.Frame):
 
     def launch_prefs(self, event):
         # Open the preferences frame
-        PrefsWindow(parent=wx.GetTopLevelParent(self), title="Digico-Reaper Properties")
+        PrefsWindow(parent=wx.GetTopLevelParent(self), title="Digico-Reaper Properties", console=self.GetTopLevelParent().BridgeFunctions.console)
 
     def on_close(self, event):
         # Let's close the window and destroy the UI
@@ -198,13 +198,14 @@ class MainPanel(wx.Panel):
     def console_type_updated(self, console: Console) -> None:
         wx.CallAfter(self.console_type_connection_label.SetLabel, console.type)
 
-    def console_connected(self, consolename):
+    def console_connected(self, consolename, colour: wx.Colour = wx.GREEN):
         if isinstance(self.DigicoTimer, wx.CallLater) and self.DigicoTimer.IsRunning():
             # When a response is received from the console, reset the timeout timer if running
             wx.CallAfter(self.DigicoTimer.Stop)
             # Update the UI to reflect the connected status
-            wx.CallAfter(self.digico_connected.SetLabel, consolename)
-            wx.CallAfter(self.digico_connected.SetBackgroundColour,wx.GREEN)
+            self.digico_connected.SetLabel(consolename)
+            self.digico_connected.SetBackgroundColour(colour)
+            self.digico_connected.SetForegroundColour(wx.BLACK)
             # Restart the timeout timer
             self.configuretimers()
 
@@ -219,9 +220,9 @@ class MainPanel(wx.Panel):
 
     def console_disconnected(self):
         # If timer runs out without being reset, update the UI to N/C
-        logger.info("Digico timer ran out. Updating UI to N/C.")
-        wx.CallAfter(self.digico_connected.SetLabel,"N/C")
-        wx.CallAfter(self.digico_connected.SetBackgroundColour,wx.RED)
+        self.digico_connected.SetLabel("N/C")
+        self.digico_connected.SetBackgroundColour(wx.RED)
+        self.digico_connected.SetForegroundColour(wx.WHITE)
 
     def reaper_disconnected_listener(self, reapererror, arg2=None):
         logger.info("Reaper not connected. Reporting to user.")
@@ -268,16 +269,16 @@ class MainPanel(wx.Panel):
 
 class PrefsWindow(wx.Frame):
     # This is our preferences window pane
-    def __init__(self, title, parent):
+    def __init__(self, title, parent, console: Console):
         logger.info("Creating PrefsWindow")
         wx.Frame.__init__(self, parent=parent, size=wx.Size(400, 800), title=title)
-        panel = PrefsPanel(parent=wx.GetTopLevelParent(self))
+        panel = PrefsPanel(parent=wx.GetTopLevelParent(self), console=console)
         self.Fit()
         self.Show()
 
 
 class PrefsPanel(wx.Panel):
-    def __init__(self, parent):
+    def __init__(self, parent, console: Console):
         logger.info("Creating PrefsPanel")
         wx.Panel.__init__(self, parent)
         # Define Fonts:
@@ -299,27 +300,28 @@ class PrefsPanel(wx.Panel):
         self.console_ip_control.SetValue(settings.console_ip)
         panel_sizer.Add(self.console_ip_control, 0, wx.ALL | wx.EXPAND, 5)
         panel_sizer.Add(0, 10)
-        # Digico Ports Label
-        digico_ports_text = wx.StaticText(self, label="Digico Ports", style=wx.ALIGN_CENTER)
-        digico_ports_text.SetFont(header_font)
-        panel_sizer.Add(digico_ports_text, 0, wx.ALL | wx.EXPAND, 1)
-        # Digico Ports Input
-        digico_ports_grid = wx.GridSizer(2, 2, -1, 10)
-        digico_send_port_text = wx.StaticText(self, label="Send to Console", style=wx.ALIGN_CENTER)
-        digico_send_port_text.SetFont(base_font)
-        digico_ports_grid.Add(digico_send_port_text, 0, wx.ALL | wx.EXPAND, 5)
-        digico_rcv_port_text = wx.StaticText(self, label="Receive from Console", style=wx.ALIGN_CENTER)
-        digico_rcv_port_text.SetFont(base_font)
-        digico_ports_grid.Add(digico_rcv_port_text, 0, wx.ALL | wx.EXPAND, 5)
-        self.digico_send_port_control = wx.TextCtrl(self, style=wx.TE_CENTER)
-        self.digico_send_port_control.SetMaxLength(5)
-        self.digico_send_port_control.SetValue(str(settings.console_port))
-        digico_ports_grid.Add(self.digico_send_port_control, 0, wx.ALL | wx.EXPAND, -1)
-        self.digico_rcv_port_control = wx.TextCtrl(self, style=wx.TE_CENTER)
-        self.digico_rcv_port_control.SetMaxLength(5)
-        self.digico_rcv_port_control.SetValue(str(settings.receive_port))
-        digico_ports_grid.Add(self.digico_rcv_port_control, 0, wx.ALL | wx.EXPAND, -1)
-        panel_sizer.Add(digico_ports_grid, 0, wx.ALL | wx.EXPAND, 5)
+        # Console Ports Label
+        console_ports_text = wx.StaticText(self, label="Console Connection Ports", style=wx.ALIGN_CENTER)
+        console_ports_text.SetFont(header_font)
+        panel_sizer.Add(console_ports_text, 0, wx.ALL | wx.EXPAND, 1)
+        # Console Ports Input
+        console_ports_grid = wx.GridSizer(2, 2, -1, 10)
+        console_send_port_text = wx.StaticText(self, label="Send to Console", style=wx.ALIGN_CENTER)
+        console_send_port_text.SetFont(base_font)
+        console_ports_grid.Add(console_send_port_text, 0, wx.ALL | wx.EXPAND, 5)
+        console_rcv_port_text = wx.StaticText(self, label="Receive from Console", style=wx.ALIGN_CENTER)
+        console_rcv_port_text.SetFont(base_font)
+        console_ports_grid.Add(console_rcv_port_text, 0, wx.ALL | wx.EXPAND, 5)
+        self.console_send_port_control = wx.TextCtrl(self, style=wx.TE_CENTER)
+        self.console_send_port_control.SetMaxLength(5)
+        self.console_send_port_control.SetValue(str(settings.console_port))
+        
+        console_ports_grid.Add(self.console_send_port_control, 0, wx.ALL | wx.EXPAND, -1)
+        self.console_rcv_port_control = wx.TextCtrl(self, style=wx.TE_CENTER)
+        self.console_rcv_port_control.SetMaxLength(5)
+        self.console_rcv_port_control.SetValue(str(settings.receive_port))
+        console_ports_grid.Add(self.console_rcv_port_control, 0, wx.ALL | wx.EXPAND, -1)
+        panel_sizer.Add(console_ports_grid, 0, wx.ALL | wx.EXPAND, 5)
         panel_sizer.Add(0, 25)
 
         # Match mode radio buttons
@@ -336,14 +338,14 @@ class PrefsPanel(wx.Panel):
         panel_sizer.Add(match_mode_radio_grid, 0, wx.ALL | wx.EXPAND, 5)
 
         # Console type radio box
-        console_types = [console.type for console in Console.__subclasses__()]
-        self.console_type_radio_box = wx.RadioBox(self, label="Console Type", majorDimension=2, choices=console_types)
+        console_types = list(CONSOLES)
+        self.console_type_radio_box = wx.RadioBox(self, label="Console Type", choices=console_types)
         self.console_type_radio_box.SetSelection(console_types.index(settings.console_type))
         panel_sizer.Add(self.console_type_radio_box, 0, wx.ALL | wx.EXPAND, 5)
 
         # Daw type radio box
         daw_types = [daw.type for daw in Daw.__subclasses__()]
-        self.daw_type_radio_box = wx.RadioBox(self, label="DAW Type", majorDimension=2, choices=daw_types)
+        self.daw_type_radio_box = wx.RadioBox(self, label="DAW Type", choices=daw_types)
         self.daw_type_radio_box.SetSelection(daw_types.index(settings.daw_type))
         panel_sizer.Add(self.daw_type_radio_box, 0, wx.ALL | wx.EXPAND, 5)
 
@@ -399,19 +401,41 @@ class PrefsPanel(wx.Panel):
         self.SetSizer(panel_sizer)
         self.Fit()
 
+        # Update console supported features with the currently set console
+        self.update_console_supported_features(console)
+
         # Prefs Window Bindings
         self.Bind(wx.EVT_BUTTON, self.update_button_pressed, update_button)
         self.console_ip_control.Bind(wx.EVT_TEXT, self.changed_console_ip)
         self.console_ip_control.Bind(wx.EVT_KILL_FOCUS, self.check_console_ip)
+        self.console_type_radio_box.Bind(wx.EVT_RADIOBOX, self.changed_console_type)
         self.Show()
+
+    def changed_console_type(self, event: wx.CommandEvent) -> None:
+        console: Console = CONSOLES[event.GetString()]
+        self.update_console_supported_features(console)
+        
+    def update_console_supported_features(self, console: Console)-> None:
+        self.console_rcv_port_control.Enabled = Feature.SEPERATE_RECEIVE_PORT in console.supported_features
+        self.mode_match_all_radio.Enabled = Feature.CUE_NUMBER in console.supported_features
+        self.mode_match_name_radio.Enabled = Feature.CUE_NUMBER in console.supported_features
+        self.repeater_radio_enabled.Enabled = Feature.REPEATER in console.supported_features
+        self.repeater_radio_disabled.Enabled = Feature.REPEATER in console.supported_features
+        self.repeater_ip_control.Enabled = Feature.REPEATER in console.supported_features
+        self.repeater_send_port_control.Enabled = Feature.REPEATER in console.supported_features
+        self.repeater_rcv_port_control.Enabled = Feature.REPEATER in console.supported_features
+        if Feature.REPEATER not in console.supported_features:
+            self.repeater_radio_disabled.SetValue(True)
+        if Feature.CUE_NUMBER not in console.supported_features:
+            self.mode_match_all_radio.SetValue(True)
 
     def update_button_pressed(self, e):
         logger.info("Updating configuration settings.")
         # Writing the new values from the preferences panel to settings
         try:
             settings.console_ip = self.console_ip_control.GetValue()
-            settings.console_port = str(self.digico_send_port_control.GetValue())
-            settings.receive_port = str(self.digico_rcv_port_control.GetValue())
+            settings.console_port = str(self.console_send_port_control.GetValue())
+            settings.receive_port = str(self.console_rcv_port_control.GetValue())
             settings.repeater_ip = self.repeater_ip_control.GetValue()
             settings.repeater_port = str(self.repeater_send_port_control.GetValue())
             settings.repeater_receive_port = str(self.repeater_rcv_port_control.GetValue())

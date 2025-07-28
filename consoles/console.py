@@ -5,6 +5,7 @@ from typing import Callable, List
 class Feature(Enum):
     CUE_NUMBER = 1
     REPEATER = 2
+    SEPERATE_RECEIVE_PORT = 3
 
 
 class Console:
