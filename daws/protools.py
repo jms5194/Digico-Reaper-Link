@@ -61,13 +61,14 @@ class ProTools(Daw):
         self.run_command_on_session(pt.CreateMemoryLocation, command_args)
 
     def _place_marker_with_name(self, marker_name):
-        #assert self.pt_engine_connection
-        #for i in self.pt_engine_connection.get_memory_locations():
-        #    print(i)
-
-        #self.pt_engine_connection.create_memory_location(memory_number=10, name=marker_name, )
-        pass
-
+        with self.pt_send_lock:
+            assert self.pt_engine_connection
+            try:
+                self.pt_engine_connection.create_memory_location(memory_number=-1, start_time="current_pos", name=marker_name)
+                #start_time as current_pos is a hacky way to get it to drop where the playhead is- but throws an error
+            except ptsl.errors.CommandError as e:
+                if e.error_type == pt.PT_InvalidParameter:
+                    logger.error("Bad parameter input to create_memory_location")
 
     def _incoming_transport_action(self, transport_action):
         try:
@@ -81,44 +82,56 @@ class ProTools(Daw):
             logger.error(f"Error processing transport macros: {e}")
 
     def _handle_cue_load(self, cue: str):
-        pass
+        from app_settings import settings
+        if settings.marker_mode == "Recording" and self._get_current_transport_state() == "TS_TransportRecording"
+            self._place_marker_with_name(cue)
+        elif settings.marker_mode == "PlaybackTrack" and self._get_current_transport_state() == "TS_TransportStopped"
+            self.get_marker_id_by_name(cue)
 
+    def _get_current_transport_state(self):
+        with self.pt_send_lock:
+            return self.pt_engine_connection.transport_state()
 
     def _pro_tools_play(self):
-        assert self.pt_engine_connection
-        current_transport_state = self.pt_engine_connection.transport_state()
-        if current_transport_state not in ("TS_TransportPlaying", "TS_TransportRecording"):
-            try:
-                self.pt_engine_connection.toggle_play_state()
-            except ptsl.errors.CommandError as e:
-                if e.error_type == pt.PT_NoOpenedSession:
-                    logger.error("Play command failed, no session is currently open")
-                    return False
-
-    def _pro_tools_stop(self):
-        assert self.pt_engine_connection
-        current_transport_state = self.pt_engine_connection.transport_state()
-        if current_transport_state not in ("TS_TransportStopped", "TS_TransportStopping"):
-            try:
-                self.pt_engine_connection.toggle_play_state()
-            except ptsl.errors.CommandError as e:
-                if e.error_type == pt.PT_NoOpenedSession:
-                    logger.error("Play command failed, no session is currently open")
-                    return False
-
-    def _pro_tools_rec(self):
-        assert self.pt_engine_connection
-        current_transport_state = self.pt_engine_connection.transport_state()
-        current_armed_state = self.pt_engine_connection.transport_armed()
-        if not current_armed_state:
-            self.pt_engine_connection.toggle_record_enable()
-            if current_transport_state is not "TS_TransportRecording":
+        with self.pt_send_lock:
+            assert self.pt_engine_connection
+            current_transport_state = self.pt_engine_connection.transport_state()
+            if current_transport_state not in ("TS_TransportPlaying", "TS_TransportRecording"):
                 try:
                     self.pt_engine_connection.toggle_play_state()
                 except ptsl.errors.CommandError as e:
                     if e.error_type == pt.PT_NoOpenedSession:
                         logger.error("Play command failed, no session is currently open")
                         return False
+            return None
+
+    def _pro_tools_stop(self):
+        with self.pt_send_lock:
+            assert self.pt_engine_connection
+            current_transport_state = self.pt_engine_connection.transport_state()
+            if current_transport_state not in ("TS_TransportStopped", "TS_TransportStopping"):
+                try:
+                    self.pt_engine_connection.toggle_play_state()
+                except ptsl.errors.CommandError as e:
+                    if e.error_type == pt.PT_NoOpenedSession:
+                        logger.error("Play command failed, no session is currently open")
+                        return False
+            return None
+
+    def _pro_tools_rec(self):
+        with self.pt_send_lock:
+            assert self.pt_engine_connection
+            current_transport_state = self.pt_engine_connection.transport_state()
+            current_armed_state = self.pt_engine_connection.transport_armed()
+            if not current_armed_state:
+                self.pt_engine_connection.toggle_record_enable()
+                if current_transport_state != "TS_TransportRecording":
+                    try:
+                        self.pt_engine_connection.toggle_play_state()
+                    except ptsl.errors.CommandError as e:
+                        if e.error_type == pt.PT_NoOpenedSession:
+                            logger.error("Play command failed, no session is currently open")
+                            return False
 
     def _shutdown_servers(self):
         try:
