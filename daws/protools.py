@@ -61,9 +61,12 @@ class ProTools(Daw):
         self.run_command_on_session(pt.CreateMemoryLocation, command_args)
 
     def _place_marker_with_name(self, marker_name):
-        assert self.pt_engine_connection
-        #print(self.pt_engine_connection.get_main_counter())
-        self.pt_engine_connection.create_memory_location(name=marker_name)
+        #assert self.pt_engine_connection
+        #for i in self.pt_engine_connection.get_memory_locations():
+        #    print(i)
+
+        #self.pt_engine_connection.create_memory_location(memory_number=10, name=marker_name, )
+        pass
 
 
     def _incoming_transport_action(self, transport_action):
