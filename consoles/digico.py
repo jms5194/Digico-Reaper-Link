@@ -183,13 +183,13 @@ class DiGiCo(Console):
                 macro_name = args[1]
                 macro_name = str(macro_name).lower()
                 print(macro_name)
-                if macro_name in ("reaper,rec", "reaper rec", "rec", "record", "reaper, record", "reaper record"):
+                if macro_name in ("daw,rec", "daw, rec", "reaper, rec", "reaper,rec", "reaper rec", "rec", "record", "reaper, record", "reaper record"):
                     pub.sendMessage("incoming_transport_action", transport_action="rec")
-                elif macro_name in ("reaper,stop", "reaper stop", "stop"):
+                elif macro_name in ("daw,stop", "daw, stop", "reaper, stop", "reaper,stop", "reaper stop", "stop"):
                     pub.sendMessage("incoming_transport_action", transport_action="stop")
-                elif macro_name in ("reaper,play", "reaper play", "play"):
+                elif macro_name in ("daw,play", "daw, play", "reaper, play", "reaper,play", "reaper play", "play"):
                     pub.sendMessage("incoming_transport_action", transport_action="play")
-                elif macro_name in ("reaper,marker", "reaper marker", "marker"):
+                elif macro_name in ("daw,marker", "daw, marker", "reaper, marker", "reaper,marker", "reaper marker", "marker"):
                     self.process_marker_macro()
                 elif macro_name in ("mode,rec", "mode,record", "mode,recording",
                                     "mode rec", "mode record", "mode recording"):

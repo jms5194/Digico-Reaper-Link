@@ -8,8 +8,6 @@ from typing import Any, Callable
 from logger_config import logger
 import threading
 import sys
-import time
-from typing import Optional
 
 class ProTools(Daw):
     type = "ProTools"
@@ -32,6 +30,7 @@ class ProTools(Daw):
         )
 
     def _open_protools_connection(self):
+        # Open a connection to Pro Tools using the PTSL scripting interface
         self.pt_engine_connection = ptsl.engine.Engine(company_name="JSSD",
                                          application_name=sys.argv[0])
         if self.pt_engine_connection is not None:
@@ -48,6 +47,7 @@ class ProTools(Daw):
                     logger.error("Bad parameter input to create_memory_location")
 
     def _incoming_transport_action(self, transport_action):
+        # If transport actions are received from the console, send to Pro Tools
         try:
             if transport_action == "play":
                 self._pro_tools_play()
@@ -59,6 +59,7 @@ class ProTools(Daw):
             logger.error(f"Error processing transport macros: {e}")
 
     def _handle_cue_load(self, cue: str):
+        # Receives cue information from console and actions based on software mode
         from app_settings import settings
         if settings.marker_mode == "Recording" and self._get_current_transport_state() == "TS_TransportRecording":
             self._place_marker_with_name(cue)
@@ -66,6 +67,7 @@ class ProTools(Daw):
             self._get_marker_id_by_name(cue)
 
     def _get_marker_id_by_name(self, name):
+        # Match marker by name to the MemoryLocation object it represents
         from app_settings import settings
         if self._get_current_transport_state() not in ("TS_TransportPlaying", "TS_TransportRecording"):
             name_to_match = name
@@ -75,20 +77,22 @@ class ProTools(Daw):
             name_to_match = " ".join(name_to_match)
         with self.pt_send_lock:
             mem_locs = self.pt_engine_connection.get_memory_locations()
-            for i in mem_locs:
-                if name_to_match == i.name:
-                    print(i.name)
-                    self._goto_marker_by_id(i.memory_number)
-                    print("found")
+            for pt.MemoryLocation in mem_locs:
+                if name_to_match == pt.MemoryLocation.name:
+                    self._goto_marker_by_loc(pt.MemoryLocation)
 
-    def _goto_marker_by_id(self, memory_number):
-        pass
+    def _goto_marker_by_loc(self, memory_loc):
+        # Jump playhead to the given memory location
+            match_loc_time = str(memory_loc.start_time)
+            self.pt_engine_connection.set_timeline_selection(in_time=match_loc_time)
 
     def _get_current_transport_state(self):
         with self.pt_send_lock:
             return self.pt_engine_connection.transport_state()
 
     def _pro_tools_play(self):
+        # Since Pro Tools only has a toggle of play state, additional logic is here to validate the toggle to the
+        # correct mode
         with self.pt_send_lock:
             assert self.pt_engine_connection
             current_transport_state = self.pt_engine_connection.transport_state()
@@ -102,6 +106,8 @@ class ProTools(Daw):
             return None
 
     def _pro_tools_stop(self):
+        # Since Pro Tools only has a toggle of play state, additional logic is here to validate the toggle to the
+        # correct mode
         with self.pt_send_lock:
             assert self.pt_engine_connection
             current_transport_state = self.pt_engine_connection.transport_state()
@@ -115,6 +121,7 @@ class ProTools(Daw):
             return None
 
     def _pro_tools_rec(self):
+        # Arm transport and validate proper play state
         with self.pt_send_lock:
             assert self.pt_engine_connection
             current_transport_state = self.pt_engine_connection.transport_state()
@@ -128,6 +135,7 @@ class ProTools(Daw):
                         if e.error_type == pt.PT_NoOpenedSession:
                             logger.error("Play command failed, no session is currently open")
                             return False
+            return None
 
     def _shutdown_servers(self):
         try:
