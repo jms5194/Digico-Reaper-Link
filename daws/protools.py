@@ -37,34 +37,11 @@ class ProTools(Daw):
         if self.pt_engine_connection is not None:
             logger.info("Connection established to Pro Tools")
 
-
-    def do_newmemloc(self, args):
-        'Create a new marker memory location: NEWMEMLOC start-time'
-        command_args = {'name': 'New Marker',
-                        'start_time': args.strip(),
-                        'end_time': args.strip(),
-                        'time_properties': 'TP_Marker',
-                        'reference': 'MLR_FollowTrackTimebase',
-                        'general_properties': {
-                            'zoom_settings': False,
-                            'pre_post_roll_times': False,
-                            'track_visibility': False,
-                            'track_heights': False,
-                            'group_enables': False,
-                            'window_configuration': False,
-                        },
-                        'comments': "Created by toolshell",
-                        'color_index': 1,
-                        'location': 'MLC_MainRuler'
-                        }
-
-        self.run_command_on_session(pt.CreateMemoryLocation, command_args)
-
     def _place_marker_with_name(self, marker_name):
         with self.pt_send_lock:
             assert self.pt_engine_connection
             try:
-                self.pt_engine_connection.create_memory_location(memory_number=-1, start_time="current_pos", name=marker_name)
+                self.pt_engine_connection.create_memory_location(memory_number=-1, start_time="current_pos", name=marker_name, location="MLC_MainRuler")
                 #start_time as current_pos is a hacky way to get it to drop where the playhead is- but throws an error
             except ptsl.errors.CommandError as e:
                 if e.error_type == pt.PT_InvalidParameter:
@@ -83,10 +60,29 @@ class ProTools(Daw):
 
     def _handle_cue_load(self, cue: str):
         from app_settings import settings
-        if settings.marker_mode == "Recording" and self._get_current_transport_state() == "TS_TransportRecording"
+        if settings.marker_mode == "Recording" and self._get_current_transport_state() == "TS_TransportRecording":
             self._place_marker_with_name(cue)
-        elif settings.marker_mode == "PlaybackTrack" and self._get_current_transport_state() == "TS_TransportStopped"
-            self.get_marker_id_by_name(cue)
+        elif settings.marker_mode == "PlaybackTrack" and self._get_current_transport_state() == "TS_TransportStopped":
+            self._get_marker_id_by_name(cue)
+
+    def _get_marker_id_by_name(self, name):
+        from app_settings import settings
+        if self._get_current_transport_state() not in ("TS_TransportPlaying", "TS_TransportRecording"):
+            name_to_match = name
+        if settings.name_only_match:
+            name_to_match = name_to_match.split(" ")
+            name_to_match = name_to_match[1:]
+            name_to_match = " ".join(name_to_match)
+        with self.pt_send_lock:
+            mem_locs = self.pt_engine_connection.get_memory_locations()
+            for i in mem_locs:
+                if name_to_match == i.name:
+                    print(i.name)
+                    self._goto_marker_by_id(i.memory_number)
+                    print("found")
+
+    def _goto_marker_by_id(self, memory_number):
+        pass
 
     def _get_current_transport_state(self):
         with self.pt_send_lock:
