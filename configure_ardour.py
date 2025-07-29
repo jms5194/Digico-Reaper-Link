@@ -5,22 +5,30 @@ import psutil
 import sys
 import xml.etree.ElementTree as ET
 
-def update_config_file(config_file):
+def backup_config_file(config_file_path):
     # Backup config state before this software modified it.
-    before_file = config_file + ".before.bak"
+    before_file = config_file_path + ".before.bak"
     if not os.path.exists(before_file):
-        shutil.copy(config_file, before_file)
+        shutil.copy(config_file_path, before_file)
     # Backup current config
-    shutil.copy(config_file, config_file + ".bak")
-    # Write config
-    with open(config_file, "w", encoding="utf8") as f:
-        f.write()
+    shutil.copy(config_file_path, config_file_path + ".bak")
 
 def add_OSC_interface(resource_path, rcv_port=8000, snd_port=9000):
+    # Parse the XML configuration document
     config = ET.parse(os.path.join(resource_path, "config"))
     root = config.getroot()
-    for child in root:
-        print(child.tag, child.attrib)
+    osc_config = root.find("./ControlProtocols/Protocol[@name='Open Sound Control (OSC)']")
+    osc_config.attrib["feedback"] = "16"
+    osc_config.attrib["debug_mode"] = "0"
+    osc_config.attrib["address-only"] = "1"
+    osc_config.attrib["remote-port"] = "3820"
+    osc_config.attrib["banksize"] = "0"
+    osc_config.attrib["striptypes"] = "31"
+    osc_config.attrib["gainmode"] = "0"
+    osc_config.attrib["send-page-size"] = "0"
+    osc_config.attrib["active"] = "1"
+    backup_config_file(resource_path)
+    config.write("config")
 
 def get_resource_path(detect_portable_install):
     for i in get_candidate_directories(detect_portable_install):
