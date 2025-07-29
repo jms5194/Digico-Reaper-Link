@@ -4,6 +4,7 @@ from logger_config import logger
 from pythonosc import dispatcher, osc_server, udp_client
 from typing import Any, Callable
 import threading
+import configure_ardour
 
 # Need to add automated configuration methods
 
@@ -21,6 +22,34 @@ class Ardour(Daw):
         pub.subscribe(self._incoming_transport_action, "incoming_transport_action")
         pub.subscribe(self._handle_cue_load, "handle_cue_load")
         pub.subscribe(self._shutdown_servers, "shutdown_servers")
+        self._validate_ardour_prefs()
+
+    def _validate_ardour_prefs(self):
+        # If the Ardour config file does not contain an entry for Digico-Reaper Link, add one.
+        from app_settings import settings
+        try:
+            if not self._check_ardour_prefs(3820, 3819):
+                self._add_ardour_prefs(3820, 3819)
+                pub.sendMessage("reset_daw", resetdaw=True, dawname="Reaper")
+            return True
+        except RuntimeError as e:
+            # If Ardour is not running, wait and try again
+            logger.error("Ardour not running. Will retry in 1 seconds.")
+            timer = threading.Timer(1,self._validate_ardour_prefs)
+            timer.start()
+            return False
+
+    @staticmethod
+    def _check_ardour_prefs(rpr_rcv, rpr_send):
+        return False
+
+    @staticmethod
+    def _add_ardour_prefs(rpr_rcv, rpr_send):
+        configure_ardour.add_OSC_interface(configure_ardour.get_resource_path(True), rpr_rcv, rpr_send)
+        logger.info("Added OSC interface to Ardour preferences")
+        #if osc_interface_exists(resource_path, rcv_port, snd_port):
+        #    return
+
 
     def start_managed_threads(
             self, start_managed_thread: Callable[[str, Any], None]

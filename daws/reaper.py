@@ -1,5 +1,3 @@
-import time
-
 from . import Daw
 from logger_config import logger
 from typing import Any, Callable
@@ -39,8 +37,6 @@ class Reaper(Daw):
             logger.error("Reaper not running. Will retry in 1 seconds.")
             timer = threading.Timer(1,self._validate_reaper_prefs)
             timer.start()
-            #logger.debug(f"Reaper not running: {e}")
-            #pub.sendMessage('reaper_error', reapererror=e)
             return False
 
     @staticmethod
@@ -86,10 +82,10 @@ class Reaper(Daw):
         self.reaper_dispatcher.map("/play", self._current_transport_state)
         self.reaper_dispatcher.map("/record", self._current_transport_state)
 
-    def _marker_matcher(self, OSCAddress, test_name):
+    def _marker_matcher(self, osc_address, test_name):
         # Matches a marker composite name with its Reaper ID
         from app_settings import settings
-        address_split = OSCAddress.split("/")
+        address_split = osc_address.split("/")
         marker_id = address_split[2]
         if settings.name_only_match:
             test_name = test_name.split(" ")
@@ -98,16 +94,16 @@ class Reaper(Daw):
         if test_name == self.name_to_match:
             self._goto_marker_by_id(marker_id)
 
-    def _current_transport_state(self, OSCAddress, val):
+    def _current_transport_state(self, osc_address, val):
         # Watches what the Reaper playhead is doing.
         playing = None
         recording = None
-        if OSCAddress == "/play":
+        if osc_address == "/play":
             if val == 0:
                 playing = False
             elif val == 1:
                 playing = True
-        elif OSCAddress == "/record":
+        elif osc_address == "/record":
             if val == 0:
                 recording = False
             elif val == 1:
