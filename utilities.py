@@ -13,7 +13,8 @@ from pubsub import pub
 
 from app_settings import settings
 from consoles import Console, DiGiCo, StuderVista
-from daws import Daw, Reaper, ProTools
+from daws import Daw, Reaper, ProTools, LiveTrax2
+from daws.livetrax2 import LiveTrax2
 from logger_config import logger
 
 
@@ -54,7 +55,7 @@ class DawConsoleBridge:
     _console: Console
 
     def __init__(self):
-        logger.info("Initializing ReaperDigicoOSCBridge")
+        logger.info("Initializing ConsoleMarkerBridge")
         self.ini_prefs = ""
         self.config_dir = ""
         self.lock = threading.Lock()
@@ -172,6 +173,8 @@ class DawConsoleBridge:
             self.daw = Reaper()
         elif settings.daw_type == ProTools.type:
             self.daw = ProTools()
+        elif settings.daw_type == LiveTrax2.type:
+            self.daw = LiveTrax2()
         self.daw.start_managed_threads(self.start_managed_thread)
         self.start_managed_thread("heartbeat_thread", self.heartbeat_loop)
         if settings.console_type == DiGiCo.type:
