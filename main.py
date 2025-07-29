@@ -148,7 +148,7 @@ class MainPanel(wx.Panel):
         pub.subscribe(self.console_disconnected, "console_disconnected")
         pub.subscribe(self.console_type_updated, "console_type_updated")
         pub.subscribe(self.reaper_disconnected_listener, "reaper_error")
-        pub.subscribe(self.callforreaperrestart, "reset_reaper")
+        pub.subscribe(self.call_for_daw_reset, "reset_daw")
         pub.subscribe(self.update_mode_select_gui_from_osc, "mode_select_osc")
         MainWindow.BridgeFunctions.start_threads()
         # Start a timer for Digico timeout
@@ -241,12 +241,12 @@ class MainPanel(wx.Panel):
         elif result == wx.ID_OK:
             MainWindow.BridgeFunctions.start_threads()
 
-    def callforreaperrestart(self, resetreaper, arg2=None):
-        logger.info("Reaper has been configured. Requesting restart")
+    def call_for_daw_reset(self, resetdaw, dawname):
+        logger.info(f"{dawname} has been auto configured. Requesting restart")
         dlg = wx.MessageDialog(self,
-                               "Reaper has been configured for use with Digico-Reaper Link. "
-                               "Please restart Reaper and press OK",
-                               "Reaper Configured", wx.OK | wx.ICON_QUESTION)
+                               f"{dawname} has been configured for use with Digico-Reaper Link. "
+                               f"Please restart {dawname} and press OK",
+                               f"{dawname} Configured", wx.OK | wx.ICON_QUESTION)
         result = dlg.ShowModal()
         dlg.Destroy()
 

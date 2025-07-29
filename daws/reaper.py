@@ -1,12 +1,13 @@
+import time
+
 from . import Daw
 from logger_config import logger
 from typing import Any, Callable
 from pubsub import pub
 from pythonosc import dispatcher, osc_server, udp_client
-from pythonosc.dispatcher import Dispatcher
-from pythonosc.osc_server import ThreadingOSCUDPServer
 import threading
 import configure_reaper
+
 
 
 class Reaper(Daw):
@@ -31,12 +32,15 @@ class Reaper(Daw):
         try:
             if not self._check_reaper_prefs(settings.reaper_receive_port, settings.reaper_port):
                 self._add_reaper_prefs(settings.reaper_receive_port, settings.reaper_port)
-                pub.sendMessage("reset_reaper", resetreaper=True)
+                pub.sendMessage("reset_daw", resetdaw=True, dawname="Reaper")
             return True
         except RuntimeError as e:
-            # If reaper is not running, send an error to the UI
-            logger.debug(f"Reaper not running: {e}")
-            pub.sendMessage('reaper_error', reapererror=e)
+            # If reaper is not running, wait and try again
+            logger.error("Reaper not running. Will retry in 1 seconds.")
+            timer = threading.Timer(1,self._validate_reaper_prefs)
+            timer.start()
+            #logger.debug(f"Reaper not running: {e}")
+            #pub.sendMessage('reaper_error', reapererror=e)
             return False
 
     @staticmethod
