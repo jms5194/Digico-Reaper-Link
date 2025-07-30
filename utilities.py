@@ -13,7 +13,7 @@ from pubsub import pub
 
 from app_settings import settings
 from consoles import Console, DiGiCo, StuderVista
-from daws import Daw, Reaper, ProTools
+from daws import Daw, ProTools, Reaper
 from logger_config import logger
 
 
@@ -31,7 +31,9 @@ def find_local_ip_in_subnet(console_ip):
         interface_ip_string = i[0] + "/" + i[1]
         # If strict is off, then the user bits of the computer IP will be masked automatically
         # Need to add error handling here
-        if ipaddress.IPv4Address(console_ip) in ipaddress.IPv4Network(interface_ip_string, False):
+        if ipaddress.IPv4Address(console_ip) in ipaddress.IPv4Network(
+            interface_ip_string, False
+        ):
             return i[0]
         else:
             pass
@@ -63,7 +65,6 @@ class DawConsoleBridge:
         self.console_name_event = threading.Event()
         self._console = Console()
         self._daw = Daw()
-
 
     def where_to_put_user_data(self):
         # Find a home for our preferences file
@@ -105,16 +106,19 @@ class DawConsoleBridge:
         rptr_rcv,
         name_only,
         console_type,
-        daw_type
+        daw_type,
     ):
         # Given new values from the GUI, update the config file and restart the OSC Server
         logger.info("Updating configuration file")
         updater = ConfigUpdater()
-        updater.read(self.ini_prefs)
         try:
-            if not updater.has_section('main'):
+            updater.read(self.ini_prefs)
+        except FileNotFoundError:
+            pass
+        try:
+            if not updater.has_section("main"):
                 print("Adding main section")
-                updater.add_section('main')
+                updater.add_section("main")
             updater["main"]["default_ip"] = con_ip
             updater["main"]["repeater_ip"] = rptr_ip
             updater["main"]["default_digico_send_port"] = str(con_send)
@@ -129,35 +133,48 @@ class DawConsoleBridge:
             updater["main"]["daw_type"] = str(daw_type)
         except Exception as e:
             logger.error(f"Failed to update config file: {e}")
-        updater.update_file()
+        with open(self.ini_prefs, "w") as file:
+            updater.write(file, validate=False)
         self.set_vars_from_pref(self.ini_prefs)
         self.close_servers()
         self.restart_servers()
-
 
     def update_pos_in_config(self, win_pos_tuple):
         # Receives the position of the window from the UI and stores it in the preferences file
         logger.info("Updating window position in config file")
         updater = ConfigUpdater()
-        updater.read(self.ini_prefs)
         try:
+            updater.read(self.ini_prefs)
+        except FileNotFoundError:
+            pass
+        try:
+            if not updater.has_section("main"):
+                print("Adding main section")
+                updater.add_section("main")
             updater.set("main", "window_pos_x", str(win_pos_tuple[0]))
             updater.set("main", "window_pos_y", str(win_pos_tuple[1]))
         except Exception as e:
             logger.error(f"Failed to update window position in config file: {e}")
-        updater.update_file()
+        with open(self.ini_prefs, "w") as file:
+            updater.write(file, validate=False)
 
     def update_size_in_config(self, win_size_tuple):
         logger.info("Updating window size in config file")
         updater = ConfigUpdater()
-        updater.read(self.ini_prefs)
         try:
+            updater.read(self.ini_prefs)
+        except FileNotFoundError:
+            pass
+        try:
+            if not updater.has_section("main"):
+                print("Adding main section")
+                updater.add_section("main")
             updater["main"]["window_size_x"] = str(win_size_tuple[0])
             updater["main"]["window_size_y"] = str(win_size_tuple[1])
         except Exception as e:
             logger.error(f"Failed to update window size in config file: {e}")
-        updater.update_file()
-
+        with open(self.ini_prefs, "w") as file:
+            updater.write(file, validate=False)
 
     def start_managed_thread(self, attr_name: str, target: Callable) -> None:
         # Start a ManagedThread that can be signaled to stop
@@ -198,7 +215,6 @@ class DawConsoleBridge:
         self._daw = value
         pub.sendMessage("daw_type_updated", daw=value)
 
-
     # Console Functions:
 
     def heartbeat_loop(self):
@@ -212,7 +228,6 @@ class DawConsoleBridge:
                 logger.error(f"Heartbeat loop error: {e}")
                 pub.sendMessage("console_disconnected")
             time.sleep(3)
-
 
     def stop_all_threads(self):
         logger.info("Stopping all threads")
