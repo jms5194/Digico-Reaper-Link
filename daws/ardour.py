@@ -1,11 +1,10 @@
-import configure_reaper
-from . import Daw
+from . import Daw, configure_ardour
 from pubsub import pub
 from logger_config import logger
 from pythonosc import dispatcher, osc_server, udp_client
 from typing import Any, Callable
 import threading
-import configure_ardour
+
 
 # Need to add automated configuration methods
 

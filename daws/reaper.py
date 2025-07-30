@@ -1,11 +1,9 @@
-from . import Daw
+from . import Daw, configure_reaper
 from logger_config import logger
 from typing import Any, Callable
 from pubsub import pub
 from pythonosc import dispatcher, osc_server, udp_client
 import threading
-import configure_reaper
-
 
 
 class Reaper(Daw):
