@@ -59,7 +59,7 @@ class RawOSCServer(ThreadingOSCUDPServer):
 
 class DiGiCo(Console):
     type = "DiGiCo"
-    supported_features = [Feature.CUE_NUMBER, Feature.REPEATER]
+    supported_features = [Feature.CUE_NUMBER, Feature.REPEATER, Feature.SEPERATE_RECEIVE_PORT]
 
     def __init__(self):
         super().__init__()
