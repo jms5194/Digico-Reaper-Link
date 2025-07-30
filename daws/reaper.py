@@ -10,6 +10,7 @@ import configure_reaper
 
 class Reaper(Daw):
     type = "Reaper"
+    _shutdown_server_event = threading.Event()
 
     def __init__(self):
         super().__init__()
@@ -22,22 +23,34 @@ class Reaper(Daw):
         pub.subscribe(self._incoming_transport_action, "incoming_transport_action")
         pub.subscribe(self._handle_cue_load, "handle_cue_load")
         pub.subscribe(self._shutdown_servers, "shutdown_servers")
+        pub.subscribe(self._shutdown_server_event.set, "shutdown_servers")
+
+    def start_managed_threads(
+            self, start_managed_thread: Callable[[str, Any], None]
+    ) -> None:
+        logger.info("Starting Reaper Connection threads")
+        self._shutdown_server_event.clear()
         self._validate_reaper_prefs()
+        start_managed_thread(
+            "daw_connection_thread", self._build_reaper_osc_servers
+        )
 
     def _validate_reaper_prefs(self):
         # If the Reaper .ini file does not contain an entry for Digico-Reaper Link, add one.
-        from app_settings import settings
-        try:
-            if not self._check_reaper_prefs(settings.reaper_receive_port, settings.reaper_port):
-                self._add_reaper_prefs(settings.reaper_receive_port, settings.reaper_port)
-                pub.sendMessage("reset_daw", resetdaw=True, dawname="Reaper")
-            return True
-        except RuntimeError as e:
-            # If reaper is not running, wait and try again
-            logger.error("Reaper not running. Will retry in 1 seconds.")
-            timer = threading.Timer(1,self._validate_reaper_prefs)
-            timer.start()
-            return False
+        while not self._shutdown_server_event.is_set():
+            from app_settings import settings
+            try:
+                if not self._check_reaper_prefs(settings.reaper_receive_port, settings.reaper_port):
+                    self._add_reaper_prefs(settings.reaper_receive_port, settings.reaper_port)
+                    pub.sendMessage("reset_daw", resetdaw=True, dawname="Reaper")
+                return True
+            except RuntimeError as e:
+                # If reaper is not running, wait and try again
+                logger.error("Reaper not running. Will retry in 1 seconds.")
+                timer = threading.Timer(1,self._validate_reaper_prefs)
+                timer.start()
+                return False
+        return None
 
     @staticmethod
     def _check_reaper_prefs(rpr_rcv, rpr_send):
@@ -52,14 +65,6 @@ class Reaper(Daw):
     def _add_reaper_prefs(rpr_rcv, rpr_send):
         configure_reaper.add_OSC_interface(configure_reaper.get_resource_path(True), rpr_rcv, rpr_send)
         logger.info("Added OSC interface to Reaper preferences")
-
-    def start_managed_threads(
-            self, start_managed_thread: Callable[[str, Any], None]
-    ) -> None:
-        logger.info("Starting Reaper Connection threads")
-        start_managed_thread(
-            "daw_connection_thread", self._build_reaper_osc_servers
-        )
 
     def _build_reaper_osc_servers(self):
         # Connect to Reaper via OSC

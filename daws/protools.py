@@ -11,6 +11,7 @@ import sys
 
 class ProTools(Daw):
     type = "ProTools"
+    _shutdown_server_event = threading.Event()
 
     def __init__(self):
         super().__init__()
@@ -20,6 +21,7 @@ class ProTools(Daw):
         pub.subscribe(self._incoming_transport_action, "incoming_transport_action")
         pub.subscribe(self._handle_cue_load, "handle_cue_load")
         pub.subscribe(self._shutdown_servers, "shutdown_servers")
+        pub.subscribe(self._shutdown_server_event.set, "shutdown_servers")
 
     def start_managed_threads(
             self, start_managed_thread: Callable[[str, Any], None]
@@ -31,15 +33,17 @@ class ProTools(Daw):
 
     def _open_protools_connection(self):
         # Open a connection to Pro Tools using the PTSL scripting interface
-        try:
-            self.pt_engine_connection = ptsl.engine.Engine(company_name="JSSD",
-                                             application_name=sys.argv[0])
-            if self.pt_engine_connection is not None:
-                logger.info("Connection established to Pro Tools")
-        except Exception as e:
-            logger.error("Unable to connect to Pro Tools. Retrying")
-            time.sleep(5)
-            self._open_protools_connection()
+        while not self._shutdown_server_event.is_set():
+            try:
+                self.pt_engine_connection = ptsl.engine.Engine(company_name="JSSD",
+                                                 application_name=sys.argv[0])
+                if self.pt_engine_connection is not None:
+                    logger.info("Connection established to Pro Tools")
+            except Exception as e:
+                logger.error("Unable to connect to Pro Tools. Retrying")
+                time.sleep(1)
+                self._open_protools_connection()
+        return None
 
     def _place_marker_with_name(self, marker_name):
         with self.pt_send_lock:

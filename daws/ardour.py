@@ -1,3 +1,4 @@
+import configure_reaper
 from . import Daw
 from pubsub import pub
 from logger_config import logger
@@ -10,6 +11,7 @@ import configure_ardour
 
 class Ardour(Daw):
     type = "Ardour"
+    _shutdown_server_event = threading.Event()
 
     def __init__(self):
         super().__init__()
@@ -22,42 +24,49 @@ class Ardour(Daw):
         pub.subscribe(self._incoming_transport_action, "incoming_transport_action")
         pub.subscribe(self._handle_cue_load, "handle_cue_load")
         pub.subscribe(self._shutdown_servers, "shutdown_servers")
+        pub.subscribe(self._shutdown_server_event.set, "shutdown_servers")
+
+    def start_managed_threads(
+            self, start_managed_thread: Callable[[str, Any], None]
+    ) -> None:
+        self._shutdown_server_event.clear()
+        logger.info("Starting Ardour Connection thread")
         self._validate_ardour_prefs()
+        start_managed_thread(
+            "daw_connection_thread", self._build_ardour_osc_servers
+        )
 
     def _validate_ardour_prefs(self):
         # If the Ardour config file does not contain an entry for Digico-Reaper Link, add one.
-        from app_settings import settings
-        try:
-            if not self._check_ardour_prefs(3820, 3819):
-                self._add_ardour_prefs(3820, 3819)
-                pub.sendMessage("reset_daw", resetdaw=True, dawname="Reaper")
-            return True
-        except RuntimeError as e:
-            # If Ardour is not running, wait and try again
-            logger.error("Ardour not running. Will retry in 1 seconds.")
-            timer = threading.Timer(1,self._validate_ardour_prefs)
-            timer.start()
-            return False
+        while not self._shutdown_server_event.is_set():
+            try:
+                if not self._check_ardour_prefs(3820, 3819):
+                    self._add_ardour_prefs(3820, 3819)
+                    pub.sendMessage("reset_daw", resetdaw=True, dawname="Ardour")
+                return True
+            except RuntimeError as e:
+                # If Ardour is not running, wait and try again
+                logger.error("Ardour not running. Will retry in 1 seconds.")
+                timer = threading.Timer(1,self._validate_ardour_prefs)
+                timer.start()
+                return False
+        return None
 
     @staticmethod
     def _check_ardour_prefs(rpr_rcv, rpr_send):
-        return False
+        if configure_ardour.osc_interface_exists(configure_ardour.get_resource_path(True), rpr_rcv, rpr_send):
+            logger.info("Ardour OSC interface config already exists")
+            return True
+        else:
+            logger.info("Ardour OSC interface config does not exist")
+            return False
 
     @staticmethod
     def _add_ardour_prefs(rpr_rcv, rpr_send):
         configure_ardour.add_OSC_interface(configure_ardour.get_resource_path(True), rpr_rcv, rpr_send)
         logger.info("Added OSC interface to Ardour preferences")
-        #if osc_interface_exists(resource_path, rcv_port, snd_port):
-        #    return
-
-
-    def start_managed_threads(
-            self, start_managed_thread: Callable[[str, Any], None]
-    ) -> None:
-        logger.info("Starting Ardour Connection thread")
-        start_managed_thread(
-            "daw_connection_thread", self._build_ardour_osc_servers
-        )
+        if configure_ardour.osc_interface_exists(configure_ardour.get_resource_path(True), rpr_rcv, rpr_send):
+            return
 
     def _receive_ardour_OSC(self):
         # Receives and distributes OSC from Ardour, based on matching OSC values
@@ -67,6 +76,8 @@ class Ardour(Daw):
 
     def _build_ardour_osc_servers(self):
         # Connect to Ardour via OSC
+
+
         logger.info("Starting Ardour OSC server")
         self.ardour_client = udp_client.SimpleUDPClient("127.0.0.1", 3819)
         self.ardour_dispatcher = dispatcher.Dispatcher()

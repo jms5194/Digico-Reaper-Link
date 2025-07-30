@@ -1,12 +1,15 @@
 import os
 import pathlib
 import shutil
+import xml.etree.ElementTree
+from logger_config import logger
 import psutil
 import sys
 import xml.etree.ElementTree as ET
 
 def backup_config_file(config_file_path):
     # Backup config state before this software modified it.
+    config_file_path = config_file_path + "/" + "config"
     before_file = config_file_path + ".before.bak"
     if not os.path.exists(before_file):
         shutil.copy(config_file_path, before_file)
@@ -19,7 +22,7 @@ def add_OSC_interface(resource_path, rcv_port=8000, snd_port=9000):
     root = config.getroot()
     osc_config = root.find("./ControlProtocols/Protocol[@name='Open Sound Control (OSC)']")
     osc_config.attrib["feedback"] = "16"
-    osc_config.attrib["debug_mode"] = "0"
+    osc_config.attrib["debugmode"] = "0"
     osc_config.attrib["address-only"] = "1"
     osc_config.attrib["remote-port"] = "3820"
     osc_config.attrib["banksize"] = "0"
@@ -29,6 +32,28 @@ def add_OSC_interface(resource_path, rcv_port=8000, snd_port=9000):
     osc_config.attrib["active"] = "1"
     backup_config_file(resource_path)
     config.write("config")
+
+def osc_interface_exists(resource_path, rcv_port, snd_port):
+    config = ET.parse(os.path.join(resource_path, "config"))
+    root = config.getroot()
+    osc_config = root.find("./ControlProtocols/Protocol[@name='Open Sound Control (OSC)']")
+    assert isinstance(osc_config, xml.etree.ElementTree.Element)
+    try:
+        if (osc_config.attrib["feedback"] == "16"
+            and osc_config.attrib["debugmode"] == "0"
+            and osc_config.attrib["address-only"] == "1"
+            and osc_config.attrib["remote-port"] == "3820"
+            and osc_config.attrib["banksize"] == "0"
+            and osc_config.attrib["striptypes"] == "31"
+            and osc_config.attrib["gainmode"] == "0"
+            and osc_config.attrib["send-page-size"] == "0"
+            and osc_config.attrib["active"] == "1"
+            ):
+            return True
+        else:
+            add_OSC_interface(resource_path, rcv_port, snd_port)
+    except KeyError:
+        logger.error("Ardour config is missing keys")
 
 def get_resource_path(detect_portable_install):
     for i in get_candidate_directories(detect_portable_install):
@@ -61,19 +86,7 @@ def is_windows() -> bool:
     return os.name == "nt"
 
 def get_ardour_process_path():
-    """Return path to currently running Ardour8 process.
-
-    Returns
-    -------
-    str
-        Path to executable file.
-
-    Raises
-    ------
-    RuntimeError
-        When zero or more than one REAPER instances are currently
-        running.
-    """
+    # Return path to currently running Ardour8 process.
     processes = [
         p for p in psutil.process_iter(['name', 'exe'])
         if os.path.splitext(p.info['name']  # type:ignore
