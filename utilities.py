@@ -107,6 +107,7 @@ class DawConsoleBridge:
         name_only,
         console_type,
         daw_type,
+        always_on_top: bool
     ):
         # Given new values from the GUI, update the config file and restart the OSC Server
         logger.info("Updating configuration file")
@@ -131,6 +132,7 @@ class DawConsoleBridge:
             updater["main"]["name_only_match"] = str(name_only)
             updater["main"]["console_type"] = str(console_type)
             updater["main"]["daw_type"] = str(daw_type)
+            updater["main"]["always_on_top"] = str(always_on_top)
         except Exception as e:
             logger.error(f"Failed to update config file: {e}")
         with open(self.ini_prefs, "w") as file:
