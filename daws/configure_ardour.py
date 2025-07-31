@@ -90,7 +90,7 @@ def get_ardour_process_path():
     processes = [
         p for p in psutil.process_iter(['name', 'exe'])
         if os.path.splitext(p.info['name']  # type:ignore
-                            )[0].lower() == 'ardour8'
+                            )[0].lower() in ['ardour8', "ardourgui"]
     ]
     if not processes:
         raise RuntimeError('No Ardour instance is currently running.')

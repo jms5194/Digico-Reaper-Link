@@ -37,6 +37,7 @@ def find_local_ip_in_subnet(console_ip):
             return i[0]
         else:
             pass
+    return None
 
 
 class ManagedThread(threading.Thread):
