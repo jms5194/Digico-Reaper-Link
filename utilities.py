@@ -13,7 +13,7 @@ from pubsub import pub
 
 from app_settings import settings
 from consoles import Console, DiGiCo, StuderVista
-from daws import Daw, Reaper, ProTools, Ardour
+from daws import Daw, Reaper, ProTools, Ardour, Audacity
 from logger_config import logger
 
 
@@ -194,6 +194,8 @@ class DawConsoleBridge:
             self.daw = ProTools()
         elif settings.daw_type == Ardour.type:
             self.daw = Ardour()
+        elif settings.daw_type == Audacity.type:
+            self.daw = Audacity()
         self.daw.start_managed_threads(self.start_managed_thread)
         self.start_managed_thread("heartbeat_thread", self.heartbeat_loop)
         if settings.console_type == DiGiCo.type:
