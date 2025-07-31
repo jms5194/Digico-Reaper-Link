@@ -131,19 +131,41 @@ class DiGiCo(Console):
         self.digico_dispatcher.map("/Macros/Recall_Macro/*", self._request_macro_info)
         self.digico_dispatcher.map("/Macros/name", self._macro_name_handler)
         self.digico_dispatcher.map("/Console/Name", self._console_name_handler)
+        # Need to consider naming for these mappings
+        self.digico_dispatcher.map("/ConsoleDawLink/Play", self._osc_play)
+        self.digico_dispatcher.map("/ConsoleDawLink/Stop", self._osc_stop)
+        self.digico_dispatcher.map("/ConsoleDawLink/Rec", self._osc_rec)
+        self.digico_dispatcher.map("/ConsoleDawLink/Marker", self._osc_marker)
         self.digico_dispatcher.set_default_handler(self._forward_OSC)
 
-    def send_to_console(self, OSCAddress: str, *args):
+
+    def _osc_play(self, osc_address: str, *args):
+        pub.sendMessage("incoming_transport_action", transport_action="play")
+
+    def _osc_stop(self, osc_address: str, *args):
+        pub.sendMessage("incoming_transport_action", transport_action="stop")
+
+    def _osc_rec(self, osc_address: str, *args):
+        pub.sendMessage("incoming_transport_action", transport_action="rec")
+
+    def _osc_marker(self, osc_address: str, *args):
+        if args:
+            name_to_send = str(args[0])
+            pub.sendMessage("place_marker_with_name", marker_name=name_to_send)
+        else:
+            pub.sendMessage("place_marker_with_name", marker_name="Marker from Console")
+
+    def send_to_console(self, osc_address: str, *args):
         # Send an OSC message to the console
         with self.console_send_lock:
-            self.console_client.send_message(OSCAddress, [*args])
+            self.console_client.send_message(osc_address, [*args])
 
-    def _console_name_handler(self, OSCAddress: str, console_name: str):
+    def _console_name_handler(self, osc_address: str, console_name: str):
         # Receives the console name response and updates the UI.
         from app_settings import settings
         if settings.forwarder_enabled:
             try:
-                self.repeater_client.send_message(OSCAddress, console_name)
+                self.repeater_client.send_message(osc_address, console_name)
             except Exception as e:
                 logger.error(f"Console name cannot be repeated: {e}")
         try:
@@ -151,31 +173,31 @@ class DiGiCo(Console):
         except Exception as e:
             logger.error(f"Console Name Handler Error: {e}")
 
-    def _request_snapshot_info(self, OSCAddress: str, *args):
+    def _request_snapshot_info(self, osc_address: str, *args):
         # Receives the OSC for the Current Snapshot Number and uses that to request the cue number/name
         from app_settings import settings
         if settings.forwarder_enabled:
             try:
-                self.repeater_client.send_message(OSCAddress, *args)
+                self.repeater_client.send_message(osc_address, *args)
             except Exception as e:
                 logger.error(f"Snapshot info cannot be repeated: {e}")
         logger.info("Requested snapshot info")
-        current_snapshot_number = int(OSCAddress.split("/")[3])
+        current_snapshot_number = int(osc_address.split("/")[3])
         with self.console_send_lock:
             self.console_client.send_message("/Snapshots/name/?", current_snapshot_number)
 
-    def _request_macro_info(self, OSCAddress: str, pressed):
+    def _request_macro_info(self, osc_address: str, pressed):
         # When a Macro is pressed, request the name of the macro
-        self.requested_macro_num = OSCAddress.split("/")[3]
+        self.requested_macro_num = osc_address.split("/")[3]
         with self.console_send_lock:
             self.console_client.send_message("/Macros/name/?", int(self.requested_macro_num))
 
-    def _macro_name_handler(self, OSCAddress: str, *args):
+    def _macro_name_handler(self, osc_address: str, *args):
         #If macros match names, then send behavior to Reaper
         from app_settings import settings
         if settings.forwarder_enabled:
             try:
-                self.repeater_client.send_message(OSCAddress, [*args])
+                self.repeater_client.send_message(osc_address, [*args])
             except Exception as e:
                 logger.error(f"Macro name cannot be repeated: {e}")
         if self.requested_macro_num is not None:
@@ -209,12 +231,12 @@ class DiGiCo(Console):
     def process_marker_macro():
         pub.sendMessage("place_marker_with_name", marker_name="Marker from Console")
 
-    def snapshot_OSC_handler(self, OSCAddress: str, *args):
+    def snapshot_OSC_handler(self, osc_address: str, *args):
         # Processes the current cue number
         from app_settings import settings
         if settings.forwarder_enabled:
             try:
-                self.repeater_client.send_message(OSCAddress, [*args])
+                self.repeater_client.send_message(osc_address, [*args])
             except Exception as e:
                 logger.error(f"Snapshot cue number cannot be repeated: {e}")
         cue_name = args[3]
@@ -227,11 +249,11 @@ class DiGiCo(Console):
     def _receive_repeater_OSC(self):
         self.repeater_dispatcher.set_default_handler(self.send_to_console)
 
-    def _forward_OSC(self, OSCAddress: str, *args):
+    def _forward_OSC(self, osc_address: str, *args):
         from app_settings import settings
         if settings.forwarder_enabled:
             try:
-                self.repeater_client.send_message(OSCAddress, [*args])
+                self.repeater_client.send_message(osc_address, [*args])
             except Exception as e:
                 logger.error(f"Forwarder error: {e}")
     
