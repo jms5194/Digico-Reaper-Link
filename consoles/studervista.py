@@ -39,7 +39,9 @@ class StuderVista(Console):
                         (settings.console_ip, settings.console_port)
                     )
                     logger.info("Ember connected successfully")
-                except TimeoutError:
+                except(TimeoutError, ConnectionRefusedError):
+                    # There's got to be a better way to get to the outer sleep
+                    time.sleep(5000)
                     continue
                 self._send_subscribe()
                 while not self._shutdown_server_event.is_set():

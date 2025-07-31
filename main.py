@@ -37,6 +37,10 @@ class MainWindow(wx.Frame):
         self.Bind(wx.EVT_MENU, self.on_about, about_menuitem)
         self.Bind(wx.EVT_MENU, self.launch_prefs, properties_menuitem)
         self.Bind(wx.EVT_CLOSE, self.on_close)
+
+        pub.subscribe(self.update_display_settings, "update_main_window_display_settings")
+        self.update_display_settings()
+
         self.Show()
 
     def on_about(self, event):
@@ -71,6 +75,12 @@ class MainWindow(wx.Frame):
                     self.GetTopLevelParent().Destroy()
                 except Exception as e:
                     logger.error(f"Error closing application: {e}")
+
+    def update_display_settings(self) -> None:
+        if settings.always_on_top:
+            self.SetWindowStyle(wx.DEFAULT_FRAME_STYLE| wx.STAY_ON_TOP)
+        else: 
+            self.SetWindowStyle(wx.DEFAULT_FRAME_STYLE)
 
 
 class MainPanel(wx.Panel):
@@ -148,7 +158,7 @@ class MainPanel(wx.Panel):
         pub.subscribe(self.console_disconnected, "console_disconnected")
         pub.subscribe(self.console_type_updated, "console_type_updated")
         pub.subscribe(self.reaper_disconnected_listener, "reaper_error")
-        pub.subscribe(self.callforreaperrestart, "reset_reaper")
+        pub.subscribe(self.call_for_daw_reset, "reset_daw")
         pub.subscribe(self.update_mode_select_gui_from_osc, "mode_select_osc")
         MainWindow.BridgeFunctions.start_threads()
         # Start a timer for Digico timeout
@@ -241,12 +251,12 @@ class MainPanel(wx.Panel):
         elif result == wx.ID_OK:
             MainWindow.BridgeFunctions.start_threads()
 
-    def callforreaperrestart(self, resetreaper, arg2=None):
-        logger.info("Reaper has been configured. Requesting restart")
+    def call_for_daw_reset(self, resetdaw, dawname):
+        logger.info(f"{dawname} has been auto configured. Requesting restart")
         dlg = wx.MessageDialog(self,
-                               "Reaper has been configured for use with Digico-Reaper Link. "
-                               "Please restart Reaper and press OK",
-                               "Reaper Configured", wx.OK | wx.ICON_QUESTION)
+                               f"{dawname} has been configured for use with Digico-Reaper Link. "
+                               f"Please restart {dawname} and press OK",
+                               f"{dawname} Configured", wx.OK | wx.ICON_QUESTION)
         result = dlg.ShowModal()
         dlg.Destroy()
 
@@ -254,17 +264,21 @@ class MainPanel(wx.Panel):
     def attemptreconnect(e):
         logger.info("Manual reconnection requested.")
         # Just forces a close/reconnect of the OSC servers by manually updating the configuration.
-        MainWindow.BridgeFunctions.update_configuration(con_ip=settings.console_ip,
-                                                        rptr_ip=settings.repeater_ip, con_send=settings.console_port,
-                                                        con_rcv=settings.receive_port,
-                                                        fwd_enable=settings.forwarder_enabled,
-                                                        rpr_send=settings.reaper_port,
-                                                        rpr_rcv=settings.reaper_receive_port,
-                                                        rptr_snd=settings.repeater_port,
-                                                        rptr_rcv=settings.repeater_receive_port,
-                                                        name_only=settings.name_only_match,
-                                                        console_type=settings.console_type,
-                                                        daw_type=settings.daw_type)
+        MainWindow.BridgeFunctions.update_configuration(
+            con_ip=settings.console_ip,
+            rptr_ip=settings.repeater_ip,
+            con_send=settings.console_port,
+            con_rcv=settings.receive_port,
+            fwd_enable=settings.forwarder_enabled,
+            rpr_send=settings.reaper_port,
+            rpr_rcv=settings.reaper_receive_port,
+            rptr_snd=settings.repeater_port,
+            rptr_rcv=settings.repeater_receive_port,
+            name_only=settings.name_only_match,
+            console_type=settings.console_type,
+            daw_type=settings.daw_type,
+            always_on_top=settings.always_on_top,
+        )
 
 
 class PrefsWindow(wx.Frame):
@@ -393,6 +407,11 @@ class PrefsPanel(wx.Panel):
         self.repeater_rcv_port_control.SetValue(str(settings.repeater_receive_port))
         repeater_ports_grid.Add(self.repeater_rcv_port_control, 0, wx.ALL | wx.EXPAND, -1)
         panel_sizer.Add(repeater_ports_grid, 0, wx.ALL | wx.EXPAND, 5)
+
+        self.always_on_top_checkbox = wx.CheckBox(self, label="Always on top")
+        self.always_on_top_checkbox.SetValue(settings.always_on_top)
+        panel_sizer.Add(self.always_on_top_checkbox, flag=wx.ALL, border=5)
+
         panel_sizer.Add(0, 25)
         # Update Button
         update_button = wx.Button(self, -1, "Update")
@@ -443,22 +462,28 @@ class PrefsPanel(wx.Panel):
             settings.forwarder_enabled = self.repeater_radio_enabled.GetValue()
             settings.console_type = self.console_type_radio_box.GetString(self.console_type_radio_box.GetSelection())
             settings.daw_type = self.daw_type_radio_box.GetString(self.daw_type_radio_box.GetSelection())
+            settings.always_on_top = self.always_on_top_checkbox.GetValue()
             # Force a close/reconnect of the OSC servers by pushing the configuration update.
-            MainWindow.BridgeFunctions.update_configuration(con_ip=settings.console_ip,
-                                                            rptr_ip=settings.repeater_ip, con_send=settings.console_port,
-                                                            con_rcv=settings.receive_port,
-                                                            fwd_enable=settings.forwarder_enabled,
-                                                            rpr_send=settings.reaper_port,
-                                                            rpr_rcv=settings.reaper_receive_port,
-                                                            rptr_snd=settings.repeater_port,
-                                                            rptr_rcv=settings.repeater_receive_port,
-                                                            name_only=settings.name_only_match,
-                                                            console_type=settings.console_type,
-                                                            daw_type=settings.daw_type)
+            MainWindow.BridgeFunctions.update_configuration(
+                con_ip=settings.console_ip,
+                rptr_ip=settings.repeater_ip,
+                con_send=settings.console_port,
+                con_rcv=settings.receive_port,
+                fwd_enable=settings.forwarder_enabled,
+                rpr_send=settings.reaper_port,
+                rpr_rcv=settings.reaper_receive_port,
+                rptr_snd=settings.repeater_port,
+                rptr_rcv=settings.repeater_receive_port,
+                name_only=settings.name_only_match,
+                console_type=settings.console_type,
+                daw_type=settings.daw_type,
+                always_on_top=settings.always_on_top,
+            )
             # Close the preferences window when update is pressed.
             self.Parent.Destroy()
         except Exception as e:
             logger.error(f"Error updating configuration: {e}")
+        pub.sendMessage("update_main_window_display_settings")
 
     def changed_console_ip(self, e):
         # Flag to know if the console IP has been modified in the prefs window
