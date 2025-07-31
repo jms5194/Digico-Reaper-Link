@@ -23,7 +23,8 @@ class ThreadSafeSettings:
             'window_size' : (221, 310),
             'name_only_match' : False,
             'console_type': DiGiCo.type,
-            'daw_type' : Reaper.type
+            'daw_type' : Reaper.type,
+            'always_on_top': False,
         }
 
     @property
@@ -204,6 +205,16 @@ class ThreadSafeSettings:
         with self._lock:
             self._settings["daw_type"] = value
 
+    @property
+    def always_on_top(self) -> bool:
+        with self._lock:
+            return self._settings["always_on_top"]
+
+    @always_on_top.setter
+    def always_on_top(self, value):
+        with self._lock:
+            self._settings["always_on_top"] = value
+
     def update_from_config(self, config: ConfigParser):
         # Update settings from a ConfigParser object
         with self._lock:
@@ -234,6 +245,7 @@ class ThreadSafeSettings:
             boolean_properties = {
                 "forwarder_enabled": "forwarder_enabled",
                 "name_only_match": "name_only_match",
+                "always_on_top": "always_on_top",
             }
             for settings_name, config_name in boolean_properties.items():
                 self._settings[settings_name] = config.getboolean(
