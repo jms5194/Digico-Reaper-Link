@@ -289,7 +289,8 @@ class PrefsWindow(wx.Frame):
         wx.Frame.__init__(self, parent=parent, title=title, style=wx.DEFAULT_FRAME_STYLE & ~(wx.RESIZE_BORDER | wx.MAXIMIZE_BOX))
         PrefsPanel(self, console=console)
         self.Fit()
-        self.SetSize(width=300,height=-1)
+        if self.GetSize().Width < 300:
+            self.SetSize(width=300,height=-1)
         self.Show()
 
 INTERNAL_PORT_SPACING=5
@@ -307,15 +308,16 @@ class PrefsPanel(wx.Panel):
         panel_sizer = wx.BoxSizer(wx.VERTICAL)
 
         header_font = wx.Font().Bold()
-        header_font.SetPointSize(24)
+        header_font.MakeLarger()
+        header_font.MakeLarger()
 
         item_font = wx.Font()
         item_font.SetWeight(wx.FONTWEIGHT_MEDIUM)
-        item_font.SetPointSize(14)
+        item_font.MakeLarger()
 
         port_font = wx.Font()
         port_font.SetWeight(wx.FONTWEIGHT_LIGHT)
-        port_font.SetPointSize(10)
+        port_font.MakeSmaller()
 
         # Console Section
         panel_sizer.AddSpacer(EXTERNAL_SPACING)
@@ -367,26 +369,6 @@ class PrefsPanel(wx.Panel):
         self.console_rcv_port_control.SetValue(str(settings.receive_port))
         console_main_ports_section.Add(self.console_rcv_port_control, flag=wx.EXPAND | wx.ALIGN_CENTER_VERTICAL)
         console_main_section.Add(console_main_ports_section, flag=wx.EXPAND)
-
-
-        # # Console Ports Input
-        # console_ports_grid = wx.GridSizer(2, 2, -1, 10)
-        # console_send_port_text = wx.StaticText(self, label="Send", style=wx.ALIGN_CENTER)
-        # console_send_port_text.SetFont(port_font)
-        # console_ports_grid.Add(console_send_port_text, 0, wx.ALL | wx.EXPAND, 5)
-        # console_rcv_port_text = wx.StaticText(self, label="Receive", style=wx.ALIGN_CENTER)
-        # console_rcv_port_text.SetFont(port_font)
-        # console_ports_grid.Add(console_rcv_port_text, 0, wx.ALL | wx.EXPAND, 5)
-        # self.console_send_port_control = wx.TextCtrl(self, style=wx.TE_CENTER)
-        # self.console_send_port_control.SetMaxLength(5)
-        # self.console_send_port_control.SetValue(str(settings.console_port))
-        
-        # console_ports_grid.Add(self.console_send_port_control, 0, wx.ALL | wx.EXPAND, -1)
-        # self.console_rcv_port_control = wx.TextCtrl(self, style=wx.TE_CENTER)
-        # self.console_rcv_port_control.SetMaxLength(5)
-        # self.console_rcv_port_control.SetValue(str(settings.receive_port))
-        # console_ports_grid.Add(self.console_rcv_port_control, 0, wx.ALL | wx.EXPAND, -1)
-        # panel_sizer.Add(console_ports_grid, 0, wx.ALL | wx.EXPAND, EXTERNAL_SPACING)
 
         panel_sizer.Add(console_main_section, flag=wx.EXPAND | wx.LEFT | wx.RIGHT, border=EXTERNAL_SPACING)
 
