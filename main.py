@@ -1,6 +1,6 @@
 import ipaddress
+import platform
 import threading
-from typing import Collection, Sequence
 
 import wx
 from pubsub import pub
@@ -24,17 +24,24 @@ class MainWindow(wx.Frame):
         panel = MainPanel(self)
         # Build a menubar:
 
-        filemenu = wx.Menu()
-        about_menuitem = filemenu.Append(wx.ID_ABOUT, "&About", "Info about this program")
-        filemenu.AppendSeparator()
-        m_exit = filemenu.Append(wx.ID_EXIT, "&Exit\tAlt-X", "Close window and exit program.")
-        properties_menuitem = filemenu.Append(wx.ID_PROPERTIES, "Properties", "Program Settings")
-        menubar = wx.MenuBar()
-        menubar.Append(filemenu, "&File")
-        self.SetMenuBar(menubar)
+        menu_bar = wx.MenuBar()
+        if platform.system() == 'Darwin':
+            main_menu = menu_bar.OSXGetAppleMenu()
+            for item in main_menu.GetMenuItems():
+                assert isinstance(item, wx.MenuItem)
+                print(item.GetId())
+        else:
+            main_menu = wx.Menu()
+        properties_menuitem = main_menu.Insert(2, wx.ID_PROPERTIES, "Properties\tCTRL+,")
+        main_menu.InsertSeparator(3)
+        about_menuitem = main_menu.Insert(0, wx.ID_ABOUT)
+        if platform.system() != 'Darwin':
+            m_exit = main_menu.Append(wx.ID_EXIT, "&Exit\tCTRL+Q")
+            menu_bar.Append(main_menu, "&File")
+            self.Bind(wx.EVT_MENU, self.on_close, m_exit)
+        self.SetMenuBar(menu_bar)
 
         # Main Window Bindings
-        self.Bind(wx.EVT_MENU, self.on_close, m_exit)
         self.Bind(wx.EVT_MENU, self.on_about, about_menuitem)
         self.Bind(wx.EVT_MENU, self.launch_prefs, properties_menuitem)
         self.Bind(wx.EVT_CLOSE, self.on_close)
@@ -462,7 +469,6 @@ class PrefsPanel(wx.Panel):
                             flex_child_user_data = flex_child.GetUserData()
                             if flex_child_user_data != LABEL_ROW:
                                 flex_child.SetMinSize(wx.Size(label_min_width,-1))
-                                flex_child.SetFlag(flex_child.GetFlag() | wx.ALIGN_CENTER_VERTICAL)
         # Update Button
         update_button = wx.Button(self, -1, "Update")
         panel_sizer.Add(update_button, 0, wx.ALL | wx.EXPAND, EXTERNAL_SPACING)
