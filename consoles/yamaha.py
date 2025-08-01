@@ -42,7 +42,6 @@ class Yamaha(Console):
 
     def _yamaha_client_thread(self):
         from app_settings import settings
-
         while not self._shutdown_server_event.is_set():
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
                 sock.connect((settings.console_ip, self.fixed_port))
@@ -63,8 +62,9 @@ class Yamaha(Console):
                         quote_split_line = line.split('"')
                         scene_number = quote_split_line[1]
                         scene_name = quote_split_line[3]
-                        logger.info("Generating marker with number {} and name {}.".format(scene_number, scene_name))
-                        pub.sendMessage("place_marker_with_name", marker_name=scene_number + " " + scene_name)
+                        cue_payload = scene_number + " " + scene_name
+                        pub.sendMessage("handle_cue_load", cue=cue_payload)
+        logger.info("Closing connection to Yamaha Console")
 
     def heartbeat(self) -> None:
         pass
