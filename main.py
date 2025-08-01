@@ -1,4 +1,5 @@
 import ipaddress
+import os.path
 import platform
 import threading
 
@@ -10,8 +11,6 @@ from consoles import CONSOLES, Console, Feature
 from daws import Daw
 from logger_config import logger
 from utilities import DawConsoleBridge
-import os.path
-from typing import Optional
 
 
 class MainWindow(wx.Frame):
