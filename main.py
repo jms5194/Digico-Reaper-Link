@@ -22,25 +22,25 @@ class MainWindow(wx.Frame):
         self.SetPosition(settings.window_loc)
         self.SetSize(settings.window_size)
         MainPanel(self)
-        # Build a menubar:
 
+        # TODO: App icon for Windows
+        # Menu Bar
         menu_bar = wx.MenuBar()
         if platform.system() == 'Darwin':
             main_menu = menu_bar.OSXGetAppleMenu()
             self.Bind(wx.EVT_MENU, self.on_close, main_menu.FindItemById(wx.ID_EXIT))
         else:
             main_menu = wx.Menu()
-        
-        properties_menuitem = main_menu.Prepend(wx.ID_PROPERTIES, "Properties\tCTRL+,")
+        properties_menuitem = main_menu.Prepend(wx.ID_PREFERENCES)
         main_menu.PrependSeparator()
         about_menuitem = main_menu.Prepend(wx.ID_ABOUT)
-        main_menu.InsertSeparator(1)
         if platform.system() != 'Darwin':
-            m_exit = main_menu.Append(wx.ID_EXIT, "&Exit\tCTRL+Q")
+            main_menu.AppendSeparator()
+            menu_exit = main_menu.Append(wx.ID_EXIT)
+            self.Bind(wx.EVT_MENU, self.on_close, menu_exit)
             menu_bar.Append(main_menu, "&File")
-            self.Bind(wx.EVT_MENU, self.on_close, m_exit)
         self.SetMenuBar(menu_bar)
-
+        
         # Main Window Bindings
         self.Bind(wx.EVT_MENU, self.on_about, about_menuitem)
         self.Bind(wx.EVT_MENU, self.launch_prefs, properties_menuitem)
