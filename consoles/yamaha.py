@@ -1,3 +1,4 @@
+from . import Console, Feature
 import socket
 import threading
 import time
