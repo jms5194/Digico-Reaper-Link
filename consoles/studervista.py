@@ -16,7 +16,6 @@ class StuderVista(Console):
     type = "Studer Vista"
     supported_features = []
     _client_socket: socket.socket
-    _shutdown_server_event = threading.Event()
     _received_real_data = threading.Event()
 
     def start_managed_threads(
@@ -25,7 +24,6 @@ class StuderVista(Console):
         self._shutdown_server_event.clear()
         self._received_real_data.clear()
         start_managed_thread("console_connection_thread", self._console_client_thread)
-        pub.subscribe(self._shutdown_server_event.set, "shutdown_servers")
 
     def _console_client_thread(self):
         from app_settings import settings
