@@ -6,7 +6,6 @@ from pubsub import pub
 from logger_config import logger
 from . import Console, Feature
 
-YAMAHA_PORT = 49280
 DELIMITER = b"\n"
 BUFFER_SIZE = 4096
 
@@ -25,6 +24,7 @@ class Buffer(object):
         return line.decode()
 
 class Yamaha(Console):
+    fixed_port = 49280
     type = "Yamaha"
     supported_features = [Feature.CUE_NUMBER]
     _client_socket: socket.socket

@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Callable, List
+from typing import Callable, List, Optional
 
 
 class Feature(Enum):
@@ -9,6 +9,7 @@ class Feature(Enum):
 
 
 class Console:
+    fixed_port: Optional[int] = None
     supported_features: List[Feature]
     type = "Unknown"
 

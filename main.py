@@ -500,18 +500,36 @@ class PrefsPanel(wx.Panel):
     def changed_console_type(self, event: wx.CommandEvent) -> None:
         console: Console = CONSOLES[event.GetString()]
         self.update_console_supported_features(console)
-        
-    def update_console_supported_features(self, console: Console)-> None:
-        self.console_rcv_port_control.Enabled = Feature.SEPERATE_RECEIVE_PORT in console.supported_features
-        self.match_mode_label_only.Enabled = Feature.CUE_NUMBER in console.supported_features
-        self.repeater_radio_enabled.Enabled = Feature.REPEATER in console.supported_features
-        self.repeater_ip_control.Enabled = Feature.REPEATER in console.supported_features
-        self.repeater_send_port_control.Enabled = Feature.REPEATER in console.supported_features
-        self.repeater_rcv_port_control.Enabled = Feature.REPEATER in console.supported_features
+
+    def update_console_supported_features(self, console: Console) -> None:
+        self.console_rcv_port_control.Enabled = (
+            Feature.SEPERATE_RECEIVE_PORT in console.supported_features
+        )
+        self.match_mode_label_only.Enabled = (
+            Feature.CUE_NUMBER in console.supported_features
+        )
+        self.repeater_radio_enabled.Enabled = (
+            Feature.REPEATER in console.supported_features
+        )
+        self.repeater_ip_control.Enabled = (
+            Feature.REPEATER in console.supported_features
+        )
+        self.repeater_send_port_control.Enabled = (
+            Feature.REPEATER in console.supported_features
+        )
+        self.repeater_rcv_port_control.Enabled = (
+            Feature.REPEATER in console.supported_features
+        )
         if Feature.REPEATER not in console.supported_features:
             self.repeater_radio_enabled.SetValue(False)
         if Feature.CUE_NUMBER not in console.supported_features:
             self.match_mode_label_only.SetValue(False)
+        if console.fixed_port is None:
+            self.console_send_port_control.Enable()
+        else:
+            self.console_send_port_control.SetValue(str(console.fixed_port))
+            self.console_send_port_control.Disable()
+        
 
     def update_button_pressed(self, e):
         logger.info("Updating configuration settings.")
