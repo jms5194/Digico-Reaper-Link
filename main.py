@@ -31,7 +31,7 @@ class MainWindow(wx.Frame):
             self.Bind(wx.EVT_MENU, self.on_close, main_menu.FindItemById(wx.ID_EXIT))
         else:
             main_menu = wx.Menu()
-        properties_menuitem = main_menu.Prepend(wx.ID_PREFERENCES)
+        preferences_menuitem = main_menu.Prepend(wx.ID_PREFERENCES)
         main_menu.PrependSeparator()
         about_menuitem = main_menu.Prepend(wx.ID_ABOUT)
         if platform.system() != 'Darwin':
@@ -40,10 +40,10 @@ class MainWindow(wx.Frame):
             self.Bind(wx.EVT_MENU, self.on_close, menu_exit)
             menu_bar.Append(main_menu, "&File")
         self.SetMenuBar(menu_bar)
-        
+
         # Main Window Bindings
         self.Bind(wx.EVT_MENU, self.on_about, about_menuitem)
-        self.Bind(wx.EVT_MENU, self.launch_prefs, properties_menuitem)
+        self.Bind(wx.EVT_MENU, self.launch_preferences, preferences_menuitem)
         self.Bind(wx.EVT_CLOSE, self.on_close)
 
         pub.subscribe(self.update_display_settings, "update_main_window_display_settings")
@@ -58,9 +58,9 @@ class MainWindow(wx.Frame):
         dlg.ShowModal()  # Shows it
         dlg.Destroy()  # Destroy pop-up when finished.
 
-    def launch_prefs(self, event):
+    def launch_preferences(self, event):
         # Open the preferences frame
-        PrefsWindow(parent=wx.GetTopLevelParent(self), title="Digico-Reaper Properties", console=self.GetTopLevelParent().BridgeFunctions.console)
+        PrefsWindow(parent=wx.GetTopLevelParent(self), title="Digico-Reaper Preferences", console=self.GetTopLevelParent().BridgeFunctions.console)
 
     def on_close(self, event):
         # Let's close the window and destroy the UI
