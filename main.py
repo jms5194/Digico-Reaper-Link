@@ -21,20 +21,20 @@ class MainWindow(wx.Frame):
         wx.Frame.__init__(self, parent=None, title="Digico-Reaper Link")
         self.SetPosition(settings.window_loc)
         self.SetSize(settings.window_size)
-        panel = MainPanel(self)
+        MainPanel(self)
         # Build a menubar:
 
         menu_bar = wx.MenuBar()
         if platform.system() == 'Darwin':
             main_menu = menu_bar.OSXGetAppleMenu()
-            for item in main_menu.GetMenuItems():
-                assert isinstance(item, wx.MenuItem)
-                print(item.GetId())
+            self.Bind(wx.EVT_MENU, self.on_close, main_menu.FindItemById(wx.ID_EXIT))
         else:
             main_menu = wx.Menu()
-        properties_menuitem = main_menu.Insert(2, wx.ID_PROPERTIES, "Properties\tCTRL+,")
-        main_menu.InsertSeparator(3)
-        about_menuitem = main_menu.Insert(0, wx.ID_ABOUT)
+        
+        properties_menuitem = main_menu.Prepend(wx.ID_PROPERTIES, "Properties\tCTRL+,")
+        main_menu.PrependSeparator()
+        about_menuitem = main_menu.Prepend(wx.ID_ABOUT)
+        main_menu.InsertSeparator(1)
         if platform.system() != 'Darwin':
             m_exit = main_menu.Append(wx.ID_EXIT, "&Exit\tCTRL+Q")
             menu_bar.Append(main_menu, "&File")
