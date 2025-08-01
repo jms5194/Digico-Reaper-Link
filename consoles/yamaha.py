@@ -24,10 +24,9 @@ class Buffer(object):
         line, sep, self.buffer = self.buffer.partition(DELIMITER)
         return line.decode()
 
-
 class Yamaha(Console):
     type = "Yamaha"
-    supported_features = []
+    supported_features = [Feature.CUE_NUMBER]
     _client_socket: socket.socket
     _shutdown_server_event = threading.Event()
     _received_real_data = threading.Event()
@@ -37,10 +36,10 @@ class Yamaha(Console):
     ) -> None:
         self._shutdown_server_event.clear()
         self._received_real_data.clear()
-        start_managed_thread("console_connection_thread", self._console_client_thread)
+        start_managed_thread("console_connection_thread", self._yamaha_client_thread)
         pub.subscribe(self._shutdown_server_event.set, "shutdown_servers")
 
-    def _console_client_thread(self):
+    def _yamaha_client_thread(self):
         from app_settings import settings
 
         while not self._shutdown_server_event.is_set():
@@ -66,9 +65,6 @@ class Yamaha(Console):
                         logger.info("Generating marker with number {} and name {}.".format(scene_number, scene_name))
 
                     pub.sendMessage("place_marker_with_name", marker_name=scene_number + " " + scene_name)
-
-
-
 
     def heartbeat(self) -> None:
         pass
