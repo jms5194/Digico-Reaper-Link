@@ -45,7 +45,7 @@ class Yamaha(Console):
         while not self._shutdown_server_event.is_set():
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
                 sock.connect((settings.console_ip, self.fixed_port))
-                logger.info("Connected to Yamaha Console @{}".format(settings.console_ip))
+                logger.info("Connected to Yamaha Console @ {}".format(settings.console_ip))
                 buff = Buffer(sock)
                 while True:
                     line = buff.get_line()
