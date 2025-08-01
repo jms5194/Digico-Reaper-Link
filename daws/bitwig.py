@@ -13,6 +13,7 @@ class Bitwig(Daw):
     def __init__(self):
         super().__init__()
         self.bitwig_send_lock = threading.Lock()
+        self.gateway_entry_point = None
         pub.subscribe(self._place_marker_with_name, "place_marker_with_name")
         pub.subscribe(self._incoming_transport_action, "incoming_transport_action")
         pub.subscribe(self._handle_cue_load, "handle_cue_load")
@@ -31,12 +32,12 @@ class Bitwig(Daw):
 
     def _build_bitwig_connection(self):
         gateway = JavaGateway()
-        e_p = gateway.entry_point
-        host = e_p.getHost()
+        self.gateway_entry_point = gateway.entry_point
+        host = self.gateway_entry_point.getHost()
         println = host.println
         logger.info("Attempting to Connect to Bitwig")
         println("Connected to Bitwig")
-        self.bitwig_transport = e_p.getTransport()
+        self.bitwig_transport = self.gateway_entry_point.getTransport()
 
     def _incoming_transport_action(self, transport_action):
         try:
@@ -50,21 +51,21 @@ class Bitwig(Daw):
             logger.error(f"Error processing transport macros: {e}")
 
     def _place_marker_with_name(self, marker_name: str):
-        self.bitwig_transport.record()
-        self.bitwig_transport.play()
+        if not self.bitwig_transport.isPlaying().get():
+            self.bitwig_transport.play()
 
-    def _handle_cue_load(self):
+    def _handle_cue_load(self, cue):
         pass
 
     def _bitwig_play(self):
-        if not self.bitwig_transport.is_playing():
+        if not self.bitwig_transport.isPlaying().get():
             self.bitwig_transport.play()
 
     def _bitwig_stop(self):
         self.bitwig_transport.stop()
 
     def _bitwig_rec(self):
-        if not self.bitwig_transport.is_playing():
+        if not self.bitwig_transport.isPlaying().get():
             self.bitwig_transport.record()
             self.bitwig_transport.play()
         else:
@@ -73,6 +74,6 @@ class Bitwig(Daw):
             self.bitwig_transport.play()
 
     def _shutdown_servers(self):
-        pass
+        print("exiting bitwig connection")
 
 
