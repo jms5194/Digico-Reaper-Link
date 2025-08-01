@@ -1,4 +1,5 @@
 import ipaddress
+import os.path
 import platform
 import threading
 
@@ -15,7 +16,7 @@ from utilities import DawConsoleBridge
 class MainWindow(wx.Frame):
     # Bringing the logic from utilities as an attribute of MainWindow
     BridgeFunctions = DawConsoleBridge()
-
+    _app_icons: wx.IconBundle
     def __init__(self):
         logger.info("Initializing main window")
         wx.Frame.__init__(self, parent=None, title="Digico-Reaper Link")
@@ -23,8 +24,8 @@ class MainWindow(wx.Frame):
         self.SetSize(settings.window_size)
         MainPanel(self)
 
-        # TODO: App icon for Windows
-        # Menu Bar
+        self.SetIcons(self.get_app_icons())
+
         menu_bar = wx.MenuBar()
         if platform.system() == 'Darwin':
             main_menu = menu_bar.OSXGetAppleMenu()
@@ -60,7 +61,7 @@ class MainWindow(wx.Frame):
 
     def launch_preferences(self, event):
         # Open the preferences frame
-        PrefsWindow(parent=wx.GetTopLevelParent(self), title="Digico-Reaper Preferences", console=self.GetTopLevelParent().BridgeFunctions.console)
+        PrefsWindow(parent=wx.GetTopLevelParent(self), title="Digico-Reaper Preferences", console=self.GetTopLevelParent().BridgeFunctions.console, icons=self.GetTopLevelParent().get_app_icons())
 
     def on_close(self, event):
         # Let's close the window and destroy the UI
@@ -87,8 +88,18 @@ class MainWindow(wx.Frame):
     def update_display_settings(self) -> None:
         if settings.always_on_top:
             self.SetWindowStyle(wx.DEFAULT_FRAME_STYLE| wx.STAY_ON_TOP)
-        else: 
+        else:
             self.SetWindowStyle(wx.DEFAULT_FRAME_STYLE)
+
+    def get_app_icons(self) -> wx.IconBundle:
+        if not hasattr(self, "_app_icon"):
+            self._app_icons = wx.IconBundle(
+                os.path.abspath(
+                    os.path.join(os.path.dirname(__file__), "resources", "rprdigi.ico")
+                ),
+                wx.BITMAP_TYPE_ICO,
+            )
+        return self._app_icons
 
 
 class MainPanel(wx.Panel):
@@ -291,13 +302,14 @@ class MainPanel(wx.Panel):
 
 class PrefsWindow(wx.Frame):
     # This is our preferences window pane
-    def __init__(self, title, parent, console: Console):
+    def __init__(self, title, parent, console: Console, icons: wx.IconBundle):
         logger.info("Creating PrefsWindow")
         wx.Frame.__init__(self, parent=parent, title=title, style=wx.DEFAULT_FRAME_STYLE & ~(wx.RESIZE_BORDER | wx.MAXIMIZE_BOX))
         PrefsPanel(self, console=console)
         self.Fit()
         if self.GetSize().Width < 300:
             self.SetSize(width=300,height=-1)
+        self.SetIcons(icons)
         self.Show()
 
 INTERNAL_PORT_SPACING=5
@@ -488,18 +500,36 @@ class PrefsPanel(wx.Panel):
     def changed_console_type(self, event: wx.CommandEvent) -> None:
         console: Console = CONSOLES[event.GetString()]
         self.update_console_supported_features(console)
-        
-    def update_console_supported_features(self, console: Console)-> None:
-        self.console_rcv_port_control.Enabled = Feature.SEPERATE_RECEIVE_PORT in console.supported_features
-        self.match_mode_label_only.Enabled = Feature.CUE_NUMBER in console.supported_features
-        self.repeater_radio_enabled.Enabled = Feature.REPEATER in console.supported_features
-        self.repeater_ip_control.Enabled = Feature.REPEATER in console.supported_features
-        self.repeater_send_port_control.Enabled = Feature.REPEATER in console.supported_features
-        self.repeater_rcv_port_control.Enabled = Feature.REPEATER in console.supported_features
+
+    def update_console_supported_features(self, console: Console) -> None:
+        self.console_rcv_port_control.Enabled = (
+            Feature.SEPERATE_RECEIVE_PORT in console.supported_features
+        )
+        self.match_mode_label_only.Enabled = (
+            Feature.CUE_NUMBER in console.supported_features
+        )
+        self.repeater_radio_enabled.Enabled = (
+            Feature.REPEATER in console.supported_features
+        )
+        self.repeater_ip_control.Enabled = (
+            Feature.REPEATER in console.supported_features
+        )
+        self.repeater_send_port_control.Enabled = (
+            Feature.REPEATER in console.supported_features
+        )
+        self.repeater_rcv_port_control.Enabled = (
+            Feature.REPEATER in console.supported_features
+        )
         if Feature.REPEATER not in console.supported_features:
             self.repeater_radio_enabled.SetValue(False)
         if Feature.CUE_NUMBER not in console.supported_features:
             self.match_mode_label_only.SetValue(False)
+        if console.fixed_port is None:
+            self.console_send_port_control.Enable()
+        else:
+            self.console_send_port_control.SetValue(str(console.fixed_port))
+            self.console_send_port_control.Disable()
+        
 
     def update_button_pressed(self, e):
         logger.info("Updating configuration settings.")
