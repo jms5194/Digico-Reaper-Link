@@ -12,7 +12,7 @@ from configupdater import ConfigUpdater
 from pubsub import pub
 
 from app_settings import settings
-from consoles import Console, DiGiCo, StuderVista
+from consoles import Console, DiGiCo, StuderVista, Yamaha
 from daws import Daw, Reaper, ProTools, Ardour
 from logger_config import logger
 
@@ -200,6 +200,8 @@ class DawConsoleBridge:
             self.console = DiGiCo()
         elif settings.console_type == StuderVista.type:
             self.console = StuderVista()
+        elif settings.console_type == Yamaha.type:
+            self.console = Yamaha()
         self.console.start_managed_threads(self.start_managed_thread)
 
     @property
