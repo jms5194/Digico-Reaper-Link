@@ -4,7 +4,7 @@ import time
 from typing import Any, Callable, List
 from pubsub import pub
 from logger_config import logger
-from . import Console
+from . import Console, Feature
 
 YAMAHA_PORT = 49280
 DELIMITER = b"\n"
