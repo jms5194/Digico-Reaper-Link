@@ -1,4 +1,5 @@
 import ipaddress
+import platform
 import threading
 
 import wx
@@ -20,22 +21,29 @@ class MainWindow(wx.Frame):
         wx.Frame.__init__(self, parent=None, title="Digico-Reaper Link")
         self.SetPosition(settings.window_loc)
         self.SetSize(settings.window_size)
-        panel = MainPanel(self)
-        # Build a menubar:
+        MainPanel(self)
 
-        filemenu = wx.Menu()
-        about_menuitem = filemenu.Append(wx.ID_ABOUT, "&About", "Info about this program")
-        filemenu.AppendSeparator()
-        m_exit = filemenu.Append(wx.ID_EXIT, "&Exit\tAlt-X", "Close window and exit program.")
-        properties_menuitem = filemenu.Append(wx.ID_PROPERTIES, "Properties", "Program Settings")
-        menubar = wx.MenuBar()
-        menubar.Append(filemenu, "&File")
-        self.SetMenuBar(menubar)
+        # TODO: App icon for Windows
+        # Menu Bar
+        menu_bar = wx.MenuBar()
+        if platform.system() == 'Darwin':
+            main_menu = menu_bar.OSXGetAppleMenu()
+            self.Bind(wx.EVT_MENU, self.on_close, main_menu.FindItemById(wx.ID_EXIT))
+        else:
+            main_menu = wx.Menu()
+        preferences_menuitem = main_menu.Prepend(wx.ID_PREFERENCES)
+        main_menu.PrependSeparator()
+        about_menuitem = main_menu.Prepend(wx.ID_ABOUT)
+        if platform.system() != 'Darwin':
+            main_menu.AppendSeparator()
+            menu_exit = main_menu.Append(wx.ID_EXIT)
+            self.Bind(wx.EVT_MENU, self.on_close, menu_exit)
+            menu_bar.Append(main_menu, "&File")
+        self.SetMenuBar(menu_bar)
 
         # Main Window Bindings
-        self.Bind(wx.EVT_MENU, self.on_close, m_exit)
         self.Bind(wx.EVT_MENU, self.on_about, about_menuitem)
-        self.Bind(wx.EVT_MENU, self.launch_prefs, properties_menuitem)
+        self.Bind(wx.EVT_MENU, self.launch_preferences, preferences_menuitem)
         self.Bind(wx.EVT_CLOSE, self.on_close)
 
         pub.subscribe(self.update_display_settings, "update_main_window_display_settings")
@@ -50,9 +58,9 @@ class MainWindow(wx.Frame):
         dlg.ShowModal()  # Shows it
         dlg.Destroy()  # Destroy pop-up when finished.
 
-    def launch_prefs(self, event):
+    def launch_preferences(self, event):
         # Open the preferences frame
-        PrefsWindow(parent=wx.GetTopLevelParent(self), title="Digico-Reaper Properties", console=self.GetTopLevelParent().BridgeFunctions.console)
+        PrefsWindow(parent=wx.GetTopLevelParent(self), title="Digico-Reaper Preferences", console=self.GetTopLevelParent().BridgeFunctions.console)
 
     def on_close(self, event):
         # Let's close the window and destroy the UI
@@ -285,11 +293,18 @@ class PrefsWindow(wx.Frame):
     # This is our preferences window pane
     def __init__(self, title, parent, console: Console):
         logger.info("Creating PrefsWindow")
-        wx.Frame.__init__(self, parent=parent, size=wx.Size(400, 800), title=title)
-        panel = PrefsPanel(parent=wx.GetTopLevelParent(self), console=console)
+        wx.Frame.__init__(self, parent=parent, title=title, style=wx.DEFAULT_FRAME_STYLE & ~(wx.RESIZE_BORDER | wx.MAXIMIZE_BOX))
+        PrefsPanel(self, console=console)
         self.Fit()
+        if self.GetSize().Width < 300:
+            self.SetSize(width=300,height=-1)
         self.Show()
 
+INTERNAL_PORT_SPACING=5
+INTERNAL_SPACING=10
+EXTERNAL_SPACING=15
+
+LABEL_ROW = 1
 
 class PrefsPanel(wx.Panel):
     def __init__(self, parent, console: Console):
@@ -297,126 +312,166 @@ class PrefsPanel(wx.Panel):
         wx.Panel.__init__(self, parent)
         # Define Fonts:
         self.ip_inspected = False
-        header_font = wx.Font(20, family=wx.FONTFAMILY_MODERN, style=0, weight=wx.FONTWEIGHT_BOLD,
-                              underline=False, faceName="", encoding=wx.FONTENCODING_DEFAULT)
-        sub_header_font = wx.Font(16, family=wx.FONTFAMILY_MODERN, style=0, weight=wx.FONTWEIGHT_BOLD,
-                                  underline=False, faceName="", encoding=wx.FONTENCODING_DEFAULT)
-        base_font = wx.Font(12, family=wx.FONTFAMILY_MODERN, style=0, weight=wx.FONTWEIGHT_NORMAL,
-                            underline=False, faceName="", encoding=wx.FONTENCODING_DEFAULT)
-        # Console IP Label
         panel_sizer = wx.BoxSizer(wx.VERTICAL)
-        console_ip_text = wx.StaticText(self, label="Console IP", style=wx.ALIGN_CENTER)
-        console_ip_text.SetFont(header_font)
-        panel_sizer.Add(console_ip_text, 0, wx.ALL | wx.EXPAND, 5)
-        # Console IP Input
+
+        header_font = wx.Font().Bold()
+        header_font.MakeLarger()
+        header_font.MakeLarger()
+
+        item_font = wx.Font()
+        item_font.SetWeight(wx.FONTWEIGHT_MEDIUM)
+        item_font.MakeLarger()
+
+        port_font = wx.Font()
+        port_font.SetWeight(wx.FONTWEIGHT_LIGHT)
+        port_font.MakeSmaller()
+
+        # Console Section
+        panel_sizer.AddSpacer(EXTERNAL_SPACING)
+        console_header = wx.StaticText(self, label="Console", style=wx.ALIGN_CENTER)
+        console_header.SetFont(header_font)
+        panel_sizer.Add(console_header, flag=wx.LEFT | wx.RIGHT | wx.EXPAND, border=EXTERNAL_SPACING)
+        panel_sizer.AddSpacer(INTERNAL_SPACING)
+        panel_sizer.Add(wx.StaticLine(self), flag=wx.EXPAND | wx.LEFT | wx.RIGHT, border=EXTERNAL_SPACING)
+        panel_sizer.AddSpacer(INTERNAL_SPACING)
+        console_main_section = wx.FlexGridSizer(2, INTERNAL_SPACING, INTERNAL_SPACING)
+        console_main_section.AddGrowableCol(1)
+        console_main_section.SetFlexibleDirection(direction=wx.HORIZONTAL)
+        # Console Type
+        console_main_section.Add(wx.StaticText(self, label="Type:", style=wx.ALIGN_RIGHT))
+        console_types = list(CONSOLES)
+        console_types.sort()
+        self.console_type_choice = wx.Choice(self, choices=console_types)
+        self.console_type_choice.SetSelection(console_types.index(settings.console_type))
+        console_main_section.Add(self.console_type_choice, flag=wx.EXPAND | wx.ALIGN_CENTER_VERTICAL)
+        # Console IP
+        console_ip_label = wx.StaticText(self, label="IP address:", style=wx.ALIGN_RIGHT)
+        console_main_section.Add(console_ip_label)
         self.console_ip_control = wx.TextCtrl(self, style=wx.TE_CENTER)
         self.console_ip_control.SetMaxLength(15)
         self.console_ip_control.SetValue(settings.console_ip)
-        panel_sizer.Add(self.console_ip_control, 0, wx.ALL | wx.EXPAND, 5)
-        panel_sizer.Add(0, 10)
-        # Console Ports Label
-        console_ports_text = wx.StaticText(self, label="Console Connection Ports", style=wx.ALIGN_CENTER)
-        console_ports_text.SetFont(header_font)
-        panel_sizer.Add(console_ports_text, 0, wx.ALL | wx.EXPAND, 1)
-        # Console Ports Input
-        console_ports_grid = wx.GridSizer(2, 2, -1, 10)
-        console_send_port_text = wx.StaticText(self, label="Send to Console", style=wx.ALIGN_CENTER)
-        console_send_port_text.SetFont(base_font)
-        console_ports_grid.Add(console_send_port_text, 0, wx.ALL | wx.EXPAND, 5)
-        console_rcv_port_text = wx.StaticText(self, label="Receive from Console", style=wx.ALIGN_CENTER)
-        console_rcv_port_text.SetFont(base_font)
-        console_ports_grid.Add(console_rcv_port_text, 0, wx.ALL | wx.EXPAND, 5)
+        console_main_section.Add(self.console_ip_control, flag=wx.EXPAND | wx.ALIGN_CENTER_VERTICAL)
+        # label_min_width is used to force FlexSizers with only a checkbox (so no label) to look right
+        label_min_width = console_ip_label.GetBestSize().width
+        # Console Ports
+        console_main_section.AddStretchSpacer()
+        console_main_ports_label_section = wx.GridSizer(1,2,0,INTERNAL_SPACING)
+        console_main_send_label = wx.StaticText(self, label="Send")
+        console_main_send_label.SetFont(port_font)
+        console_main_ports_label_section.Add(console_main_send_label, flag=wx.ALIGN_BOTTOM | wx.ALIGN_CENTER_HORIZONTAL)
+        console_main_receive_label = wx.StaticText(self, label="Receive")
+        console_main_receive_label.SetFont(port_font)
+        console_main_ports_label_section.Add(console_main_receive_label, flag=wx.ALIGN_BOTTOM | wx.ALIGN_CENTER_HORIZONTAL)
+        console_main_section.Add(console_main_ports_label_section, flag=wx.EXPAND, userData=LABEL_ROW)
+        console_main_section.Add(wx.StaticText(self, label="Ports:", style=wx.ALIGN_RIGHT))
+        console_main_ports_section = wx.GridSizer(1,2,0,INTERNAL_SPACING)
         self.console_send_port_control = wx.TextCtrl(self, style=wx.TE_CENTER)
         self.console_send_port_control.SetMaxLength(5)
         self.console_send_port_control.SetValue(str(settings.console_port))
-        
-        console_ports_grid.Add(self.console_send_port_control, 0, wx.ALL | wx.EXPAND, -1)
+        console_main_ports_section.Add(self.console_send_port_control, flag=wx.EXPAND | wx.ALIGN_CENTER_VERTICAL)
         self.console_rcv_port_control = wx.TextCtrl(self, style=wx.TE_CENTER)
         self.console_rcv_port_control.SetMaxLength(5)
         self.console_rcv_port_control.SetValue(str(settings.receive_port))
-        console_ports_grid.Add(self.console_rcv_port_control, 0, wx.ALL | wx.EXPAND, -1)
-        panel_sizer.Add(console_ports_grid, 0, wx.ALL | wx.EXPAND, 5)
-        panel_sizer.Add(0, 25)
+        console_main_ports_section.Add(self.console_rcv_port_control, flag=wx.EXPAND | wx.ALIGN_CENTER_VERTICAL)
+        console_main_section.Add(console_main_ports_section, flag=wx.EXPAND)
+        panel_sizer.Add(console_main_section, flag=wx.EXPAND | wx.LEFT | wx.RIGHT, border=EXTERNAL_SPACING)
 
-        # Match mode radio buttons
-        match_mode_text = wx.StaticText(self, label="Matching Mode", style=wx.ALIGN_CENTER)
-        match_mode_text.SetFont(header_font)
-        panel_sizer.Add(match_mode_text, 0, wx.ALL | wx.EXPAND, 5)
-        match_mode_radio_grid = wx.GridSizer(1,2,0,0)
-        self.mode_match_all_radio = wx.RadioButton(self, label="Number & Name", style=wx.RB_GROUP)
-        match_mode_radio_grid.Add(self.mode_match_all_radio, 0, wx.ALL | wx.EXPAND, 5)
-        self.mode_match_all_radio.SetValue(not settings.name_only_match)
-        self.mode_match_name_radio = wx.RadioButton(self, label="Name Only")
-        match_mode_radio_grid.Add(self.mode_match_name_radio, 0, wx.ALL | wx.EXPAND, 5)
-        self.mode_match_name_radio.SetValue(settings.name_only_match)
-        panel_sizer.Add(match_mode_radio_grid, 0, wx.ALL | wx.EXPAND, 5)
-
-        # Console type radio box
-        console_types = list(CONSOLES)
-        self.console_type_radio_box = wx.RadioBox(self, label="Console Type", choices=console_types)
-        self.console_type_radio_box.SetSelection(console_types.index(settings.console_type))
-        panel_sizer.Add(self.console_type_radio_box, 0, wx.ALL | wx.EXPAND, 5)
-
-        # Daw type radio box
-        daw_types = [daw.type for daw in Daw.__subclasses__()]
-        self.daw_type_radio_box = wx.RadioBox(self, label="DAW Type", choices=daw_types)
-        self.daw_type_radio_box.SetSelection(daw_types.index(settings.daw_type))
-        panel_sizer.Add(self.daw_type_radio_box, 0, wx.ALL | wx.EXPAND, 5)
-
-        # OSC Repeater Label
-        osc_repeater_text = wx.StaticText(self, label="OSC Repeater", style=wx.ALIGN_CENTER)
-        osc_repeater_text.SetFont(header_font)
-        panel_sizer.Add(osc_repeater_text, 0, wx.ALL | wx.EXPAND, 5)
-        repeater_radio_grid = wx.GridSizer(1, 2, 0, 0)
-        self.repeater_radio_enabled = wx.RadioButton(self, label="Repeater Enabled", style=wx.RB_GROUP)
-        repeater_radio_grid.Add(self.repeater_radio_enabled, 0, wx.ALL | wx.EXPAND, 5)
+        # Console Repeater Section
+        panel_sizer.AddSpacer(INTERNAL_SPACING)
+        panel_sizer.Add(wx.StaticLine(self), flag=wx.EXPAND | wx.LEFT | wx.RIGHT, border=EXTERNAL_SPACING)
+        panel_sizer.AddSpacer(INTERNAL_SPACING)
+        console_repeater_section = wx.FlexGridSizer(2, INTERNAL_SPACING, INTERNAL_SPACING)
+        console_repeater_section.AddGrowableCol(1)
+        console_repeater_section.SetFlexibleDirection(direction=wx.HORIZONTAL)
+        console_repeater_section.AddStretchSpacer()
+        # Repeater Enabled
+        self.repeater_radio_enabled = wx.CheckBox(self, label="Repeater enabled")
         self.repeater_radio_enabled.SetValue(settings.forwarder_enabled)
-        self.repeater_radio_disabled = wx.RadioButton(self, label="Repeater Disabled")
-        repeater_radio_grid.Add(self.repeater_radio_disabled, 0, wx.ALL | wx.EXPAND, 5)
-        self.repeater_radio_disabled.SetValue(not settings.forwarder_enabled)
-        panel_sizer.Add(repeater_radio_grid, 0, wx.ALL | wx.EXPAND, 5)
-        panel_sizer.Add(0, 10)
-        # Console IP Label
-        repeater_ip_text = wx.StaticText(self, label="Repeat to IP", style=wx.ALIGN_CENTER)
-        repeater_ip_text.SetFont(header_font)
-        panel_sizer.Add(repeater_ip_text, 0, wx.ALL | wx.EXPAND, 5)
-        # Repeater to  IP Input
+        console_repeater_section.Add(self.repeater_radio_enabled, flag=wx.EXPAND)
+        # Repeater IP
+        console_repeater_section.Add(wx.StaticText(self, label="Tablet IP:", style=wx.ALIGN_RIGHT))
         self.repeater_ip_control = wx.TextCtrl(self, style=wx.TE_CENTER)
         self.repeater_ip_control.SetMaxLength(15)
         self.repeater_ip_control.SetValue(settings.repeater_ip)
-        panel_sizer.Add(self.repeater_ip_control, 0, wx.ALL | wx.EXPAND, 5)
-        panel_sizer.Add(0, 10)
-        # Repeater Ports Label
-        repeater_ports_text = wx.StaticText(self, label="Repeater Ports", style=wx.ALIGN_CENTER)
-        repeater_ports_text.SetFont(sub_header_font)
-        panel_sizer.Add(repeater_ports_text, 0, wx.ALL | wx.EXPAND, -1)
-        # Repeater Ports Input
-        repeater_ports_grid = wx.GridSizer(2, 2, -1, 10)
-        repeater_send_port_text = wx.StaticText(self, label="Send to Device", style=wx.ALIGN_CENTER)
-        repeater_send_port_text.SetFont(base_font)
-        repeater_ports_grid.Add(repeater_send_port_text, 0, wx.ALL | wx.EXPAND, 5)
-        repeater_rcv_port_text = wx.StaticText(self, label="Receive from Device", style=wx.ALIGN_CENTER)
-        repeater_rcv_port_text.SetFont(base_font)
-        repeater_ports_grid.Add(repeater_rcv_port_text, 0, wx.ALL | wx.EXPAND, 5)
+        console_repeater_section.Add(self.repeater_ip_control, flag=wx.EXPAND | wx.ALIGN_CENTER_VERTICAL)
+        # Repeater Ports
+        console_repeater_section.AddStretchSpacer()
+        console_repeater_ports_label_section = wx.GridSizer(1,2,0,INTERNAL_SPACING)
+        console_send_label = wx.StaticText(self, label="Send")
+        console_send_label.SetFont(port_font)
+        console_repeater_ports_label_section.Add(console_send_label, flag=wx.ALIGN_BOTTOM | wx.ALIGN_CENTER_HORIZONTAL)
+        console_receive_label = wx.StaticText(self, label="Receive")
+        console_receive_label.SetFont(port_font)
+        console_repeater_ports_label_section.Add(console_receive_label, flag=wx.ALIGN_BOTTOM | wx.ALIGN_CENTER_HORIZONTAL)
+        console_repeater_section.Add(console_repeater_ports_label_section, flag=wx.EXPAND, userData=LABEL_ROW)
+        console_repeater_section.Add(wx.StaticText(self, label="Ports:", style=wx.ALIGN_RIGHT))
+        console_repeater_ports_section = wx.GridSizer(1,2,0,INTERNAL_SPACING)
         self.repeater_send_port_control = wx.TextCtrl(self, style=wx.TE_CENTER)
         self.repeater_send_port_control.SetMaxLength(5)
         self.repeater_send_port_control.SetValue(str(settings.repeater_port))
-        repeater_ports_grid.Add(self.repeater_send_port_control, 0, wx.ALL | wx.EXPAND, -1)
+        console_repeater_ports_section.Add(self.repeater_send_port_control, flag=wx.EXPAND | wx.ALIGN_CENTER_VERTICAL)
         self.repeater_rcv_port_control = wx.TextCtrl(self, style=wx.TE_CENTER)
         self.repeater_rcv_port_control.SetMaxLength(5)
         self.repeater_rcv_port_control.SetValue(str(settings.repeater_receive_port))
-        repeater_ports_grid.Add(self.repeater_rcv_port_control, 0, wx.ALL | wx.EXPAND, -1)
-        panel_sizer.Add(repeater_ports_grid, 0, wx.ALL | wx.EXPAND, 5)
+        console_repeater_ports_section.Add(self.repeater_rcv_port_control, flag=wx.EXPAND | wx.ALIGN_CENTER_VERTICAL)
+        console_repeater_section.Add(console_repeater_ports_section, flag=wx.EXPAND)
+        panel_sizer.Add(console_repeater_section, flag=wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, border=EXTERNAL_SPACING)
 
-        self.always_on_top_checkbox = wx.CheckBox(self, label="Always on top")
+        # DAW Section
+        daw_header = wx.StaticText(self, label="DAW", style=wx.ALIGN_CENTER)
+        daw_header.SetFont(header_font)
+        panel_sizer.Add(daw_header, flag=wx.LEFT | wx.RIGHT | wx.EXPAND, border=EXTERNAL_SPACING)
+        panel_sizer.AddSpacer(INTERNAL_SPACING)
+        panel_sizer.Add(wx.StaticLine(self), flag=wx.EXPAND | wx.LEFT | wx.RIGHT, border=EXTERNAL_SPACING)
+        panel_sizer.AddSpacer(INTERNAL_SPACING)
+        daw_section = wx.FlexGridSizer(2,INTERNAL_SPACING, INTERNAL_SPACING)
+        daw_section.AddGrowableCol(1)
+        daw_section.SetFlexibleDirection(direction=wx.HORIZONTAL)
+        daw_section.Add(wx.StaticText(self, label="Type:", style=wx.ALIGN_RIGHT))        
+        # DAW Type
+        daw_types = [daw.type for daw in Daw.__subclasses__()]
+        daw_types.sort()
+        self.daw_type_choice = wx.Choice(self, choices=daw_types)
+        self.daw_type_choice.SetSelection(daw_types.index(settings.daw_type))
+        daw_section.Add(self.daw_type_choice, flag=wx.EXPAND | wx.ALIGN_CENTER_VERTICAL)
+        panel_sizer.Add(daw_section, flag=wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, border=EXTERNAL_SPACING)
+
+        # Application Settings Section
+        application_header = wx.StaticText(self, label="Application", style=wx.ALIGN_CENTER)
+        application_header.SetFont(header_font)
+        panel_sizer.Add(application_header, flag=wx.LEFT | wx.RIGHT | wx.EXPAND, border=EXTERNAL_SPACING)
+        panel_sizer.AddSpacer(INTERNAL_SPACING)
+        panel_sizer.Add(wx.StaticLine(self), flag=wx.EXPAND | wx.LEFT | wx.RIGHT, border=EXTERNAL_SPACING)
+        panel_sizer.AddSpacer(INTERNAL_SPACING)
+        app_settings_section = wx.FlexGridSizer(2, INTERNAL_SPACING, INTERNAL_SPACING)
+        app_settings_section.AddGrowableCol(1)
+        app_settings_section.SetFlexibleDirection(direction=wx.VERTICAL)
+        # Always On Top
+        app_settings_section.Add(width=label_min_width,height=0)
+        self.always_on_top_checkbox = wx.CheckBox(self, label="Always display on top")
         self.always_on_top_checkbox.SetValue(settings.always_on_top)
-        panel_sizer.Add(self.always_on_top_checkbox, flag=wx.ALL, border=5)
-
-        panel_sizer.Add(0, 25)
+        app_settings_section.Add(self.always_on_top_checkbox, flag=wx.EXPAND)
+        # Only match cue name
+        app_settings_section.AddStretchSpacer()
+        self.match_mode_label_only = wx.CheckBox(self,label="Only match cue name")
+        app_settings_section.Add(self.match_mode_label_only, flag=wx.EXPAND)
+        self.match_mode_label_only.SetValue(settings.name_only_match)
+        panel_sizer.Add(app_settings_section, flag=wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, border=EXTERNAL_SPACING)
+        
+        for child in panel_sizer.GetChildren():
+            if isinstance(child, wx.SizerItem) and child.IsSizer():
+                child_sizer = child.GetSizer()
+                if isinstance(child_sizer, wx.FlexGridSizer):
+                    child_sizer.SetFlexibleDirection(wx.BOTH)
+                    child_sizer.Layout()
+                    for flex_child in child_sizer.GetChildren():
+                        if isinstance(flex_child, wx.SizerItem) and not flex_child.IsSpacer():
+                            flex_child_user_data = flex_child.GetUserData()
+                            if flex_child_user_data != LABEL_ROW:
+                                flex_child.SetMinSize(wx.Size(label_min_width,-1))
         # Update Button
         update_button = wx.Button(self, -1, "Update")
-        panel_sizer.Add(update_button, 0, wx.ALL | wx.EXPAND, 5)
-        panel_sizer.AddSpacer(15)
+        panel_sizer.Add(update_button, 0, wx.ALL | wx.EXPAND, EXTERNAL_SPACING)
         self.SetSizer(panel_sizer)
         self.Fit()
 
@@ -427,7 +482,7 @@ class PrefsPanel(wx.Panel):
         self.Bind(wx.EVT_BUTTON, self.update_button_pressed, update_button)
         self.console_ip_control.Bind(wx.EVT_TEXT, self.changed_console_ip)
         self.console_ip_control.Bind(wx.EVT_KILL_FOCUS, self.check_console_ip)
-        self.console_type_radio_box.Bind(wx.EVT_RADIOBOX, self.changed_console_type)
+        self.console_type_choice.Bind(wx.EVT_CHOICE, self.changed_console_type)
         self.Show()
 
     def changed_console_type(self, event: wx.CommandEvent) -> None:
@@ -436,17 +491,15 @@ class PrefsPanel(wx.Panel):
         
     def update_console_supported_features(self, console: Console)-> None:
         self.console_rcv_port_control.Enabled = Feature.SEPERATE_RECEIVE_PORT in console.supported_features
-        self.mode_match_all_radio.Enabled = Feature.CUE_NUMBER in console.supported_features
-        self.mode_match_name_radio.Enabled = Feature.CUE_NUMBER in console.supported_features
+        self.match_mode_label_only.Enabled = Feature.CUE_NUMBER in console.supported_features
         self.repeater_radio_enabled.Enabled = Feature.REPEATER in console.supported_features
-        self.repeater_radio_disabled.Enabled = Feature.REPEATER in console.supported_features
         self.repeater_ip_control.Enabled = Feature.REPEATER in console.supported_features
         self.repeater_send_port_control.Enabled = Feature.REPEATER in console.supported_features
         self.repeater_rcv_port_control.Enabled = Feature.REPEATER in console.supported_features
         if Feature.REPEATER not in console.supported_features:
-            self.repeater_radio_disabled.SetValue(True)
+            self.repeater_radio_enabled.SetValue(False)
         if Feature.CUE_NUMBER not in console.supported_features:
-            self.mode_match_all_radio.SetValue(True)
+            self.match_mode_label_only.SetValue(False)
 
     def update_button_pressed(self, e):
         logger.info("Updating configuration settings.")
@@ -458,10 +511,10 @@ class PrefsPanel(wx.Panel):
             settings.repeater_ip = self.repeater_ip_control.GetValue()
             settings.repeater_port = str(self.repeater_send_port_control.GetValue())
             settings.repeater_receive_port = str(self.repeater_rcv_port_control.GetValue())
-            settings.name_only_match = self.mode_match_name_radio.GetValue()
+            settings.name_only_match = self.match_mode_label_only.GetValue()
             settings.forwarder_enabled = self.repeater_radio_enabled.GetValue()
-            settings.console_type = self.console_type_radio_box.GetString(self.console_type_radio_box.GetSelection())
-            settings.daw_type = self.daw_type_radio_box.GetString(self.daw_type_radio_box.GetSelection())
+            settings.console_type = self.console_type_choice.GetString(self.console_type_choice.GetSelection())
+            settings.daw_type = self.daw_type_choice.GetString(self.daw_type_choice.GetSelection())
             settings.always_on_top = self.always_on_top_checkbox.GetValue()
             # Force a close/reconnect of the OSC servers by pushing the configuration update.
             MainWindow.BridgeFunctions.update_configuration(
