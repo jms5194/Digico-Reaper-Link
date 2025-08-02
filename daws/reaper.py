@@ -5,6 +5,8 @@ from pubsub import pub
 from pythonosc import dispatcher, osc_server, udp_client
 import threading
 
+LOOPBACK_IP = "127.0.0.1"
+
 
 class Reaper(Daw):
     type = "Reaper"
@@ -68,12 +70,15 @@ class Reaper(Daw):
         # Connect to Reaper via OSC
         from app_settings import settings
         logger.info("Starting Reaper OSC server")
-        self.reaper_client = udp_client.SimpleUDPClient(settings.reaper_ip, settings.reaper_port)
+        self.reaper_client = udp_client.SimpleUDPClient(
+            LOOPBACK_IP, settings.reaper_port
+        )
         self.reaper_dispatcher = dispatcher.Dispatcher()
         self._receive_reaper_OSC()
         try:
-            self.reaper_osc_server = osc_server.ThreadingOSCUDPServer(("127.0.0.1", settings.reaper_receive_port),
-                                                                      self.reaper_dispatcher)
+            self.reaper_osc_server = osc_server.ThreadingOSCUDPServer(
+                (LOOPBACK_IP, settings.reaper_receive_port), self.reaper_dispatcher
+            )
             logger.info("Reaper OSC server started")
             self.reaper_osc_server.serve_forever()
         except Exception as e:
