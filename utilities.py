@@ -12,8 +12,8 @@ from configupdater import ConfigUpdater
 from pubsub import pub
 
 from app_settings import settings
-from consoles import Console, DiGiCo, StuderVista, Yamaha
-from daws import Daw, Reaper, ProTools, Ardour
+from consoles import CONSOLES, Console
+from daws import Ardour, Daw, ProTools, Reaper
 from logger_config import logger
 
 
@@ -108,7 +108,7 @@ class DawConsoleBridge:
         name_only,
         console_type,
         daw_type,
-        always_on_top: bool
+        always_on_top: bool,
     ):
         # Given new values from the GUI, update the config file and restart the OSC Server
         logger.info("Updating configuration file")
@@ -196,13 +196,11 @@ class DawConsoleBridge:
             self.daw = Ardour()
         self.daw.start_managed_threads(self.start_managed_thread)
         self.start_managed_thread("heartbeat_thread", self.heartbeat_loop)
-        if settings.console_type == DiGiCo.type:
-            self.console = DiGiCo()
-        elif settings.console_type == StuderVista.type:
-            self.console = StuderVista()
-        elif settings.console_type == Yamaha.type:
-            self.console = Yamaha()
-        self.console.start_managed_threads(self.start_managed_thread)
+        if settings.console_type in CONSOLES:
+            self.console: Console = CONSOLES[settings.console_type]()
+            self.console.start_managed_threads(self.start_managed_thread)
+        else:
+            logger.error("Console is not supported!")
 
     @property
     def console(self) -> Console:
@@ -246,6 +244,7 @@ class DawConsoleBridge:
         ]:
             thread = getattr(self, attr, None)
             if thread and isinstance(thread, ManagedThread):
+                print("console", attr)
                 thread.stop()
                 thread.join(timeout=1)
 

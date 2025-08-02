@@ -4,27 +4,27 @@ from configparser import ConfigParser
 from consoles import DiGiCo
 from daws import Reaper
 
+
 class ThreadSafeSettings:
     def __init__(self):
         self._lock = threading.Lock()
         self._settings = {
-            'console_ip' : "10.10.10.1",
-            'reaper_ip' : "127.0.0.1",
-            'repeater_ip' : "10.10.10.10",
-            'repeater_port' : 9999,
-            'repeater_receive_port' : 9998,
-            'reaper_port' : 49102,
-            'reaper_receive_port' : 49101,
-            'console_port' : 8001,
-            'receive_port' : 8000,
-            'forwarder_enabled' : False,
-            'marker_mode' : "PlaybackTrack",
-            'window_loc' : (400, 222),
-            'window_size' : (221, 310),
-            'name_only_match' : False,
-            'console_type': DiGiCo.type,
-            'daw_type' : Reaper.type,
-            'always_on_top': False,
+            "console_ip": "192.0.2.11",
+            "repeater_ip": "192.0.2.21",
+            "repeater_port": 9999,
+            "repeater_receive_port": 9998,
+            "reaper_port": 49102,
+            "reaper_receive_port": 49101,
+            "console_port": 8001,
+            "receive_port": 8000,
+            "forwarder_enabled": False,
+            "marker_mode": "PlaybackTrack",
+            "window_loc": (400, 222),
+            "window_size": (221, 310),
+            "name_only_match": False,
+            "console_type": DiGiCo.type,
+            "daw_type": Reaper.type,
+            "always_on_top": False,
         }
 
     @property
@@ -36,16 +36,6 @@ class ThreadSafeSettings:
     def console_ip(self, value):
         with self._lock:
             self._settings["console_ip"] = value
-
-    @property
-    def reaper_ip(self) -> str:
-        with self._lock:
-            return self._settings["reaper_ip"]
-
-    @reaper_ip.setter
-    def reaper_ip(self, value):
-        with self._lock:
-            self._settings["reaper_ip"] = value
 
     @property
     def repeater_ip(self) -> str:

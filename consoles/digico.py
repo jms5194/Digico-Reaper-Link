@@ -267,13 +267,13 @@ class DiGiCo(Console):
             if self.digico_osc_server:
                 self.digico_osc_server.shutdown()
                 self.digico_osc_server.server_close()
-                logger.info(f"Digico OSC Server shutdown completed")
+                logger.info("Digico OSC Server shutdown completed")
         except Exception as e:
             logger.error(f"Error shutting down Digico server: {e}")
         try:
             if self.repeater_osc_server:
                 self.repeater_osc_server.shutdown()
                 self.repeater_osc_server.server_close()
-                logger.info(f"Repeater OSC Server shutdown completed")
+                logger.info("Repeater OSC Server shutdown completed")
         except Exception as e:
             logger.error(f"Error shutting down OSC Repeater server: {e}")
