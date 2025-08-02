@@ -276,7 +276,7 @@ class MainPanel(wx.Panel):
                                f"{dawname} has been configured for use with Digico-Reaper Link. "
                                f"Please restart {dawname} and press OK",
                                f"{dawname} Configured", wx.OK | wx.ICON_QUESTION)
-        result = dlg.ShowModal()
+        dlg.ShowModal()
         dlg.Destroy()
 
     @staticmethod

@@ -39,7 +39,7 @@ class ProTools(Daw):
                                                  application_name=sys.argv[0])
                 if self.pt_engine_connection is not None:
                     logger.info("Connection established to Pro Tools")
-            except Exception as e:
+            except Exception:
                 logger.error("Unable to connect to Pro Tools. Retrying")
                 time.sleep(1)
                 self._open_protools_connection()
