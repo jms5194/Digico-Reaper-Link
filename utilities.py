@@ -244,7 +244,6 @@ class DawConsoleBridge:
         ]:
             thread = getattr(self, attr, None)
             if thread and isinstance(thread, ManagedThread):
-                print("console", attr)
                 thread.stop()
                 thread.join(timeout=1)
 
