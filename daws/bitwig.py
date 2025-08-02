@@ -16,6 +16,7 @@ class Bitwig(Daw):
         super().__init__()
         self.bitwig_send_lock = threading.Lock()
         self.gateway_entry_point = None
+        self.marker_dict = None
         pub.subscribe(self._place_marker_with_name, "place_marker_with_name")
         pub.subscribe(self._incoming_transport_action, "incoming_transport_action")
         pub.subscribe(self._handle_cue_load, "handle_cue_load")
@@ -28,20 +29,29 @@ class Bitwig(Daw):
         self._shutdown_server_event.clear()
         logger.info("Starting Bitwig Connection thread")
         start_managed_thread(
-            "daw_connection_thread", self._build_bitwig_connection
+            "daw_connection_thread", self._open_bitwig_connection
         )
 
-
-    def _build_bitwig_connection(self):
-        gateway = JavaGateway()
-        self.gateway_entry_point = gateway.entry_point
-        host = self.gateway_entry_point.getHost()
-        println = host.println
-        logger.info("Attempting to Connect to Bitwig")
-        println("Connected to Bitwig")
-        self.bitwig_transport = self.gateway_entry_point.getTransport()
-        self.bitwig_arranger = self.gateway_entry_point.getArranger()
-        self.bitwig_cuemarkerbank = self.gateway_entry_point.getCueMarkerBank()
+    def _open_bitwig_connection(self):
+        while not self._shutdown_server_event.is_set():
+            try:
+                gateway = JavaGateway()
+                logger.info("Attempting to Connect to Bitwig")
+                self.gateway_entry_point = gateway.entry_point
+                host = self.gateway_entry_point.getHost()
+                println = host.println
+                logger.info("Connected to Bitwig")
+                println("Connected to Bitwig")
+                self.bitwig_transport = self.gateway_entry_point.getTransport()
+                self.bitwig_arranger = self.gateway_entry_point.getArranger()
+                self.bitwig_cuemarkerbank = self.gateway_entry_point.getCueMarkerBank()
+                self._build_marker_dict()
+                return True
+            except Exception as e:
+                logger.error("Unable to connect to Bitwig. Retrying")
+                time.sleep(1)
+                self._open_bitwig_connection()
+        return None
 
     def _incoming_transport_action(self, transport_action):
         try:
@@ -54,16 +64,54 @@ class Bitwig(Daw):
         except Exception as e:
             logger.error(f"Error processing transport macros: {e}")
 
+    def _build_marker_dict(self):
+        cur_marker_qty = self.bitwig_cuemarkerbank.itemCount().get()
+        self.marker_dict = {}
+        for i in range(0, cur_marker_qty):
+            cur_marker_info = self.gateway_entry_point.getCueMarkerInfo(i)
+            cur_marker_split = cur_marker_info.split("<>")
+            self.marker_dict[i] = cur_marker_split
+
+
+    def _add_to_marker_dict(self, new_marker_num: int):
+        cur_marker_info = self.gateway_entry_point.getCueMarkerInfo(new_marker_num)
+        cur_marker_split = cur_marker_info.split("<>")
+        self.marker_dict[new_marker_num] = cur_marker_split
+
     def _place_marker_with_name(self, marker_name: str):
+        # Bitwig markers can only be placed on a bar/beat reference, so will never be 100% accurate
         cur_marker_qty = self.bitwig_cuemarkerbank.itemCount().get()
         self.bitwig_transport.addCueMarkerAtPlaybackPosition()
         time.sleep(0.1)
         self.gateway_entry_point.renameMarker(cur_marker_qty, marker_name)
-        #for i in range(0, marker_qty):
-        #    print(self.gateway_entry_point.getCueMarkerItem(i))
+        time.sleep(0.1)
+        self._add_to_marker_dict(cur_marker_qty)
 
-    def _handle_cue_load(self, cue):
-        pass
+    def _handle_cue_load(self, cue: str):
+        from app_settings import settings
+        if (settings.marker_mode == "Recording" and self.bitwig_transport.isPlaying().get() and
+                self.bitwig_transport.isArrangerRecordEnabled().get()):
+            self._place_marker_with_name(cue)
+        elif settings.marker_mode == "PlaybackTrack" and not self.bitwig_transport.isPlaying().get():
+            self._goto_marker_by_name(cue)
+
+    def _goto_marker_by_name(self, cue):
+        print(cue)
+        from app_settings import settings
+        if settings.name_only_match:
+            # TODO Add name match only logic
+            pass
+        else:
+            try:
+                possible_markers = [key for key, value in self.marker_dict.items() if value[0] == cue]
+            except Exception as e:
+                logger.info("Bitwig found no matching marker")
+                return
+            if possible_markers[0]:
+                marker_to_nav = self.marker_dict[possible_markers[0]]
+                marker_time_to_nav = marker_to_nav[1]
+                self.gateway_entry_point.loadPlaybackPosition(marker_time_to_nav)
+
 
     def _bitwig_play(self):
         if not self.bitwig_transport.isPlaying().get():
