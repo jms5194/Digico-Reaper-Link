@@ -1,3 +1,5 @@
+import time
+
 from . import Daw
 from pubsub import pub
 from logger_config import logger
@@ -38,6 +40,8 @@ class Bitwig(Daw):
         logger.info("Attempting to Connect to Bitwig")
         println("Connected to Bitwig")
         self.bitwig_transport = self.gateway_entry_point.getTransport()
+        self.bitwig_arranger = self.gateway_entry_point.getArranger()
+        self.bitwig_cuemarkerbank = self.gateway_entry_point.getCueMarkerBank()
 
     def _incoming_transport_action(self, transport_action):
         try:
@@ -51,8 +55,12 @@ class Bitwig(Daw):
             logger.error(f"Error processing transport macros: {e}")
 
     def _place_marker_with_name(self, marker_name: str):
-        if not self.bitwig_transport.isPlaying().get():
-            self.bitwig_transport.play()
+        cur_marker_qty = self.bitwig_cuemarkerbank.itemCount().get()
+        self.bitwig_transport.addCueMarkerAtPlaybackPosition()
+        time.sleep(0.1)
+        self.gateway_entry_point.renameMarker(cur_marker_qty, marker_name)
+        #for i in range(0, marker_qty):
+        #    print(self.gateway_entry_point.getCueMarkerItem(i))
 
     def _handle_cue_load(self, cue):
         pass
