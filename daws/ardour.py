@@ -171,6 +171,7 @@ class Ardour(Daw):
             self._place_marker_with_name(cue)
         elif settings.marker_mode == "PlaybackTrack" and self.is_playing is False:
             self._goto_marker_by_name(cue)
+            # TODO: Add name only logic here
 
     def _shutdown_servers(self):
         try:
