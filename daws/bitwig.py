@@ -17,6 +17,7 @@ class Bitwig(Daw):
         self.bitwig_send_lock = threading.Lock()
         self.gateway_entry_point = None
         self.marker_dict = None
+        self.gateway = None
         pub.subscribe(self._place_marker_with_name, "place_marker_with_name")
         pub.subscribe(self._incoming_transport_action, "incoming_transport_action")
         pub.subscribe(self._handle_cue_load, "handle_cue_load")
@@ -35,9 +36,9 @@ class Bitwig(Daw):
     def _open_bitwig_connection(self):
         while not self._shutdown_server_event.is_set():
             try:
-                gateway = JavaGateway()
+                self.gateway = JavaGateway()
                 logger.info("Attempting to Connect to Bitwig")
-                self.gateway_entry_point = gateway.entry_point
+                self.gateway_entry_point = self.gateway.entry_point
                 host = self.gateway_entry_point.getHost()
                 println = host.println
                 logger.info("Connected to Bitwig")
@@ -50,7 +51,6 @@ class Bitwig(Daw):
             except Exception as e:
                 logger.error("Unable to connect to Bitwig. Retrying")
                 time.sleep(1)
-                self._open_bitwig_connection()
         return None
 
     def _incoming_transport_action(self, transport_action):
@@ -144,6 +144,7 @@ class Bitwig(Daw):
             self.bitwig_transport.play()
 
     def _shutdown_servers(self):
-        print("exiting bitwig connection")
+        logger.info("Closing connection to Bitwig")
+        self.gateway.close()
 
 
