@@ -96,10 +96,25 @@ class Bitwig(Daw):
             self._goto_marker_by_name(cue)
 
     def _goto_marker_by_name(self, cue):
-        print(cue)
         from app_settings import settings
+        possible_markers = []
         if settings.name_only_match:
-            # TODO Add name match only logic
+            cue_name_only_list = cue.split(" ")[1:]
+            cue_name_only = " ".join(cue_name_only_list)
+            try:
+                for key, value in self.marker_dict.items():
+                    value_full_name = value[0]
+                    value_name_only_list = value_full_name.split(" ")[1:]
+                    value_name_only = " ".join(value_name_only_list)
+                    if value_name_only == cue_name_only:
+                        possible_markers.append(key)
+            except Exception as e:
+                logger.info("Bitwig found no matching marker")
+                return
+            if possible_markers[0]:
+                marker_to_nav = self.marker_dict[possible_markers[0]]
+                marker_time_to_nav = marker_to_nav[1]
+                self.gateway_entry_point.loadPlaybackPosition(marker_time_to_nav)
             pass
         else:
             try:
@@ -111,7 +126,6 @@ class Bitwig(Daw):
                 marker_to_nav = self.marker_dict[possible_markers[0]]
                 marker_time_to_nav = marker_to_nav[1]
                 self.gateway_entry_point.loadPlaybackPosition(marker_time_to_nav)
-
 
     def _bitwig_play(self):
         if not self.bitwig_transport.isPlaying().get():
