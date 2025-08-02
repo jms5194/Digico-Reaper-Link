@@ -42,7 +42,7 @@ class Reaper(Daw):
                     self._add_reaper_prefs(settings.reaper_receive_port, settings.reaper_port)
                     pub.sendMessage("reset_daw", resetdaw=True, dawname="Reaper")
                 return True
-            except RuntimeError as e:
+            except RuntimeError:
                 # If reaper is not running, wait and try again
                 logger.error("Reaper not running. Will retry in 1 seconds.")
                 timer = threading.Timer(1,self._validate_reaper_prefs)
@@ -187,6 +187,6 @@ class Reaper(Daw):
             if self.reaper_osc_server:
                 self.reaper_osc_server.shutdown()
                 self.reaper_osc_server.server_close()
-            logger.info(f"Reaper OSC Server shutdown completed")
+            logger.info("Reaper OSC Server shutdown completed")
         except Exception as e:
             logger.error(f"Error shutting down Reaper server: {e}")

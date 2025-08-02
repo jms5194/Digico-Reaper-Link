@@ -43,7 +43,7 @@ class Ardour(Daw):
                     self._add_ardour_prefs(3820, 3819)
                     pub.sendMessage("reset_daw", resetdaw=True, dawname="Ardour")
                 return True
-            except RuntimeError as e:
+            except RuntimeError:
                 # If Ardour is not running, wait and try again
                 logger.error("Ardour not running. Will retry in 1 seconds.")
                 timer = threading.Timer(1,self._validate_ardour_prefs)
@@ -177,6 +177,6 @@ class Ardour(Daw):
             if self.ardour_osc_server:
                 self.ardour_osc_server.shutdown()
                 self.ardour_osc_server.server_close()
-            logger.info(f"Ardour OSC Server shutdown completed")
+            logger.info("Ardour OSC Server shutdown completed")
         except Exception as e:
             logger.error(f"Error shutting down Ardour server: {e}")
