@@ -4,6 +4,7 @@ from typing import Any, Callable
 from pubsub import pub
 from pythonosc import dispatcher, osc_server, udp_client
 import threading
+import time
 
 LOOPBACK_IP = "127.0.0.1"
 
@@ -30,15 +31,15 @@ class Reaper(Daw):
     ) -> None:
         logger.info("Starting Reaper Connection threads")
         self._shutdown_server_event.clear()
-        self._validate_reaper_prefs()
+        start_managed_thread("validate_reaper_prefs_thread", self._validate_reaper_prefs)
         start_managed_thread(
             "daw_connection_thread", self._build_reaper_osc_servers
         )
 
     def _validate_reaper_prefs(self):
         # If the Reaper .ini file does not contain an entry for Digico-Reaper Link, add one.
+        from app_settings import settings
         while not self._shutdown_server_event.is_set():
-            from app_settings import settings
             try:
                 if not self._check_reaper_prefs(settings.reaper_receive_port, settings.reaper_port):
                     self._add_reaper_prefs(settings.reaper_receive_port, settings.reaper_port)
@@ -47,9 +48,7 @@ class Reaper(Daw):
             except RuntimeError:
                 # If reaper is not running, wait and try again
                 logger.error("Reaper not running. Will retry in 1 seconds.")
-                timer = threading.Timer(1,self._validate_reaper_prefs)
-                timer.start()
-                return False
+                time.sleep(1)
         return None
 
     @staticmethod

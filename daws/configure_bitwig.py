@@ -4,33 +4,41 @@ import sys
 from logger_config import logger
 import hashlib
 import os
+from importlib_resources import files, as_file
 
 
 def verify_markermatic_bridge_in_user_dir():
     # Copy the Markermatic Bridge to the Bitwig extensions directory
     bridge_full_path = get_bitwig_extensions_path() / "MarkerMatic-Bridge.bwextension"
-    package_full_path = "/resources/MarkerMatic-Bridge.bwextension"
-    if os.path.exists(bridge_full_path):
-        current_file_checksum = calculate_md5_checksum(bridge_full_path)
-        package_file_checksum = calculate_md5_checksum(package_full_path)
-        if current_file_checksum == package_file_checksum:
-            logger.info("Markermatic Bridge is already up to date.")
-            return True
+    source = files("resources").joinpath('MarkerMatic-Bridge.bwextension')
+    with as_file(source) as package_file:
+        if os.path.exists(get_bitwig_extensions_path()):
+            if os.path.exists(bridge_full_path):
+                current_file_checksum = calculate_md5_checksum(bridge_full_path)
+                package_file_checksum = calculate_md5_checksum(package_file)
+                if current_file_checksum == package_file_checksum:
+                    logger.info("Markermatic Bridge is already up to date.")
+                    return True
+                else:
+                    logger.info("Markermatic Bridge is outdated, copying new version.")
+                    copy_markermatic_bridge_to_bitwig_extensions(package_file)
+                    return False
+            else:
+                logger.info("Markermatic Bridge not found, copying new version.")
+                copy_markermatic_bridge_to_bitwig_extensions(package_file)
+                return
         else:
-            logger.info("Markermatic Bridge is outdated, copying new version.")
-            copy_markermatic_bridge_to_bitwig_extensions()
-    else:
-        logger.info("Markermatic Bridge not found, copying new version.")
-        copy_markermatic_bridge_to_bitwig_extensions()
+            os.mkdir(get_bitwig_extensions_path())
+            copy_markermatic_bridge_to_bitwig_extensions(package_file)
+            return False
 
-def copy_markermatic_bridge_to_bitwig_extensions():
+def copy_markermatic_bridge_to_bitwig_extensions(package_file):
     destination_directory = get_bitwig_extensions_path()
-    source_file = "/resources/MarkerMatic-Bridge.bwextension"
-    filename = os.path.basename(source_file)
+    filename = os.path.basename(package_file)
     destination_path = os.path.join(destination_directory, filename)
     if os.path.exists(destination_path):
         os.remove(destination_path)
-    shutil.move(source_file, destination_path)
+    shutil.copy(package_file, destination_path)
     logger.info(f"Extension '{filename}' copied or replaced successfully.")
     logger.info("Copied Markermatic Bridge to Bitwig extensions directory.")
 

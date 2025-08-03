@@ -4,6 +4,7 @@ from logger_config import logger
 from pythonosc import dispatcher, osc_server, udp_client
 from typing import Any, Callable
 import threading
+import time
 
 
 # Need to add automated configuration methods
@@ -30,7 +31,7 @@ class Ardour(Daw):
     ) -> None:
         self._shutdown_server_event.clear()
         logger.info("Starting Ardour Connection thread")
-        self._validate_ardour_prefs()
+        start_managed_thread("validate_ardour_prefs_thread", self._validate_ardour_prefs)
         start_managed_thread(
             "daw_connection_thread", self._build_ardour_osc_servers
         )
@@ -46,9 +47,7 @@ class Ardour(Daw):
             except RuntimeError:
                 # If Ardour is not running, wait and try again
                 logger.error("Ardour not running. Will retry in 1 seconds.")
-                timer = threading.Timer(1,self._validate_ardour_prefs)
-                timer.start()
-                return False
+                time.sleep(1)
         return None
 
     @staticmethod

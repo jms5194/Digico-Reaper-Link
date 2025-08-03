@@ -4,4 +4,13 @@ from .protools import ProTools
 from .ardour import Ardour
 from .bitwig import Bitwig
 
+DAWS = {
+    "Reaper": Reaper,
+    "ProTools": ProTools,
+    "Ardour": Ardour,
+    "Bitwig": Bitwig,
+}
+
+
 __all__ = ["Daw", "Reaper", "ProTools", "Ardour", "Bitwig"]
+

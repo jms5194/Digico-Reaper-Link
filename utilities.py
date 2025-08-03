@@ -14,7 +14,7 @@ from pubsub import pub
 import constants
 from app_settings import settings
 from consoles import CONSOLES, Console
-from daws import Ardour, Daw, ProTools, Reaper
+from daws import DAWS, Daw
 from logger_config import logger
 
 
@@ -187,13 +187,9 @@ class DawConsoleBridge:
     def start_threads(self):
         # Start all OSC server threads
         logger.info("Starting threads")
-        if settings.daw_type == Reaper.type:
-            self.daw = Reaper()
-        elif settings.daw_type == ProTools.type:
-            self.daw = ProTools()
-        elif settings.daw_type == Ardour.type:
-            self.daw = Ardour()
-        self.daw.start_managed_threads(self.start_managed_thread)
+        if settings.daw_type in DAWS:
+            self.daw: Daw = DAWS[settings.daw_type]()
+            self.daw.start_managed_threads(self.start_managed_thread)
         self.start_managed_thread("heartbeat_thread", self.heartbeat_loop)
         if settings.console_type in CONSOLES:
             self.console: Console = CONSOLES[settings.console_type]()

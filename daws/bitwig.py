@@ -14,9 +14,10 @@ class Bitwig(Daw):
 
     def __init__(self):
         super().__init__()
+        print("Initializing Bitwig")
         self.bitwig_send_lock = threading.Lock()
         self.gateway_entry_point = None
-        self.marker_dict = None
+        self.marker_dict = {}
         self.gateway = None
         pub.subscribe(self._place_marker_with_name, "place_marker_with_name")
         pub.subscribe(self._incoming_transport_action, "incoming_transport_action")
@@ -28,23 +29,19 @@ class Bitwig(Daw):
             self, start_managed_thread: Callable[[str, Any], None]
     ) -> None:
         self._shutdown_server_event.clear()
-        self._validate_bitwig_prefs()
+        start_managed_thread("validate_bitwig_prefs_thread", self._validate_bitwig_prefs)
         logger.info("Starting Bitwig Connection thread")
-        start_managed_thread(
-            "daw_connection_thread", self._open_bitwig_connection
-        )
+        start_managed_thread("daw_connection_thread", self._open_bitwig_connection)
 
     def _validate_bitwig_prefs(self):
         # If the Bitwig Extensions directory does not contain our Markermatic Bridge, copy it over
-        while not self._shutdown_server_event.is_set():
             try:
+                print("trying to validate Bitwig prefs")
                 if not configure_bitwig.verify_markermatic_bridge_in_user_dir():
-                    pub.sendMessage("reset_daw", resetdaw=True, dawname="Bitwig")
+                    pub.sendMessage("reset_daw", resetdaw=True, daw_name="Bitwig")
                 return True
             except Exception as e:
                 logger.error(f"Unable to install Bitwig extension or error occurred: {e}")
-        return None
-
 
     def _open_bitwig_connection(self):
         while not self._shutdown_server_event.is_set():
