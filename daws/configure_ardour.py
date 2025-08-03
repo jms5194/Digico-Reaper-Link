@@ -86,6 +86,8 @@ def is_windows() -> bool:
 
 def get_ardour_process_path():
     # Return path to currently running Ardour8 process.
+    # TODO: Fix this to work with other Ardour versions
+    # (e.g. Ardour7, Ardour6, etc.)
     processes = [
         p for p in psutil.process_iter(['name', 'exe'])
         if os.path.splitext(p.info['name']  # type:ignore
