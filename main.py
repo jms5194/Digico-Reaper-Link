@@ -6,6 +6,7 @@ import threading
 import wx
 from pubsub import pub
 
+import constants
 from app_settings import settings
 from consoles import CONSOLES, Console, Feature
 from daws import Daw
@@ -19,7 +20,7 @@ class MainWindow(wx.Frame):
     _app_icons: wx.IconBundle
     def __init__(self):
         logger.info("Initializing main window")
-        wx.Frame.__init__(self, parent=None, title="Digico-Reaper Link")
+        wx.Frame.__init__(self, parent=None, title=constants.APPLICATION_NAME)
         self.SetPosition(settings.window_loc)
         self.SetSize(settings.window_size)
         MainPanel(self)
@@ -54,14 +55,20 @@ class MainWindow(wx.Frame):
 
     def on_about(self, event):
         # Create the About Dialog Box
-        dlg = wx.MessageDialog(self, " An OSC Translation tool for Digico and Reaper. Written by Justin Stasiw. ",
-                               "Digico-Reaper Link", wx.OK)
+        dlg = wx.MessageDialog(
+            self, constants.APPLICATION_ABOUT, constants.APPLICATION_NAME, wx.OK
+        )
         dlg.ShowModal()  # Shows it
         dlg.Destroy()  # Destroy pop-up when finished.
 
     def launch_preferences(self, event):
         # Open the preferences frame
-        PrefsWindow(parent=wx.GetTopLevelParent(self), title="Digico-Reaper Preferences", console=self.GetTopLevelParent().BridgeFunctions.console, icons=self.GetTopLevelParent().get_app_icons())
+        PrefsWindow(
+            parent=wx.GetTopLevelParent(self),
+            title=f"{constants.APPLICATION_NAME} Preferences",
+            console=self.GetTopLevelParent().BridgeFunctions.console,
+            icons=self.GetTopLevelParent().get_app_icons(),
+        )
 
     def on_close(self, event):
         # Let's close the window and destroy the UI
@@ -72,9 +79,12 @@ class MainWindow(wx.Frame):
         self.GetTopLevelParent().BridgeFunctions.update_pos_in_config(cur_pos)
         self.GetTopLevelParent().BridgeFunctions.update_size_in_config(cur_size)
         # Make a dialog to confirm closing.
-        dlg = wx.MessageDialog(self,
-                               "Do you really want to close Digico-Reaper Link?",
-                               "Confirm Exit", wx.OK | wx.CANCEL | wx.ICON_QUESTION)
+        dlg = wx.MessageDialog(
+            self,
+            f"Do you really want to close {constants.APPLICATION_NAME}?",
+            "Confirm Exit",
+            wx.OK | wx.CANCEL | wx.ICON_QUESTION,
+        )
         result = dlg.ShowModal()
         dlg.Destroy()
         if result == wx.ID_OK:
@@ -107,7 +117,7 @@ class MainPanel(wx.Panel):
     def __init__(self, parent):
         logger.info("Initializing main panel")
         wx.Panel.__init__(self, parent)
-        self.DigicoTimer: wx.CallLater | None = None
+        self.ConsoleTimeoutTimer: wx.CallLater | None = None
         panel_sizer = wx.BoxSizer(wx.VERTICAL)
         # Font Definitions
         header_font = wx.Font(20, family=wx.FONTFAMILY_SWISS, style=0, weight=wx.FONTWEIGHT_BOLD,
@@ -142,11 +152,11 @@ class MainPanel(wx.Panel):
         self.console_type_connection_label.SetFont(sub_header2_font)
         connected_grid.Add(self.console_type_connection_label, flag=wx.ALIGN_CENTER_HORIZONTAL)
 
-        self.digico_connected = wx.TextCtrl(self, size=wx.Size(100, -1), style=wx.TE_CENTER)
-        self.digico_connected.SetLabel("N/C")
-        self.digico_connected.SetEditable(False)
-        self.digico_connected.SetBackgroundColour(wx.RED)
-        connected_grid.Add(self.digico_connected, flag=wx.ALIGN_CENTER_HORIZONTAL)
+        self.console_connected_cntl = wx.TextCtrl(self, size=wx.Size(100, -1), style=wx.TE_CENTER)
+        self.console_connected_cntl.SetLabel("N/C")
+        self.console_connected_cntl.SetEditable(False)
+        self.console_connected_cntl.SetBackgroundColour(wx.RED)
+        connected_grid.Add(self.console_connected_cntl, flag=wx.ALIGN_CENTER_HORIZONTAL)
 
         panel_sizer.Add(connected_status, flag=wx.ALIGN_CENTER_HORIZONTAL)
         panel_sizer.Add(connected_grid, flag=wx.ALIGN_CENTER_HORIZONTAL)
@@ -180,9 +190,9 @@ class MainPanel(wx.Panel):
         pub.subscribe(self.call_for_daw_reset, "reset_daw")
         pub.subscribe(self.update_mode_select_gui_from_osc, "mode_select_osc")
         MainWindow.BridgeFunctions.start_threads()
-        # Start a timer for Digico timeout
+        # Start a timer for console timeout
         self.timer_lock = threading.Lock()
-        self.configuretimers()
+        self.configure_timers()
 
     @staticmethod
     def place_marker(e):
@@ -213,45 +223,45 @@ class MainPanel(wx.Panel):
     def notrackmode(e):
         settings.marker_mode = "PlaybackNoTrack"
 
-    def configuretimers(self):
+    def configure_timers(self):
         # Builds a 5-second non-blocking timer for console response timeout.
         # Calls self.console_disconnected if timer runs out.
         with self.timer_lock:
             def safe_timer_config():
-                if self.DigicoTimer and self.DigicoTimer.IsRunning():
-                    self.DigicoTimer.Stop()
-                self.DigicoTimer = wx.CallLater(5000, self.console_disconnected)
-                self.DigicoTimer.Start()
+                if self.ConsoleTimeoutTimer and self.ConsoleTimeoutTimer.IsRunning():
+                    self.ConsoleTimeoutTimer.Stop()
+                self.ConsoleTimeoutTimer = wx.CallLater(5000, self.console_disconnected)
+                self.ConsoleTimeoutTimer.Start()
             wx.CallAfter(safe_timer_config)
 
     def console_type_updated(self, console: Console) -> None:
         wx.CallAfter(self.console_type_connection_label.SetLabel, console.type)
 
     def console_connected(self, consolename, colour: wx.Colour = wx.GREEN):
-        if isinstance(self.DigicoTimer, wx.CallLater) and self.DigicoTimer.IsRunning():
+        if isinstance(self.ConsoleTimeoutTimer, wx.CallLater) and self.ConsoleTimeoutTimer.IsRunning():
             # When a response is received from the console, reset the timeout timer if running
-            wx.CallAfter(self.DigicoTimer.Stop)
+            wx.CallAfter(self.ConsoleTimeoutTimer.Stop)
             # Update the UI to reflect the connected status
-            self.digico_connected.SetLabel(consolename)
-            self.digico_connected.SetBackgroundColour(colour)
-            self.digico_connected.SetForegroundColour(wx.BLACK)
+            self.console_connected_cntl.SetLabel(consolename)
+            self.console_connected_cntl.SetBackgroundColour(colour)
+            self.console_connected_cntl.SetForegroundColour(wx.BLACK)
             # Restart the timeout timer
-            self.configuretimers()
+            self.configure_timers()
 
         else:
             # If the timer was not already running
             # Update UI to reflect connected
-            wx.CallAfter(self.digico_connected.SetLabel,consolename)
-            wx.CallAfter(self.digico_connected.SetBackgroundColour,wx.GREEN)
+            wx.CallAfter(self.console_connected_cntl.SetLabel,consolename)
+            wx.CallAfter(self.console_connected_cntl.SetBackgroundColour,wx.GREEN)
             # Start the timer
-            self.configuretimers()
+            self.configure_timers()
 
 
     def console_disconnected(self):
         # If timer runs out without being reset, update the UI to N/C
-        self.digico_connected.SetLabel("N/C")
-        self.digico_connected.SetBackgroundColour(wx.RED)
-        self.digico_connected.SetForegroundColour(wx.WHITE)
+        self.console_connected_cntl.SetLabel("N/C")
+        self.console_connected_cntl.SetBackgroundColour(wx.RED)
+        self.console_connected_cntl.SetForegroundColour(wx.WHITE)
 
     def reaper_disconnected_listener(self, reapererror, arg2=None):
         logger.info("Reaper not connected. Reporting to user.")
@@ -270,12 +280,15 @@ class MainPanel(wx.Panel):
         elif result == wx.ID_OK:
             MainWindow.BridgeFunctions.start_threads()
 
-    def call_for_daw_reset(self, resetdaw, dawname):
-        logger.info(f"{dawname} has been auto configured. Requesting restart")
-        dlg = wx.MessageDialog(self,
-                               f"{dawname} has been configured for use with Digico-Reaper Link. "
-                               f"Please restart {dawname} and press OK",
-                               f"{dawname} Configured", wx.OK | wx.ICON_QUESTION)
+    def call_for_daw_reset(self, resetdaw, daw_name):
+        logger.info(f"{daw_name} has been auto configured. Requesting restart")
+        dlg = wx.MessageDialog(
+            self,
+            f"{daw_name} has been configured for use with {constants.APPLICATION_NAME}."
+            f"Please restart {daw_name} and press OK",
+            f"{daw_name} Configured",
+            wx.OK | wx.ICON_QUESTION,
+        )
         dlg.ShowModal()
         dlg.Destroy()
 
@@ -584,8 +597,12 @@ class PrefsPanel(wx.Panel):
             except ValueError:
                 logger.warning(f"Invalid IP address entered: {ip}")
                 # If the input is not a valid IP address, catch the exception and show a dialog
-                dlg = wx.MessageDialog(self, "This is not a valid IP address for the console. Please try again",
-                                       "Digico-Reaper Link", wx.OK)
+                dlg = wx.MessageDialog(
+                    self,
+                    "This is not a valid IP address for the console. Please try again",
+                    constants.APPLICATION_NAME,
+                    wx.OK,
+                )
                 dlg.ShowModal()  # Shows it
                 dlg.Destroy()  # Destroy pop-up when finished.
                 # Put the focus back on the bad field
@@ -594,7 +611,7 @@ class PrefsPanel(wx.Panel):
 
 if __name__ == "__main__":
     try:
-        logger.info("Starting Digico-Reaper Link Application")
+        logger.info(f"Starting {constants.APPLICATION_NAME} Application")
         app = wx.App(False)
         frame = MainWindow()
         app.MainLoop()

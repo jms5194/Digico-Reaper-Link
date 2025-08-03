@@ -11,6 +11,7 @@ import psutil
 from configupdater import ConfigUpdater
 from pubsub import pub
 
+import constants
 from app_settings import settings
 from consoles import CONSOLES, Console
 from daws import Ardour, Daw, ProTools, Reaper
@@ -58,7 +59,7 @@ class DawConsoleBridge:
 
     def __init__(self):
         logger.info("Initializing ConsoleMarkerBridge")
-        self.ini_prefs = ""
+        self.ini_path = ""
         self.config_dir = ""
         self.lock = threading.Lock()
         self.where_to_put_user_data()
@@ -69,20 +70,18 @@ class DawConsoleBridge:
 
     def where_to_put_user_data(self):
         # Find a home for our preferences file
-        appname = "Digico-Reaper Link"
-        appauthor = "Justin Stasiw"
-        self.config_dir = appdirs.user_config_dir(appname, appauthor)
+        self.config_dir = appdirs.user_config_dir(constants.APPLICATION_NAME_LEGACY, constants.APPLICATION_AUTHOR)
         if os.path.isdir(self.config_dir):
             pass
         else:
             os.makedirs(self.config_dir)
-        self.ini_prefs = self.config_dir + "/settingsV3.ini"
+        self.ini_path = os.path.join(self.config_dir, constants.CONFIG_FILENAME)
 
     def check_configuration(self):
         # Load an existing configuration file, if one exists
         try:
-            if os.path.isfile(self.ini_prefs):
-                self.set_vars_from_pref(self.ini_prefs)
+            if os.path.isfile(self.ini_path):
+                self.set_vars_from_pref(self.ini_path)
         except Exception as e:
             logger.error(f"Failed to check/initialize config file: {e}")
 
@@ -114,7 +113,7 @@ class DawConsoleBridge:
         logger.info("Updating configuration file")
         updater = ConfigUpdater()
         try:
-            updater.read(self.ini_prefs)
+            updater.read(self.ini_path)
         except FileNotFoundError:
             pass
         try:
@@ -136,9 +135,9 @@ class DawConsoleBridge:
             updater["main"]["always_on_top"] = str(always_on_top)
         except Exception as e:
             logger.error(f"Failed to update config file: {e}")
-        with open(self.ini_prefs, "w") as file:
+        with open(self.ini_path, "w") as file:
             updater.write(file, validate=False)
-        self.set_vars_from_pref(self.ini_prefs)
+        self.set_vars_from_pref(self.ini_path)
         self.close_servers()
         self.restart_servers()
 
@@ -147,7 +146,7 @@ class DawConsoleBridge:
         logger.info("Updating window position in config file")
         updater = ConfigUpdater()
         try:
-            updater.read(self.ini_prefs)
+            updater.read(self.ini_path)
         except FileNotFoundError:
             pass
         try:
@@ -158,14 +157,14 @@ class DawConsoleBridge:
             updater.set("main", "window_pos_y", str(win_pos_tuple[1]))
         except Exception as e:
             logger.error(f"Failed to update window position in config file: {e}")
-        with open(self.ini_prefs, "w") as file:
+        with open(self.ini_path, "w") as file:
             updater.write(file, validate=False)
 
     def update_size_in_config(self, win_size_tuple):
         logger.info("Updating window size in config file")
         updater = ConfigUpdater()
         try:
-            updater.read(self.ini_prefs)
+            updater.read(self.ini_path)
         except FileNotFoundError:
             pass
         try:
@@ -176,7 +175,7 @@ class DawConsoleBridge:
             updater["main"]["window_size_y"] = str(win_size_tuple[1])
         except Exception as e:
             logger.error(f"Failed to update window size in config file: {e}")
-        with open(self.ini_prefs, "w") as file:
+        with open(self.ini_path, "w") as file:
             updater.write(file, validate=False)
 
     def start_managed_thread(self, attr_name: str, target: Callable) -> None:
