@@ -14,7 +14,6 @@ class Bitwig(Daw):
 
     def __init__(self):
         super().__init__()
-        print("Initializing Bitwig")
         self.bitwig_send_lock = threading.Lock()
         self.gateway_entry_point = None
         self.marker_dict = {}
@@ -36,7 +35,6 @@ class Bitwig(Daw):
     def _validate_bitwig_prefs(self):
         # If the Bitwig Extensions directory does not contain our Markermatic Bridge, copy it over
             try:
-                print("trying to validate Bitwig prefs")
                 if not configure_bitwig.verify_markermatic_bridge_in_user_dir():
                     pub.sendMessage("reset_daw", resetdaw=True, daw_name="Bitwig")
                 return True
@@ -91,7 +89,6 @@ class Bitwig(Daw):
     def _place_marker_with_name(self, marker_name: str):
         # Bitwig markers can only be placed on a bar/beat reference, so will never be 100% accurate
         cur_marker_qty = self.bitwig_cuemarkerbank.itemCount().get()
-        print(cur_marker_qty)
         self.bitwig_transport.addCueMarkerAtPlaybackPosition()
         time.sleep(0.1)
         self.gateway_entry_point.renameMarker(cur_marker_qty, marker_name)

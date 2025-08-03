@@ -6,6 +6,7 @@ import psutil
 import sys
 import xml.etree.ElementTree as ET
 
+
 def backup_config_file(config_file_path):
     # Backup config state before this software modified it.
     config_file_path = config_file_path + "/" + "config"

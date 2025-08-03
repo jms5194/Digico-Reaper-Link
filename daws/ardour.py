@@ -7,8 +7,6 @@ import threading
 import time
 
 
-# Need to add automated configuration methods
-
 class Ardour(Daw):
     type = "Ardour"
     _shutdown_server_event = threading.Event()
@@ -87,18 +85,6 @@ class Ardour(Daw):
             self.ardour_osc_server.serve_forever()
         except Exception as e:
             logger.error(f"Ardour OSC server startup error: {e}")
-
-    def _marker_matcher(self, osc_address, test_name):
-        # Matches a marker composite name with its Reaper ID
-        from app_settings import settings
-        address_split = osc_address.split("/")
-        marker_id = address_split[2]
-        if settings.name_only_match:
-            test_name = test_name.split(" ")
-            test_name = test_name[1:]
-            test_name = " ".join(test_name)
-        if test_name == self.name_to_match:
-            self._goto_marker_by_name(marker_id)
 
     def _current_transport_state(self, osc_address, val):
         # Watches what the Ardour playhead is doing.

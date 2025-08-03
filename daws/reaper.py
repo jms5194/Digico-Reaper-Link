@@ -132,26 +132,27 @@ class Reaper(Daw):
         with self.reaper_send_lock:
             self.reaper_client.send_message("/marker", int(marker_id))
 
-    def _place_marker_with_name(self, marker_name):
+    def _place_marker_with_name(self, marker_name: str):
+        logger.info (f"Placed marker for cue: {marker_name}")
         with self.reaper_send_lock:
             self.reaper_client.send_message("/action", 40157)
             self.reaper_client.send_message("/lastmarker/name", marker_name)
 
-    def get_marker_id_by_name(self, name):
+    def get_marker_id_by_name(self, name: str):
         # Asks for current marker information based upon number of markers.
         from app_settings import settings
         if self.is_playing is False:
             self.name_to_match = name
-        if settings.name_only_match:
-            self.name_to_match = self.name_to_match.split(" ")
-            self.name_to_match = self.name_to_match[1:]
-            self.name_to_match = " ".join(self.name_to_match)
-        with self.reaper_send_lock:
-            self.reaper_client.send_message("/device/marker/count", 0)
-            # Is there a better way to handle this in OSC only? Max of 512 markers.
-            self.reaper_client.send_message("/device/marker/count", 512)
+            if settings.name_only_match:
+                self.name_to_match = self.name_to_match.split(" ")
+                self.name_to_match = self.name_to_match[1:]
+                self.name_to_match = " ".join(self.name_to_match)
+            with self.reaper_send_lock:
+                self.reaper_client.send_message("/device/marker/count", 0)
+                # Is there a better way to handle this in OSC only? Max of 512 markers.
+                self.reaper_client.send_message("/device/marker/count", 512)
 
-    def _incoming_transport_action(self, transport_action):
+    def _incoming_transport_action(self, transport_action: str):
         try:
             if transport_action == "play":
                 self._reaper_play()

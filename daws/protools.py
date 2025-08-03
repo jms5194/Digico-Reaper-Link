@@ -39,6 +39,7 @@ class ProTools(Daw):
                                                  application_name=sys.argv[0])
                 if self.pt_engine_connection is not None:
                     logger.info("Connection established to Pro Tools")
+                    return True
             except Exception:
                 logger.error("Unable to connect to Pro Tools. Retrying")
                 time.sleep(1)
@@ -86,11 +87,20 @@ class ProTools(Daw):
                 name_to_match = name_to_match.split(" ")
                 name_to_match = name_to_match[1:]
                 name_to_match = " ".join(name_to_match)
+                print(name_to_match)
             with self.pt_send_lock:
                 mem_locs = self.pt_engine_connection.get_memory_locations()
                 for pt.MemoryLocation in mem_locs:
-                    if name_to_match == pt.MemoryLocation.name:
-                        self._goto_marker_by_loc(pt.MemoryLocation)
+                    try:
+                        test_name = pt.MemoryLocation.name
+                        if settings.name_only_match:
+                            test_name = test_name.split(" ")
+                            test_name = test_name[1:]
+                            test_name = " ".join(test_name)
+                        if name_to_match == test_name:
+                            self._goto_marker_by_loc(pt.MemoryLocation)
+                    except Exception as e:
+                        logger.error("No matching memory location found")
 
     def _goto_marker_by_loc(self, memory_loc):
         # Jump playhead to the given memory location

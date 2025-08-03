@@ -181,7 +181,6 @@ class DiGiCo(Console):
                 self.repeater_client.send_message(osc_address, *args)
             except Exception as e:
                 logger.error(f"Snapshot info cannot be repeated: {e}")
-        logger.info("Requested snapshot info")
         current_snapshot_number = int(osc_address.split("/")[3])
         with self.console_send_lock:
             self.console_client.send_message("/Snapshots/name/?", current_snapshot_number)
@@ -242,6 +241,7 @@ class DiGiCo(Console):
         cue_name = args[3]
         cue_number = str(args[1] / 100)
         cue_payload = cue_number + " " + cue_name
+        logger.info (f"Digico recalled cue: {cue_payload}")
         pub.sendMessage("handle_cue_load", cue=cue_payload)
 
 # Repeater Functions
