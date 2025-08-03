@@ -39,7 +39,7 @@ class StuderVista(Console):
                     logger.info("Ember connected successfully")
                 except(TimeoutError, ConnectionRefusedError):
                     # There's got to be a better way to get to the outer sleep
-                    time.sleep(5000)
+                    time.sleep(5)
                     continue
                 self._send_subscribe()
                 while not self._shutdown_server_event.is_set():
@@ -59,7 +59,7 @@ class StuderVista(Console):
                         if decoded_message != "Last Recalled Snapshot":
                             decoded_message = decoded_message[-1:][0]
                             pub.sendMessage("handle_cue_load", cue=decoded_message)
-            time.sleep(5000)
+            time.sleep(5)
 
     def _decode_message(self, value: Any) -> List[str]:
         message_string: List[str] = []

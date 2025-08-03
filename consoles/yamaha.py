@@ -51,7 +51,7 @@ class Yamaha(Console):
                 except(TimeoutError, ConnectionRefusedError, OSError):
                     # There's got to be a better way to get to the outer sleep
                     logger.warning("Could not connect to Yamaha")
-                    time.sleep(5000)
+                    time.sleep(5)
                     continue
                 logger.info("Connected to Yamaha Console @ {}".format(settings.console_ip))
                 buff = Buffer(sock, self._shutdown_server_event)
