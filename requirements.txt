@@ -4,6 +4,7 @@ asn1==3.1.0
 ConfigUpdater==3.2
 enum-compat==0.0.3
 grpcio==1.74.0
+importlib_resources==6.5.2
 macholib==1.16.3
 numpy==2.3.2
 packaging==25.0
