@@ -9,7 +9,7 @@ import constants
 
 def setup_logger():
     log_dir = appdirs.user_log_dir(
-        constants.APPLICATION_NAME_LEGACY, appauthor=constants.APPLICATION_AUTHOR
+        constants.APPLICATION_NAME, appauthor=constants.APPLICATION_AUTHOR
     )
     if os.path.isdir(log_dir):
         pass
