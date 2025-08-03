@@ -28,7 +28,7 @@ def verify_markermatic_bridge_in_user_dir():
                 copy_markermatic_bridge_to_bitwig_extensions(package_file)
                 return
         else:
-            os.mkdir(get_bitwig_extensions_path())
+            os.makedirs(get_bitwig_extensions_path(), exist_ok=True)
             copy_markermatic_bridge_to_bitwig_extensions(package_file)
             return False
 
