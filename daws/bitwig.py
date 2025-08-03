@@ -109,7 +109,7 @@ class Bitwig(Daw):
         elif settings.marker_mode == "PlaybackTrack" and not self.bitwig_transport.isPlaying().get():
             self._goto_marker_by_name(cue)
 
-    def _goto_marker_by_name(self, cue):
+    def _goto_marker_by_name(self, cue: str):
         from app_settings import settings
         possible_markers = []
         if settings.name_only_match:

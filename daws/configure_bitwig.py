@@ -8,7 +8,7 @@ import os
 
 def verify_markermatic_bridge_in_user_dir():
     # Copy the Markermatic Bridge to the Bitwig extensions directory
-    bridge_full_path = get_bitwig_extensions_path() + "/MarkerMatic-Bridge.bwextension"
+    bridge_full_path = get_bitwig_extensions_path() / "MarkerMatic-Bridge.bwextension"
     package_full_path = "/resources/MarkerMatic-Bridge.bwextension"
     if os.path.exists(bridge_full_path):
         current_file_checksum = calculate_md5_checksum(bridge_full_path)
@@ -42,6 +42,8 @@ def get_bitwig_extensions_path() -> pathlib.Path:
         return pathlib.Path.home() / "Documents" / "Bitwig Studio" / "Extensions"
     elif is_linux():
         return pathlib.Path.home() / "Bitwig Studio" / "Extensions"
+    else:
+        return pathlib.Path.home()
     
 def is_apple() -> bool:
     """Return whether OS is macOS or OSX."""
