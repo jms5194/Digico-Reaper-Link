@@ -16,6 +16,7 @@ from app_settings import settings
 from consoles import CONSOLES, Console
 from daws import DAWS, Daw
 from logger_config import logger
+import external_control
 
 
 def find_local_ip_in_subnet(console_ip):
@@ -70,7 +71,9 @@ class DawConsoleBridge:
 
     def where_to_put_user_data(self):
         # Find a home for our preferences file
-        self.config_dir = appdirs.user_config_dir(constants.APPLICATION_NAME_LEGACY, constants.APPLICATION_AUTHOR)
+        self.config_dir = appdirs.user_config_dir(
+            constants.APPLICATION_NAME_LEGACY, constants.APPLICATION_AUTHOR
+        )
         if os.path.isdir(self.config_dir):
             pass
         else:
@@ -196,6 +199,9 @@ class DawConsoleBridge:
             self.console.start_managed_threads(self.start_managed_thread)
         else:
             logger.error("Console is not supported!")
+        self.start_managed_thread(
+            "external_control", external_control.external_osc_control
+        )
 
     @property
     def console(self) -> Console:
