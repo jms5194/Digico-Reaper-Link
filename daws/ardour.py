@@ -29,7 +29,7 @@ class Ardour(Daw):
     ) -> None:
         self._shutdown_server_event.clear()
         logger.info("Starting Ardour Connection thread")
-        start_managed_thread("validate_ardour_prefs_thread", self._validate_ardour_prefs)
+        #start_managed_thread("validate_ardour_prefs_thread", self._validate_ardour_prefs)
         start_managed_thread(
             "daw_connection_thread", self._build_ardour_osc_servers
         )
@@ -40,13 +40,13 @@ class Ardour(Daw):
             try:
                 if not self._check_ardour_prefs(3820, 3819):
                     self._add_ardour_prefs(3820, 3819)
-                    pub.sendMessage("reset_daw", resetdaw=True, dawname="Ardour")
+                    if configure_ardour.osc_interface_exists(configure_ardour.get_resource_path(True), 3820, 3819):
+                        pub.sendMessage("reset_daw", resetdaw=True, dawname="Ardour")
                 return True
             except RuntimeError:
                 # If Ardour is not running, wait and try again
                 logger.error("Ardour not running. Will retry in 1 seconds.")
                 time.sleep(1)
-        return None
 
     @staticmethod
     def _check_ardour_prefs(rpr_rcv, rpr_send):
@@ -61,8 +61,6 @@ class Ardour(Daw):
     def _add_ardour_prefs(rpr_rcv, rpr_send):
         configure_ardour.add_OSC_interface(configure_ardour.get_resource_path(True), rpr_rcv, rpr_send)
         logger.info("Added OSC interface to Ardour preferences")
-        if configure_ardour.osc_interface_exists(configure_ardour.get_resource_path(True), rpr_rcv, rpr_send):
-            return
 
     def _receive_ardour_OSC(self):
         # Receives and distributes OSC from Ardour, based on matching OSC values
@@ -72,19 +70,18 @@ class Ardour(Daw):
 
     def _build_ardour_osc_servers(self):
         # Connect to Ardour via OSC
-
-
-        logger.info("Starting Ardour OSC server")
-        self.ardour_client = udp_client.SimpleUDPClient("127.0.0.1", 3819)
-        self.ardour_dispatcher = dispatcher.Dispatcher()
-        self._receive_ardour_OSC()
-        try:
-            self.ardour_osc_server = osc_server.ThreadingOSCUDPServer(("127.0.0.1", 3820),
-                                                                      self.ardour_dispatcher)
-            logger.info("Ardour OSC server started")
-            self.ardour_osc_server.serve_forever()
-        except Exception as e:
-            logger.error(f"Ardour OSC server startup error: {e}")
+        if self._validate_ardour_prefs():
+            logger.info("Starting Ardour OSC server")
+            self.ardour_client = udp_client.SimpleUDPClient("127.0.0.1", 3819)
+            self.ardour_dispatcher = dispatcher.Dispatcher()
+            self._receive_ardour_OSC()
+            try:
+                self.ardour_osc_server = osc_server.ThreadingOSCUDPServer(("127.0.0.1", 3820),
+                                                                        self.ardour_dispatcher)
+                logger.info("Ardour OSC server started")
+                self.ardour_osc_server.serve_forever()
+            except Exception as e:
+                logger.error(f"Ardour OSC server startup error: {e}")
 
     def _current_transport_state(self, osc_address, val):
         # Watches what the Ardour playhead is doing.
@@ -118,7 +115,9 @@ class Ardour(Daw):
             self.ardour_client.send_message("/marker", marker_name)
 
     def _place_marker_with_name(self, marker_name):
+        print(f"Placing marker with name: {marker_name}")
         with self.ardour_send_lock:
+            self.ardour_client.send_message("/marker/get", None)
             self.ardour_client.send_message("/add_marker", marker_name)
 
     def _incoming_transport_action(self, transport_action):
