@@ -8,6 +8,7 @@ from pythonosc.osc_server import ThreadingOSCUDPServer
 import socket
 import wx
 import threading
+from constants import PlaybackState
 
 class RawMessageDispatcher(Dispatcher):
     def handle_error(self, OSCAddress: str, *args):
@@ -215,15 +216,15 @@ class DiGiCo(Console):
                 elif macro_name in ("mode,rec", "mode,record", "mode,recording",
                                     "mode rec", "mode record", "mode recording"):
                     settings.marker_mode = "Recording"
-                    pub.sendMessage("mode_select_osc", selected_mode="Recording")
+                    pub.sendMessage("mode_select_osc", selected_mode=PlaybackState.RECORDING)
                 elif macro_name in ("mode,track", "mode,tracking", "mode,PB Track",
                                     "mode track", "mode tracking", "mode PB Track"):
                     settings.marker_mode = "PlaybackTrack"
-                    pub.sendMessage("mode_select_osc", selected_mode="PlaybackTrack")
+                    pub.sendMessage("mode_select_osc", selected_mode=PlaybackState.PLAYBACK_TRACK)
                 elif macro_name in ("mode,no track", "mode,no tracking", "mode no track",
                                     "mode no tracking"):
                     settings.marker_mode = "PlaybackNoTrack"
-                    pub.sendMessage("mode_select_osc", selected_mode="PlaybackNoTrack")
+                    pub.sendMessage("mode_select_osc", selected_mode=PlaybackState.PLAYBACK_NO_TRACK)
             self.requested_macro_num = None
 
     @staticmethod

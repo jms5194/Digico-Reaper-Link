@@ -5,6 +5,7 @@ from pythonosc import dispatcher, osc_server, udp_client
 from typing import Any, Callable
 import threading
 import time
+from constants import PlaybackState
 
 
 class Ardour(Daw):
@@ -144,7 +145,7 @@ class Ardour(Daw):
         # Sends action to skip to end of project and then record, to prevent overwrites
         from app_settings import settings
         settings.marker_mode = "Recording"
-        pub.sendMessage("mode_select_osc", selected_mode="Recording")
+        pub.sendMessage("mode_select_osc", selected_mode=PlaybackState.RECORDING)
         with self.ardour_send_lock:
             self.ardour_client.send_message("/goto_end", None)
             self.ardour_client.send_message("/rec_enable_toggle", 1.0)

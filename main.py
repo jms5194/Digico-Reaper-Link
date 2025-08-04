@@ -7,6 +7,7 @@ import wx
 from pubsub import pub
 
 import constants
+from constants import PlaybackState
 from app_settings import settings
 from consoles import CONSOLES, Console, Feature
 from daws import Daw
@@ -188,7 +189,7 @@ class MainPanel(wx.Panel):
         pub.subscribe(self.console_type_updated, "console_type_updated")
         pub.subscribe(self.reaper_disconnected_listener, "reaper_error")
         pub.subscribe(self.call_for_daw_reset, "reset_daw")
-        pub.subscribe(self.update_mode_select_gui_from_osc, "mode_select_osc")
+        pub.subscribe(self.update_mode_select, "mode_select_osc")
         MainWindow.BridgeFunctions.start_threads()
         # Start a timer for console timeout
         self.timer_lock = threading.Lock()
@@ -203,12 +204,12 @@ class MainPanel(wx.Panel):
         # Calls on_close for the parent window
         self.GetTopLevelParent().on_close(None)
 
-    def update_mode_select_gui_from_osc(self, selected_mode):
-        if selected_mode == "Recording":
+    def update_mode_select(self, selected_mode: PlaybackState):
+        if selected_mode is PlaybackState.RECORDING:
             wx.CallAfter(self.rec_button_cntl.SetValue, True)
-        elif selected_mode == "PlaybackTrack":
+        elif selected_mode is PlaybackState.PLAYBACK_TRACK:
             wx.CallAfter(self.track_button_cntl.SetValue, True)
-        elif selected_mode == "PlaybackNoTrack":
+        elif selected_mode == PlaybackState.PLAYBACK_NO_TRACK:
             wx.CallAfter(self.notrack_button_cntl.SetValue, True)
 
     @staticmethod

@@ -5,6 +5,7 @@ from pubsub import pub
 from pythonosc import dispatcher, osc_server, udp_client
 import threading
 import time
+from constants import PlaybackState
 
 LOOPBACK_IP = "127.0.0.1"
 
@@ -175,7 +176,7 @@ class Reaper(Daw):
         # Sends action to skip to end of project and then record, to prevent overwrites
         from app_settings import settings
         settings.marker_mode = "Recording"
-        pub.sendMessage("mode_select_osc", selected_mode="Recording")
+        pub.sendMessage("mode_select_osc", selected_mode=PlaybackState.RECORDING)
         with self.reaper_send_lock:
             self.reaper_client.send_message("/action", 40043)
             self.reaper_client.send_message("/action", 1013)
