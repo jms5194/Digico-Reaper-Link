@@ -1,4 +1,4 @@
-from enum import Enum, auto
+from enum import StrEnum
 
 APPLICATION_NAME = "MarkerMatic"
 APPLICATION_NAME_LEGACY = "Digico-Reaper Link"
@@ -9,7 +9,13 @@ CONFIG_FILENAME = "settingsV3.ini"
 LOG_FILENAME = "MarkerMatic.log"
 
 
-class PlaybackState(Enum):
-    RECORDING = auto()
-    PLAYBACK_TRACK = auto()
-    PLAYBACK_NO_TRACK = auto()
+class PlaybackState(StrEnum):
+    RECORDING = "recording"
+    PLAYBACK_TRACK = "playback-track"
+    PLAYBACK_NO_TRACK = "playback-no-track"
+
+
+class TransportAction(StrEnum):
+    PLAY = "play"
+    STOP = "stop"
+    RECORD = "record"

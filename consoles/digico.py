@@ -1,14 +1,19 @@
-from . import Console, Feature
-from logger_config import logger
+import socket
+import threading
 from typing import Any, Callable
+
+import wx
 from pubsub import pub
 from pythonosc import dispatcher, osc_server, udp_client
 from pythonosc.dispatcher import Dispatcher
 from pythonosc.osc_server import ThreadingOSCUDPServer
-import socket
-import wx
-import threading
-from constants import PlaybackState
+
+import external_control
+from constants import PlaybackState, TransportAction
+from logger_config import logger
+
+from . import Console, Feature
+
 
 class RawMessageDispatcher(Dispatcher):
     def handle_error(self, OSCAddress: str, *args):
@@ -107,8 +112,8 @@ class DiGiCo(Console):
     def _build_repeater_osc_servers(self):
         # Connect to Repeater via OSC
         logger.info("Starting Repeater OSC server")
-        from utilities import find_local_ip_in_subnet
         from app_settings import settings
+        from utilities import find_local_ip_in_subnet
         self.repeater_client = udp_client.SimpleUDPClient(settings.repeater_ip, settings.repeater_port)
         # Custom dispatcher to deal with corrupted OSC from iPad
         self.repeater_dispatcher = RawMessageDispatcher()
@@ -132,29 +137,8 @@ class DiGiCo(Console):
         self.digico_dispatcher.map("/Macros/Recall_Macro/*", self._request_macro_info)
         self.digico_dispatcher.map("/Macros/name", self._macro_name_handler)
         self.digico_dispatcher.map("/Console/Name", self._console_name_handler)
-        # Need to consider naming for these mappings
-        self.digico_dispatcher.map("/ConsoleDawLink/Play", self._osc_play)
-        self.digico_dispatcher.map("/ConsoleDawLink/Stop", self._osc_stop)
-        self.digico_dispatcher.map("/ConsoleDawLink/Rec", self._osc_rec)
-        self.digico_dispatcher.map("/ConsoleDawLink/Marker", self._osc_marker)
+        external_control.map_osc_external_control_dispatcher(self.digico_dispatcher)
         self.digico_dispatcher.set_default_handler(self._forward_OSC)
-
-
-    def _osc_play(self, osc_address: str, *args):
-        pub.sendMessage("incoming_transport_action", transport_action="play")
-
-    def _osc_stop(self, osc_address: str, *args):
-        pub.sendMessage("incoming_transport_action", transport_action="stop")
-
-    def _osc_rec(self, osc_address: str, *args):
-        pub.sendMessage("incoming_transport_action", transport_action="rec")
-
-    def _osc_marker(self, osc_address: str, *args):
-        if args:
-            name_to_send = str(args[0])
-            pub.sendMessage("place_marker_with_name", marker_name=name_to_send)
-        else:
-            pub.sendMessage("place_marker_with_name", marker_name="Marker from Console")
 
     def send_to_console(self, osc_address: str, *args):
         # Send an OSC message to the console
@@ -206,11 +190,11 @@ class DiGiCo(Console):
                 macro_name = str(macro_name).lower()
                 print(macro_name)
                 if macro_name in ("daw,rec", "daw, rec", "reaper, rec", "reaper,rec", "reaper rec", "rec", "record", "reaper, record", "reaper record"):
-                    pub.sendMessage("incoming_transport_action", transport_action="rec")
+                    pub.sendMessage("incoming_transport_action", transport_action=TransportAction.RECORD)
                 elif macro_name in ("daw,stop", "daw, stop", "reaper, stop", "reaper,stop", "reaper stop", "stop"):
-                    pub.sendMessage("incoming_transport_action", transport_action="stop")
+                    pub.sendMessage("incoming_transport_action", transport_action=TransportAction.STOP)
                 elif macro_name in ("daw,play", "daw, play", "reaper, play", "reaper,play", "reaper play", "play"):
-                    pub.sendMessage("incoming_transport_action", transport_action="play")
+                    pub.sendMessage("incoming_transport_action", transport_action=TransportAction.PLAY)
                 elif macro_name in ("daw,marker", "daw, marker", "reaper, marker", "reaper,marker", "reaper marker", "marker"):
                     self.process_marker_macro()
                 elif macro_name in ("mode,rec", "mode,record", "mode,recording",

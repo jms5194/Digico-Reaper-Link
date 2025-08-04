@@ -5,7 +5,7 @@ from pythonosc import dispatcher, osc_server, udp_client
 from typing import Any, Callable
 import threading
 import time
-from constants import PlaybackState
+from constants import PlaybackState, TransportAction
 
 
 class Ardour(Daw):
@@ -124,11 +124,11 @@ class Ardour(Daw):
 
     def _incoming_transport_action(self, transport_action):
         try:
-            if transport_action == "play":
+            if transport_action is TransportAction.PLAY:
                 self._ardour_play()
-            elif transport_action == "stop":
+            elif transport_action is TransportAction.STOP:
                 self._ardour_stop()
-            elif transport_action == "rec":
+            elif transport_action is TransportAction.RECORD:
                 self._ardour_rec()
         except Exception as e:
             logger.error(f"Error processing transport macros: {e}")

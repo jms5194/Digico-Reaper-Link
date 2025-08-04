@@ -8,6 +8,7 @@ from typing import Any, Callable
 from logger_config import logger
 import threading
 import sys
+from constants import TransportAction
 
 class ProTools(Daw):
     type = "ProTools"
@@ -61,11 +62,11 @@ class ProTools(Daw):
     def _incoming_transport_action(self, transport_action):
         # If transport actions are received from the console, send to Pro Tools
         try:
-            if transport_action == "play":
+            if transport_action is TransportAction.PLAY:
                 self._pro_tools_play()
-            elif transport_action == "stop":
+            elif transport_action is TransportAction.STOP:
                 self._pro_tools_stop()
-            elif transport_action == "rec":
+            elif transport_action is TransportAction.RECORD:
                 self._pro_tools_rec()
         except Exception as e:
             logger.error(f"Error processing transport macros: {e}")

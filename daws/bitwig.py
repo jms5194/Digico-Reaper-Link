@@ -6,6 +6,8 @@ from logger_config import logger
 from typing import Any, Callable
 import threading
 
+from constants import TransportAction
+
 from py4j.java_gateway import JavaGateway
 
 class Bitwig(Daw):
@@ -63,11 +65,11 @@ class Bitwig(Daw):
 
     def _incoming_transport_action(self, transport_action):
         try:
-            if transport_action == "play":
+            if transport_action is TransportAction.PLAY:
                 self._bitwig_play()
-            elif transport_action == "stop":
+            elif transport_action is TransportAction.STOP:
                 self._bitwig_stop()
-            elif transport_action == "rec":
+            elif transport_action is TransportAction.RECORD:
                 self._bitwig_rec()
         except Exception as e:
             logger.error(f"Error processing transport macros: {e}")

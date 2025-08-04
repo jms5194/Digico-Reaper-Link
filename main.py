@@ -209,7 +209,7 @@ class MainPanel(wx.Panel):
             wx.CallAfter(self.rec_button_cntl.SetValue, True)
         elif selected_mode is PlaybackState.PLAYBACK_TRACK:
             wx.CallAfter(self.track_button_cntl.SetValue, True)
-        elif selected_mode == PlaybackState.PLAYBACK_NO_TRACK:
+        elif selected_mode is PlaybackState.PLAYBACK_NO_TRACK:
             wx.CallAfter(self.notrack_button_cntl.SetValue, True)
 
     @staticmethod

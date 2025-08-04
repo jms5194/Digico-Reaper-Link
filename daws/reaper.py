@@ -5,7 +5,7 @@ from pubsub import pub
 from pythonosc import dispatcher, osc_server, udp_client
 import threading
 import time
-from constants import PlaybackState
+from constants import PlaybackState, TransportAction
 
 LOOPBACK_IP = "127.0.0.1"
 
@@ -153,13 +153,13 @@ class Reaper(Daw):
                 # Is there a better way to handle this in OSC only? Max of 512 markers.
                 self.reaper_client.send_message("/device/marker/count", 512)
 
-    def _incoming_transport_action(self, transport_action: str):
+    def _incoming_transport_action(self, transport_action: TransportAction):
         try:
-            if transport_action == "play":
+            if transport_action is TransportAction.PLAY:
                 self._reaper_play()
-            elif transport_action == "stop":
+            elif transport_action is TransportAction.STOP:
                 self._reaper_stop()
-            elif transport_action == "rec":
+            elif transport_action is TransportAction.RECORD:
                 self._reaper_rec()
         except Exception as e:
             logger.error(f"Error processing transport macros: {e}")
