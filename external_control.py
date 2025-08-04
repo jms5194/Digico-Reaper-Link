@@ -6,6 +6,7 @@ from pythonosc.osc_server import ThreadingOSCUDPServer
 
 from constants import PlaybackState, TransportAction
 from logger_config import logger
+import mido
 
 
 def external_osc_control():
@@ -45,3 +46,41 @@ def _handle_marker(_: str, marker_name: Optional[str]) -> None:
         pub.sendMessage("place_marker_with_name", marker_name=marker_name)
     else:
         pub.sendMessage("place_marker_with_name", marker_name="Marker from Console")
+
+def external_midi_control():
+    from app_settings import settings
+    if settings.midi_port is not None:
+        try:
+            mido.open_input(port=settings.midi_port, callback=_handle_midi_message)
+        except IOError as e:
+            logger.error(f"Failed to open MIDI port {settings.midi_port}: {e}")
+
+def _handle_midi_message(message: mido.Message) -> None:
+    # First, test if the incoming midi is a MMC commmand
+    from app_settings import settings
+    if message.type == "sysex":
+        if message.hex() == "f0 7f 06 02 f7":
+            # If MMC Play is received, send a play command
+            pub.sendMessage("incoming_transport_action", transport_action=TransportAction.PLAY)
+        elif message.hex() == "f0 7f 06 03 f7":
+            # If MMC Stop is received, send a stop command
+            pub.sendMessage("incoming_transport_action", transport_action=TransportAction.STOP)
+        elif message.hex() == "f0 7f 06 06 f7":
+            # If MMC Record is received, send a record command
+            pub.sendMessage("incoming_transport_action", transport_action=TransportAction.RECORD)
+    else:
+        cur_play_msg = mido.Message.from_bytes(settings.midi_play_message)
+        cur_stop_msg = mido.Message.from_bytes(settings.midi_stop_message)
+        cur_rec_msg = mido.Message.from_bytes(settings.midi_record_message)
+        cur_marker_msg = mido.Message.from_bytes(settings.midi_marker_message)
+        if message == cur_play_msg:
+            pub.sendMessage("incoming_transport_action", transport_action=TransportAction.PLAY)
+        elif message == cur_stop_msg:
+            pub.sendMessage("incoming_transport_action", transport_action=TransportAction.STOP)
+        elif message == cur_rec_msg:
+            pub.sendMessage("incoming_transport_action", transport_action=TransportAction.RECORD)
+        elif message == cur_marker_msg:
+            pub.sendMessage("place_marker_with_name", marker_name="Marker from MIDI")
+
+
+ 

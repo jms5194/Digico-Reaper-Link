@@ -19,3 +19,4 @@ class TransportAction(StrEnum):
     PLAY = "play"
     STOP = "stop"
     RECORD = "record"
+
