@@ -11,3 +11,4 @@ __pycache__/
 /MarkerMatic-Bitwig Bridge/mavenHomeManager.xml
 /MarkerMatic-Bitwig Bridge/.idea/workspace.xml
 .ruff_cache/
+.env

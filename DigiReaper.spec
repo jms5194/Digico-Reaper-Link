@@ -1,8 +1,11 @@
 # -*- mode: python ; coding: utf-8 -*-
 import argparse
 import os
+import sys
 
 from PyInstaller.utils.hooks import collect_all
+
+sys.path.insert(0, os.path.dirname(SPEC))
 
 import constants
 
@@ -17,6 +20,7 @@ datas = [
     (".env", "."),
     ("resources/rprdigi.icns", "./resources"),
     ("resources/rprdigi.ico", "./resources"),
+    ("resources/icons", "./resources/icons"),
 ]
 
 
@@ -79,7 +83,7 @@ elif args.mac_osx:
     app = BUNDLE(
         exe,
         name="{}.app".format(constants.APPLICATION_NAME),
-        icon="resources/rprdigi.icns",
+        icon="resources/icon.png",
         bundle_identifier=constants.BUNDLE_IDENTIFIER,
         version="3.0.0",
         info_plist={
