@@ -500,7 +500,7 @@ class PrefsPanel(wx.Panel):
         panel_sizer.AddSpacer(INTERNAL_SPACING)
         external_control_section = wx.FlexGridSizer(2, INTERNAL_SPACING, INTERNAL_SPACING)
         external_control_section.AddGrowableCol(1)
-        external_control_section.SetFlexibleDirection(direction=wx.HORIZONTAL)
+        external_control_section.SetFlexibleDirection(direction=wx.VERTICAL)
         # External Control Enabled
         external_control_section.Add(width=label_min_width,height=0)
         self.external_control_enabled = wx.CheckBox(self, label="Enable External Control")
@@ -519,8 +519,20 @@ class PrefsPanel(wx.Panel):
         self.external_control_port_control.SetValue(str(settings.external_control_port))
         external_control_section.Add(self.external_control_port_control, flag=wx.EXPAND | wx.ALIGN_CENTER_VERTICAL)
         self.external_control_port_control.SetValue(str(settings.external_control_port))
+        
+        # External Control Midi Port
+        external_control_section.AddStretchSpacer()
+        external_control_midi_label_section = wx.GridSizer(1, 1, 0, INTERNAL_SPACING)
+        external_control_midi_label = wx.StaticText(self, label="Available Ports:")
+        external_control_midi_label.SetFont(port_font)
+        external_control_midi_label_section.Add(external_control_midi_label, flag=wx.ALIGN_BOTTOM | wx.ALIGN_CENTER_HORIZONTAL)
+        external_control_section.Add(external_control_midi_label_section, flag=wx.EXPAND, userData=LABEL_ROW)
+        external_control_section.Add(wx.StaticText(self, label="MIDI Port:", style=wx.ALIGN_RIGHT))
+        test_choices = ["choice 1", "Choice 2", "Choice 3"]
+        self.external_control_midi_port_control = wx.Choice(self, choices=test_choices, style=wx.TE_CENTER)
+        #self.external_control_midi_port_control.SetSelection(settings.external_control_midi_port)
+        external_control_section.Add(self.external_control_midi_port_control, flag=wx.EXPAND | wx.ALIGN_CENTER_VERTICAL)
         panel_sizer.Add(external_control_section, flag=wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, border=EXTERNAL_SPACING)
-
 
         
         for child in panel_sizer.GetChildren():

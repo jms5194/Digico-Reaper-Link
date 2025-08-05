@@ -27,6 +27,7 @@ class ThreadSafeSettings:
             "always_on_top": False,
             "external_control_enabled": True,
             "external control port": 48428,
+            "external_control_midi_port": None,
         }
 
     @property
@@ -229,6 +230,18 @@ class ThreadSafeSettings:
             if not 1 <= port_num <= 65535:
                 raise ValueError("Invalid port number")
             self._settings["external control port"] = port_num
+    @property
+    def external_control_midi_port(self) -> str:
+        with self._lock:
+            return self._settings["external_control_midi_port"] 
+        
+    @external_control_midi_port.setter
+    def external_control_midi_port(self, value: str):   
+        with self._lock:
+            if value is None or isinstance(value, str):
+                self._settings["external_control_midi_port"] = value
+            else:
+                raise ValueError("MIDI port must be a string or None")
 
 
     def update_from_config(self, config: ConfigParser):
@@ -239,6 +252,7 @@ class ThreadSafeSettings:
                 "repeater_ip": "repeater_ip",
                 "console_type": "console_type",
                 "daw_type": "daw_type",
+                "external_control_midi_port": "external_control_midi_port",
             }
             for settings_name, config_name in string_properties.items():
                 self._settings[settings_name] = config.get(
