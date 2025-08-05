@@ -25,7 +25,7 @@ class ThreadSafeSettings:
             "console_type": DiGiCo.type,
             "daw_type": Reaper.type,
             "always_on_top": False,
-            "external_control_enabled": True,
+            "mmc_control_enabled": True,
             "external control port": 48428,
             "external_control_midi_port": None,
         }
@@ -209,14 +209,14 @@ class ThreadSafeSettings:
             self._settings["always_on_top"] = value
 
     @property
-    def external_control_enabled(self) -> bool:
+    def mmc_control_enabled(self) -> bool:
         with self._lock:
-            return self._settings["external_control_enabled"]  
+            return self._settings["mmc_control_enabled"]  
     
-    @external_control_enabled.setter
-    def external_control_enabled(self, value: bool):
+    @mmc_control_enabled.setter
+    def mmc_control_enabled(self, value: bool):
         with self._lock:
-            self._settings["external_control_enabled"] = value
+            self._settings["mmc_control_enabled"] = value
     
     @property
     def external_control_port(self) -> int:
@@ -277,7 +277,7 @@ class ThreadSafeSettings:
                 "forwarder_enabled": "forwarder_enabled",
                 "name_only_match": "name_only_match",
                 "always_on_top": "always_on_top",
-                "external_control_enabled": "external_control_enabled",
+                "mmc_control_enabled": "mmc_control_enabled",
             }
             for settings_name, config_name in boolean_properties.items():
                 self._settings[settings_name] = config.getboolean(

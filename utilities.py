@@ -111,6 +111,9 @@ class DawConsoleBridge:
         console_type,
         daw_type,
         always_on_top: bool,
+        external_control_port,
+        external_control_midi_port,
+        mmc_control_enabled,
     ):
         # Given new values from the GUI, update the config file and restart the OSC Server
         logger.info("Updating configuration file")
@@ -136,6 +139,9 @@ class DawConsoleBridge:
             updater["main"]["console_type"] = str(console_type)
             updater["main"]["daw_type"] = str(daw_type)
             updater["main"]["always_on_top"] = str(always_on_top)
+            updater["main"]["external_control_port"] = str(external_control_port)
+            updater["main"]["external_control_midi_port"] = str(external_control_midi_port)
+            updater["main"]["mmc_control_enabled"] = str(mmc_control_enabled)
         except Exception as e:
             logger.error(f"Failed to update config file: {e}")
         with open(self.ini_path, "w") as file:
@@ -200,8 +206,8 @@ class DawConsoleBridge:
         else:
             logger.error("Console is not supported!")
         self.start_managed_thread(
-            "external_control", external_control.external_osc_control
-        )
+            "external_osc_control", external_control.external_osc_control)
+        self.start_managed_thread("external_midi_control", external_control.external_midi_control)
 
     @property
     def console(self) -> Console:

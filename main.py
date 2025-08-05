@@ -13,6 +13,7 @@ from consoles import CONSOLES, Console, Feature
 from daws import Daw
 from logger_config import logger
 from utilities import DawConsoleBridge
+from external_control import get_midi_ports
 
 
 class MainWindow(wx.Frame):
@@ -501,14 +502,9 @@ class PrefsPanel(wx.Panel):
         external_control_section = wx.FlexGridSizer(2, INTERNAL_SPACING, INTERNAL_SPACING)
         external_control_section.AddGrowableCol(1)
         external_control_section.SetFlexibleDirection(direction=wx.VERTICAL)
-        # External Control Enabled
-        external_control_section.Add(width=label_min_width,height=0)
-        self.external_control_enabled = wx.CheckBox(self, label="Enable External Control")
-        self.external_control_enabled.SetValue(settings.external_control_enabled)
-        external_control_section.Add(self.external_control_enabled, flag=wx.EXPAND)
         # External Control OSC Port
         external_control_section.AddStretchSpacer()
-        external_control_ports_label_section = wx.GridSizer(1,1,0,INTERNAL_SPACING)
+        external_control_ports_label_section = wx.GridSizer(2,1,0,INTERNAL_SPACING)
         external_control_port_label = wx.StaticText(self, label="Receive:")
         external_control_port_label.SetFont(port_font)
         external_control_ports_label_section.Add(external_control_port_label, flag=wx.ALIGN_BOTTOM | wx.ALIGN_CENTER_HORIZONTAL)
@@ -528,11 +524,21 @@ class PrefsPanel(wx.Panel):
         external_control_midi_label_section.Add(external_control_midi_label, flag=wx.ALIGN_BOTTOM | wx.ALIGN_CENTER_HORIZONTAL)
         external_control_section.Add(external_control_midi_label_section, flag=wx.EXPAND, userData=LABEL_ROW)
         external_control_section.Add(wx.StaticText(self, label="MIDI Port:", style=wx.ALIGN_RIGHT))
-        test_choices = ["choice 1", "Choice 2", "Choice 3"]
-        self.external_control_midi_port_control = wx.Choice(self, choices=test_choices, style=wx.TE_CENTER)
+        midi_choices = get_midi_ports()
+        self.external_control_midi_port_control = wx.Choice(self, choices=midi_choices, style=wx.TE_CENTER)
         #self.external_control_midi_port_control.SetSelection(settings.external_control_midi_port)
         external_control_section.Add(self.external_control_midi_port_control, flag=wx.EXPAND | wx.ALIGN_CENTER_VERTICAL)
+        external_control_section.Add(width=label_min_width,height=0)
+        self.mmc_control_enabled_checkbox = wx.CheckBox(self, label="Enable MMC Control")
+        self.mmc_control_enabled_checkbox.SetValue(settings.mmc_control_enabled)
+        external_control_section.Add(self.mmc_control_enabled_checkbox, flag=wx.EXPAND)
         panel_sizer.Add(external_control_section, flag=wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, border=EXTERNAL_SPACING)
+
+
+        app_settings_section.Add(width=label_min_width,height=0)
+        self.always_on_top_checkbox = wx.CheckBox(self, label="Always display on top")
+        self.always_on_top_checkbox.SetValue(settings.always_on_top)
+        app_settings_section.Add(self.always_on_top_checkbox, flag=wx.EXPAND)
 
         
         for child in panel_sizer.GetChildren():
@@ -611,6 +617,10 @@ class PrefsPanel(wx.Panel):
             settings.console_type = self.console_type_choice.GetString(self.console_type_choice.GetSelection())
             settings.daw_type = self.daw_type_choice.GetString(self.daw_type_choice.GetSelection())
             settings.always_on_top = self.always_on_top_checkbox.GetValue()
+            settings.external_control_port = str(self.external_control_port_control.GetValue())
+            settings.external_control_midi_port = self.external_control_midi_port_control.GetString(
+                self.external_control_midi_port_control.GetSelection())
+            settings.mmc_control_enabled = self.mmc_control_enabled_checkbox.GetValue()
             # Force a close/reconnect of the OSC servers by pushing the configuration update.
             MainWindow.BridgeFunctions.update_configuration(
                 con_ip=settings.console_ip,
@@ -626,6 +636,9 @@ class PrefsPanel(wx.Panel):
                 console_type=settings.console_type,
                 daw_type=settings.daw_type,
                 always_on_top=settings.always_on_top,
+                external_control_port=settings.external_control_port,
+                external_control_midi_port=settings.external_control_midi_port,
+                mmc_control_enabled=settings.mmc_control_enabled,
             )
             # Close the preferences window when update is pressed.
             self.Parent.Destroy()
