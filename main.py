@@ -315,7 +315,6 @@ class MainPanel(wx.Panel):
         console_name: Optional[str] = None,
         console: Optional[Console] = None,
     ) -> None:
-        print(self.console_connection_icon.GetBestSize())
         if console is None:
             console = MainWindow.BridgeFunctions.console
         if connected is not None:
