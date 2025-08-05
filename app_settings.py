@@ -26,7 +26,7 @@ class ThreadSafeSettings:
             "daw_type": Reaper.type,
             "always_on_top": False,
             "mmc_control_enabled": True,
-            "external control port": 48428,
+            "external control port": 49103,
             "external_control_midi_port": None,
         }
 

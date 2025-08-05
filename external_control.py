@@ -10,11 +10,17 @@ import mido
 
 
 def external_osc_control():
-    dispatcher = Dispatcher()
-    map_osc_external_control_dispatcher(dispatcher)
-    server = ThreadingOSCUDPServer(("0.0.0.0", 48428), dispatcher)
-    pub.subscribe(server.shutdown, "shutdown_servers")
-    server.serve_forever()
+    from app_settings import settings
+    logger.info("Starting external OSC control")
+    if settings.external_control_port is None:
+        logger.error("External control port is not set. Cannot start external control OSC server.")
+        return
+    else:
+        dispatcher = Dispatcher()
+        map_osc_external_control_dispatcher(dispatcher)
+        server = ThreadingOSCUDPServer(("0.0.0.0", settings.external_control_port), dispatcher)
+        pub.subscribe(server.shutdown, "shutdown_servers")
+        server.serve_forever()
 
 
 def map_osc_external_control_dispatcher(dispatcher: Dispatcher) -> None:
@@ -49,14 +55,14 @@ def _handle_marker(_: str, marker_name: Optional[str]) -> None:
 
 def external_midi_control():
     from app_settings import settings
-    logger.info("Starting external MIDI control")
-    if settings.external_control_midi_port is not None:
+    if settings.external_control_midi_port is not "":
         port = mido.open_input(port=settings.external_control_midi_port, callback=_handle_midi_message)
         logger.info(f"Opened MIDI port {settings.external_control_midi_port}")
-    pub.subscribe(port.close, "shutdown_servers")
+        pub.subscribe(port.close, "shutdown_servers")
+        logger.info("External Midi control started")
        
 def get_midi_ports() -> list[str]:
-    """Returns a list of available MIDI input ports."""
+    #Returns a list of available MIDI input ports.
     try:
         return list(dict.fromkeys(mido.get_input_names()))
     except Exception as e:
