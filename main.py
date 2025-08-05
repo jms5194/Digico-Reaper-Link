@@ -328,6 +328,7 @@ class PrefsWindow(wx.Frame):
 
 INTERNAL_PORT_SPACING=5
 INTERNAL_SPACING=10
+HALF_INTERNAL_SPACING=5
 EXTERNAL_SPACING=15
 
 LABEL_ROW = 1
@@ -357,7 +358,7 @@ class PrefsPanel(wx.Panel):
         console_header = wx.StaticText(self, label="Console", style=wx.ALIGN_CENTER)
         console_header.SetFont(header_font)
         panel_sizer.Add(console_header, flag=wx.LEFT | wx.RIGHT | wx.EXPAND, border=EXTERNAL_SPACING)
-        panel_sizer.AddSpacer(INTERNAL_SPACING)
+        panel_sizer.AddSpacer(HALF_INTERNAL_SPACING)
         panel_sizer.Add(wx.StaticLine(self), flag=wx.EXPAND | wx.LEFT | wx.RIGHT, border=EXTERNAL_SPACING)
         panel_sizer.AddSpacer(INTERNAL_SPACING)
         console_main_section = wx.FlexGridSizer(2, INTERNAL_SPACING, INTERNAL_SPACING)
@@ -401,6 +402,7 @@ class PrefsPanel(wx.Panel):
         console_main_ports_section.Add(self.console_rcv_port_control, flag=wx.EXPAND | wx.ALIGN_CENTER_VERTICAL)
         console_main_section.Add(console_main_ports_section, flag=wx.EXPAND)
         panel_sizer.Add(console_main_section, flag=wx.EXPAND | wx.LEFT | wx.RIGHT, border=EXTERNAL_SPACING)
+        panel_sizer.AddSpacer(INTERNAL_SPACING)
 
         # Console Repeater Section
         panel_sizer.AddSpacer(INTERNAL_SPACING)
@@ -442,12 +444,13 @@ class PrefsPanel(wx.Panel):
         console_repeater_ports_section.Add(self.repeater_rcv_port_control, flag=wx.EXPAND | wx.ALIGN_CENTER_VERTICAL)
         console_repeater_section.Add(console_repeater_ports_section, flag=wx.EXPAND)
         panel_sizer.Add(console_repeater_section, flag=wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, border=EXTERNAL_SPACING)
+        panel_sizer.AddSpacer(INTERNAL_SPACING)
 
         # DAW Section
         daw_header = wx.StaticText(self, label="DAW", style=wx.ALIGN_CENTER)
         daw_header.SetFont(header_font)
         panel_sizer.Add(daw_header, flag=wx.LEFT | wx.RIGHT | wx.EXPAND, border=EXTERNAL_SPACING)
-        panel_sizer.AddSpacer(INTERNAL_SPACING)
+        panel_sizer.AddSpacer(HALF_INTERNAL_SPACING)
         panel_sizer.Add(wx.StaticLine(self), flag=wx.EXPAND | wx.LEFT | wx.RIGHT, border=EXTERNAL_SPACING)
         panel_sizer.AddSpacer(INTERNAL_SPACING)
         daw_section = wx.FlexGridSizer(2,INTERNAL_SPACING, INTERNAL_SPACING)
@@ -461,12 +464,13 @@ class PrefsPanel(wx.Panel):
         self.daw_type_choice.SetSelection(daw_types.index(settings.daw_type))
         daw_section.Add(self.daw_type_choice, flag=wx.EXPAND | wx.ALIGN_CENTER_VERTICAL)
         panel_sizer.Add(daw_section, flag=wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, border=EXTERNAL_SPACING)
+        panel_sizer.AddSpacer(INTERNAL_SPACING)
 
         # Application Settings Section
         application_header = wx.StaticText(self, label="Application", style=wx.ALIGN_CENTER)
         application_header.SetFont(header_font)
         panel_sizer.Add(application_header, flag=wx.LEFT | wx.RIGHT | wx.EXPAND, border=EXTERNAL_SPACING)
-        panel_sizer.AddSpacer(INTERNAL_SPACING)
+        panel_sizer.AddSpacer(HALF_INTERNAL_SPACING)
         panel_sizer.Add(wx.StaticLine(self), flag=wx.EXPAND | wx.LEFT | wx.RIGHT, border=EXTERNAL_SPACING)
         panel_sizer.AddSpacer(INTERNAL_SPACING)
         app_settings_section = wx.FlexGridSizer(2, INTERNAL_SPACING, INTERNAL_SPACING)
@@ -483,6 +487,41 @@ class PrefsPanel(wx.Panel):
         app_settings_section.Add(self.match_mode_label_only, flag=wx.EXPAND)
         self.match_mode_label_only.SetValue(settings.name_only_match)
         panel_sizer.Add(app_settings_section, flag=wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, border=EXTERNAL_SPACING)
+        panel_sizer.AddSpacer(INTERNAL_SPACING)
+
+
+
+        # External Control Section
+        external_control_header = wx.StaticText(self, label="External Control", style=wx.ALIGN_CENTER)
+        external_control_header.SetFont(header_font)
+        panel_sizer.Add(external_control_header, flag=wx.LEFT | wx.RIGHT | wx.EXPAND, border=EXTERNAL_SPACING)
+        panel_sizer.AddSpacer(HALF_INTERNAL_SPACING)
+        panel_sizer.Add(wx.StaticLine(self), flag=wx.EXPAND | wx.LEFT | wx.RIGHT, border=EXTERNAL_SPACING)
+        panel_sizer.AddSpacer(INTERNAL_SPACING)
+        external_control_section = wx.FlexGridSizer(2, INTERNAL_SPACING, INTERNAL_SPACING)
+        external_control_section.AddGrowableCol(1)
+        external_control_section.SetFlexibleDirection(direction=wx.HORIZONTAL)
+        # External Control Enabled
+        external_control_section.Add(width=label_min_width,height=0)
+        self.external_control_enabled = wx.CheckBox(self, label="Enable External Control")
+        self.external_control_enabled.SetValue(settings.external_control_enabled)
+        external_control_section.Add(self.external_control_enabled, flag=wx.EXPAND)
+        # External Control OSC Port
+        external_control_section.AddStretchSpacer()
+        external_control_ports_label_section = wx.GridSizer(1,1,0,INTERNAL_SPACING)
+        external_control_port_label = wx.StaticText(self, label="Receive:")
+        external_control_port_label.SetFont(port_font)
+        external_control_ports_label_section.Add(external_control_port_label, flag=wx.ALIGN_BOTTOM | wx.ALIGN_CENTER_HORIZONTAL)
+        external_control_section.Add(external_control_ports_label_section, flag=wx.EXPAND, userData=LABEL_ROW)
+        external_control_section.Add(wx.StaticText(self, label="OSC Port:", style=wx.ALIGN_RIGHT)) 
+        self.external_control_port_control = wx.TextCtrl(self, style=wx.TE_CENTER)
+        self.external_control_port_control.SetMaxLength(5)
+        self.external_control_port_control.SetValue(str(settings.external_control_port))
+        external_control_section.Add(self.external_control_port_control, flag=wx.EXPAND | wx.ALIGN_CENTER_VERTICAL)
+        self.external_control_port_control.SetValue(str(settings.external_control_port))
+        panel_sizer.Add(external_control_section, flag=wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, border=EXTERNAL_SPACING)
+
+
         
         for child in panel_sizer.GetChildren():
             if isinstance(child, wx.SizerItem) and child.IsSizer():

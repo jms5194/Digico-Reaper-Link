@@ -25,6 +25,8 @@ class ThreadSafeSettings:
             "console_type": DiGiCo.type,
             "daw_type": Reaper.type,
             "always_on_top": False,
+            "external_control_enabled": True,
+            "external control port": 48428,
         }
 
     @property
@@ -205,6 +207,30 @@ class ThreadSafeSettings:
         with self._lock:
             self._settings["always_on_top"] = value
 
+    @property
+    def external_control_enabled(self) -> bool:
+        with self._lock:
+            return self._settings["external_control_enabled"]  
+    
+    @external_control_enabled.setter
+    def external_control_enabled(self, value: bool):
+        with self._lock:
+            self._settings["external_control_enabled"] = value
+    
+    @property
+    def external_control_port(self) -> int:
+        with self._lock:
+            return self._settings["external control port"]  
+    
+    @external_control_port.setter
+    def external_control_port(self, value: int):
+        with self._lock:
+            port_num = int(value)
+            if not 1 <= port_num <= 65535:
+                raise ValueError("Invalid port number")
+            self._settings["external control port"] = port_num
+
+
     def update_from_config(self, config: ConfigParser):
         # Update settings from a ConfigParser object
         with self._lock:
@@ -226,6 +252,7 @@ class ThreadSafeSettings:
                 "repeater_port": "default_repeater_send_port",
                 "repeater_receive_port": "default_repeater_receive_port",
                 "reaper_receive_port": "default_reaper_receive_port",
+                "external control port": "external_control_port",
             }
             for settings_name, config_name in int_properties.items():
                 self._settings[settings_name] = config.getint(
@@ -236,6 +263,7 @@ class ThreadSafeSettings:
                 "forwarder_enabled": "forwarder_enabled",
                 "name_only_match": "name_only_match",
                 "always_on_top": "always_on_top",
+                "external_control_enabled": "external_control_enabled",
             }
             for settings_name, config_name in boolean_properties.items():
                 self._settings[settings_name] = config.getboolean(
