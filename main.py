@@ -312,6 +312,9 @@ class MainPanel(wx.Panel):
             console_type=settings.console_type,
             daw_type=settings.daw_type,
             always_on_top=settings.always_on_top,
+            external_control_port=settings.external_control_port,
+            external_control_midi_port=settings.external_control_midi_port,
+            mmc_control_enabled=settings.mmc_control_enabled,
         )
 
 
