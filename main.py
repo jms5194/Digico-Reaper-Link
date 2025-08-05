@@ -524,9 +524,10 @@ class PrefsPanel(wx.Panel):
         external_control_midi_label_section.Add(external_control_midi_label, flag=wx.ALIGN_BOTTOM | wx.ALIGN_CENTER_HORIZONTAL)
         external_control_section.Add(external_control_midi_label_section, flag=wx.EXPAND, userData=LABEL_ROW)
         external_control_section.Add(wx.StaticText(self, label="MIDI Port:", style=wx.ALIGN_RIGHT))
-        midi_choices = get_midi_ports()
-        self.external_control_midi_port_control = wx.Choice(self, choices=midi_choices, style=wx.TE_CENTER)
-        #self.external_control_midi_port_control.SetSelection(settings.external_control_midi_port)
+        available_ports =  [""] + get_midi_ports()
+        self.external_control_midi_port_control = wx.Choice(self, choices=available_ports, style=wx.TE_CENTER)
+        if settings.external_control_midi_port in available_ports:
+            self.external_control_midi_port_control.SetSelection(available_ports.index(settings.external_control_midi_port))
         external_control_section.Add(self.external_control_midi_port_control, flag=wx.EXPAND | wx.ALIGN_CENTER_VERTICAL)
         external_control_section.Add(width=label_min_width,height=0)
         self.mmc_control_enabled_checkbox = wx.CheckBox(self, label="Enable MMC Control")
