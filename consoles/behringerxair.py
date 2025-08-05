@@ -1,4 +1,5 @@
 import threading
+import time
 from typing import Any, Callable
 
 from pubsub import pub
@@ -30,10 +31,14 @@ class BehringerXAir(Console):
         self._client.dispatcher.map("/xinfo", self._console_name_received)
         self._client.dispatcher.set_default_handler(self._message_received)
         # Try connecting to the console, and subscribing to updates
-        self._client.send_message("/xinfo", None)
-        self._client.send_message("/xremotenfb", None)
         while not self._shutdown_server_event.is_set():
-            self._client.handle_messages(1)
+            try:
+                self._client.send_message("/xinfo", None)
+                self._client.send_message("/xremotenfb", None)
+                while not self._shutdown_server_event.is_set():
+                    self._client.handle_messages(1)
+            except Exception:
+                time.sleep(5)
 
     def _snapshot_name_received(self, _address: str, snapshot_name: str) -> None:
         self._snapshot_name = snapshot_name
