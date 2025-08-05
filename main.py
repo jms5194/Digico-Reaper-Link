@@ -2,35 +2,52 @@ import ipaddress
 import os.path
 import platform
 import threading
+from typing import Collection, Optional
 
 import wx
+import wx.lib.buttons
+import wx.svg
+import wx.svg._nanosvg
 from pubsub import pub
 
 import constants
-from constants import PlaybackState
+import ui
 from app_settings import settings
 from consoles import CONSOLES, Console, Feature
+from constants import PlaybackState
 from daws import Daw
 from logger_config import logger
 from utilities import DawConsoleBridge
 from external_control import get_midi_ports
+
+INTERNAL_PORT_SPACING = 5
+INTERNAL_SPACING = 10
+EXTERNAL_SPACING = 15
 
 
 class MainWindow(wx.Frame):
     # Bringing the logic from utilities as an attribute of MainWindow
     BridgeFunctions = DawConsoleBridge()
     _app_icons: wx.IconBundle
+
     def __init__(self):
         logger.info("Initializing main window")
-        wx.Frame.__init__(self, parent=None, title=constants.APPLICATION_NAME)
-        self.SetPosition(settings.window_loc)
-        self.SetSize(settings.window_size)
+        wx.Frame.__init__(
+            self,
+            parent=None,
+            title=constants.APPLICATION_NAME,
+            style=wx.DEFAULT_FRAME_STYLE & ~(wx.RESIZE_BORDER | wx.MAXIMIZE_BOX),
+        )
+
         MainPanel(self)
+        self.SetPosition(settings.window_loc)
+        # self.SetSize(settings.window_size)
+        self.Fit()
 
         self.SetIcons(self.get_app_icons())
 
         menu_bar = wx.MenuBar()
-        if platform.system() == 'Darwin':
+        if platform.system() == "Darwin":
             main_menu = menu_bar.OSXGetAppleMenu()
             self.Bind(wx.EVT_MENU, self.on_close, main_menu.FindItemById(wx.ID_EXIT))
         else:
@@ -38,7 +55,7 @@ class MainWindow(wx.Frame):
         preferences_menuitem = main_menu.Prepend(wx.ID_PREFERENCES)
         main_menu.PrependSeparator()
         about_menuitem = main_menu.Prepend(wx.ID_ABOUT)
-        if platform.system() != 'Darwin':
+        if platform.system() != "Darwin":
             main_menu.AppendSeparator()
             menu_exit = main_menu.Append(wx.ID_EXIT)
             self.Bind(wx.EVT_MENU, self.on_close, menu_exit)
@@ -50,7 +67,9 @@ class MainWindow(wx.Frame):
         self.Bind(wx.EVT_MENU, self.launch_preferences, preferences_menuitem)
         self.Bind(wx.EVT_CLOSE, self.on_close)
 
-        pub.subscribe(self.update_display_settings, "update_main_window_display_settings")
+        pub.subscribe(
+            self.update_display_settings, "update_main_window_display_settings"
+        )
         self.update_display_settings()
 
         self.Show()
@@ -99,9 +118,9 @@ class MainWindow(wx.Frame):
 
     def update_display_settings(self) -> None:
         if settings.always_on_top:
-            self.SetWindowStyle(wx.DEFAULT_FRAME_STYLE| wx.STAY_ON_TOP)
+            self.SetWindowStyle(self.GetWindowStyle() | wx.STAY_ON_TOP)
         else:
-            self.SetWindowStyle(wx.DEFAULT_FRAME_STYLE)
+            self.SetWindowStyle(self.GetWindowStyle() & ~wx.STAY_ON_TOP)
 
     def get_app_icons(self) -> wx.IconBundle:
         if not hasattr(self, "_app_icon"):
@@ -115,79 +134,128 @@ class MainWindow(wx.Frame):
 
 
 class MainPanel(wx.Panel):
-    # This is our main window UI
+    console_timeout_timer: Optional[wx.CallLater] = None
+
     def __init__(self, parent):
         logger.info("Initializing main panel")
         wx.Panel.__init__(self, parent)
-        self.ConsoleTimeoutTimer: wx.CallLater | None = None
-        panel_sizer = wx.BoxSizer(wx.VERTICAL)
-        # Font Definitions
-        header_font = wx.Font(20, family=wx.FONTFAMILY_SWISS, style=0, weight=wx.FONTWEIGHT_BOLD,
-                              underline=False, faceName="", encoding=wx.FONTENCODING_DEFAULT)
-        sub_header1_font = wx.Font(17, family=wx.FONTFAMILY_SWISS, style=0, weight=wx.FONTWEIGHT_NORMAL,
-                                   underline=False, faceName="", encoding=wx.FONTENCODING_DEFAULT)
-        sub_header2_font = wx.Font(14, family=wx.FONTFAMILY_SWISS, style=0, weight=wx.FONTWEIGHT_NORMAL,
-                                   underline=False, faceName="", encoding=wx.FONTENCODING_DEFAULT)
+
+        header_font = wx.Font().Bold()
+        header_font.MakeLarger()
+        header_font.MakeLarger()
+
+        panel_sizer = wx.FlexGridSizer(
+            cols=1, gap=wx.Size(INTERNAL_SPACING, EXTERNAL_SPACING)
+        )
+
+        console_header = wx.StaticText(
+            self, label=f"{constants.APPLICATION_NAME} Mode", style=wx.ALIGN_CENTER
+        )
+        console_header.SetFont(header_font)
+        panel_sizer.Add(console_header, flag=wx.EXPAND)
+
         # Button grid for application mode
-        radio_grid = wx.GridSizer(3, 1, 0, 0)
-        self.rec_button_cntl = wx.RadioButton(self, label="Recording", style=wx.RB_GROUP)
-        self.rec_button_cntl.SetFont(header_font)
-        radio_grid.Add(self.rec_button_cntl, 0, wx.ALL | wx.EXPAND, 5)
-        self.track_button_cntl = wx.RadioButton(self, label="Playback Tracking")
-        self.track_button_cntl.SetValue(True)
-        self.track_button_cntl.SetFont(header_font)
-        radio_grid.Add(self.track_button_cntl, 0, wx.ALL | wx.EXPAND, 5)
-        self.notrack_button_cntl = wx.RadioButton(self, label="Playback No Track")
-        self.notrack_button_cntl.SetFont(header_font)
-        radio_grid.Add(self.notrack_button_cntl, 0, wx.ALL | wx.EXPAND, 5)
-        panel_sizer.Add(radio_grid, 0, wx.ALL | wx.EXPAND, 5)
+        mode_grid = wx.GridSizer(5, wx.Size(INTERNAL_SPACING, INTERNAL_SPACING))
+        self.mode_record_button = ui.NoBorderBitmapToggle(
+            self, playback_state=PlaybackState.RECORDING
+        )
+        self.mode_record_button.SetSizeHints(52, 52)
+        self.mode_record_button.SetToolTip("Recording")
+        self.mode_playbacktracking_button = ui.NoBorderBitmapToggle(
+            self, playback_state=PlaybackState.PLAYBACK_TRACK
+        )
+        self.mode_playbacktracking_button.SetSizeHints(52, 52)
+        self.mode_playbacktracking_button.SetToolTip("Playback Tracking")
+        self.mode_playbacknotrack_button = ui.NoBorderBitmapToggle(
+            self, playback_state=PlaybackState.PLAYBACK_NO_TRACK
+        )
+        self.mode_playbacknotrack_button.SetSizeHints(52, 52)
+        self.mode_playbacknotrack_button.SetToolTip("Playback No Track")
+        self._mode_buttons: Collection[ui.NoBorderBitmapToggle] = (
+            self.mode_record_button,
+            self.mode_playbacktracking_button,
+            self.mode_playbacknotrack_button,
+        )
+        for button in self._mode_buttons:
+            mode_grid.Add(button)
 
-        # Is connected section:
-        connected_status = wx.StaticText(self)
-        connected_status.SetLabel("Connection Status")
-        connected_status.SetFont(sub_header1_font)
+        marker_button = ui.NoBorderBitmapButton(self, icon="marker")
+        marker_button.SetToolTip("Drop Marker")
+        mode_grid.Add(marker_button)
 
-        connected_grid = wx.GridSizer(3, 1, 5, 5)
+        attempt_reconnect_button = ui.NoBorderBitmapButton(self, icon="reconnect")
+        attempt_reconnect_button.SetToolTip("Attempt Reconnect")
+        self.Bind(wx.EVT_BUTTON, self.attemptreconnect, attempt_reconnect_button)
+        mode_grid.Add(attempt_reconnect_button)
 
-        self.console_type_connection_label = wx.StaticText(self)
-        self.console_type_connection_label.SetLabel(MainWindow.BridgeFunctions.console.type)
-        self.console_type_connection_label.SetFont(sub_header2_font)
-        connected_grid.Add(self.console_type_connection_label, flag=wx.ALIGN_CENTER_HORIZONTAL)
+        panel_sizer.Add(mode_grid, flag=wx.EXPAND)
 
-        self.console_connected_cntl = wx.TextCtrl(self, size=wx.Size(100, -1), style=wx.TE_CENTER)
-        self.console_connected_cntl.SetLabel("N/C")
-        self.console_connected_cntl.SetEditable(False)
-        self.console_connected_cntl.SetBackgroundColour(wx.RED)
-        connected_grid.Add(self.console_connected_cntl, flag=wx.ALIGN_CENTER_HORIZONTAL)
+        panel_sizer.Add(
+            wx.StaticLine(self),
+            flag=wx.EXPAND,
+        )
 
-        panel_sizer.Add(connected_status, flag=wx.ALIGN_CENTER_HORIZONTAL)
-        panel_sizer.Add(connected_grid, flag=wx.ALIGN_CENTER_HORIZONTAL)
+        connection_statuses_grid = wx.FlexGridSizer(
+            cols=2, vgap=INTERNAL_SPACING, hgap=INTERNAL_SPACING
+        )
 
-        # Lower Buttons
-        button_grid = wx.GridSizer(3, 1, 10, 10)
-        # Drop Marker Button
-        marker_button = wx.Button(self, label="Drop Marker")
-        button_grid.Add(marker_button, flag=wx.ALIGN_CENTER_HORIZONTAL)
-        # Attempt Reconnect Button
-        attempt_reconnect_button = wx.Button(self, label="Attempt Reconnect")
-        button_grid.Add(attempt_reconnect_button, flag=wx.ALIGN_CENTER_HORIZONTAL)
-        # Exit Button
-        exit_button = wx.Button(self, label="Exit")
-        button_grid.Add(exit_button, flag=wx.ALIGN_CENTER_HORIZONTAL)
-        panel_sizer.Add(button_grid, flag=wx.ALIGN_CENTER_HORIZONTAL)
-        panel_sizer.AddSpacer(15)
-        self.SetSizer(panel_sizer)
+        self.console_connection_icon = ui.ToggleableStaticBitmap(
+            self,
+            icon_name="connection",
+            size=wx.Size(24, 24),
+        )
+        connection_statuses_grid.Add(
+            self.console_connection_icon, flag=wx.ALIGN_CENTRE_VERTICAL
+        )
+
+        self.console_connection_label = wx.StaticText(self)
+        self.update_console_connection_status()
+        connection_statuses_grid.Add(
+            self.console_connection_label, flag=wx.ALIGN_CENTRE_VERTICAL
+        )
+
+        self.daw_connection_icon = ui.ToggleableStaticBitmap(
+            self,
+            icon_name="connection",
+            size=wx.Size(24, 24),
+        )
+        connection_statuses_grid.Add(
+            self.daw_connection_icon, flag=wx.ALIGN_CENTRE_VERTICAL
+        )
+
+        self.daw_connection_label = wx.StaticText(self)
+        self.update_daw_connection_status()
+        connection_statuses_grid.Add(
+            self.daw_connection_label, flag=wx.ALIGN_CENTRE_VERTICAL
+        )
+
+        panel_sizer.Add(connection_statuses_grid, flag=wx.EXPAND)
+
+        # External border
+        external_border_sizer = wx.BoxSizer()
+        external_border_sizer.Add(
+            panel_sizer, flag=wx.EXPAND | wx.ALL, border=EXTERNAL_SPACING
+        )
+        self.SetSizer(external_border_sizer)
+        self.Fit()
         # Bindings
         self.Bind(wx.EVT_BUTTON, self.place_marker, marker_button)
-        self.Bind(wx.EVT_BUTTON, self.exitapp, exit_button)
-        self.Bind(wx.EVT_BUTTON, self.attemptreconnect, attempt_reconnect_button)
-        self.Bind(wx.EVT_RADIOBUTTON, self.recmode, self.rec_button_cntl)
-        self.Bind(wx.EVT_RADIOBUTTON, self.trackmode, self.track_button_cntl)
-        self.Bind(wx.EVT_RADIOBUTTON, self.notrackmode, self.notrack_button_cntl)
+        for button in self._mode_buttons:
+            self.Bind(
+                wx.EVT_BUTTON,
+                self._mode_button_pressed,
+                button,
+            )
+        # Set Playback Tracking as the default state
+        self.mode_playbacktracking_button.SetValue(True)
         # Subscribing to the OSC response for console name to reset the timeout timer
         pub.subscribe(self.console_connected, "console_connected")
-        pub.subscribe(self.console_disconnected, "console_disconnected")
-        pub.subscribe(self.console_type_updated, "console_type_updated")
+        pub.subscribe(
+            self.update_console_connection_status,
+            "console_disconnected",
+            connected=False,
+        )
+        pub.subscribe(self.update_daw_connection_status, "daw_connection_status")
         pub.subscribe(self.reaper_disconnected_listener, "reaper_error")
         pub.subscribe(self.call_for_daw_reset, "reset_daw")
         pub.subscribe(self.update_mode_select, "mode_select_osc")
@@ -196,80 +264,107 @@ class MainPanel(wx.Panel):
         self.timer_lock = threading.Lock()
         self.configure_timers()
 
+    def _mode_button_pressed(self, event: wx.lib.buttons.GenButtonEvent) -> None:
+        for button in self._mode_buttons:
+            if button is event.GetButtonObj() and event.GetIsDown():
+                button.Disable()
+                if button.playback_state is PlaybackState.RECORDING:
+                    settings.marker_mode = "Recording"
+                elif button.playback_state is PlaybackState.PLAYBACK_TRACK:
+                    settings.marker_mode = "PlaybackTrack"
+                elif button.playback_state is PlaybackState.PLAYBACK_NO_TRACK:
+                    settings.marker_mode = "PlaybackNoTrack"
+            else:
+                button.Enable()
+                button.SetValue(False)
+
     @staticmethod
     def place_marker(e):
-        # Manually places a marker in Reaper from the UI
+        # Manually places a marker from the UI
         pub.sendMessage("place_marker_with_name", marker_name="Marker from UI")
-
-    def exitapp(self, e):
-        # Calls on_close for the parent window
-        self.GetTopLevelParent().on_close(None)
 
     def update_mode_select(self, selected_mode: PlaybackState):
         if selected_mode is PlaybackState.RECORDING:
-            wx.CallAfter(self.rec_button_cntl.SetValue, True)
+            wx.CallAfter(self.mode_record_button.SetValue, True)
         elif selected_mode is PlaybackState.PLAYBACK_TRACK:
-            wx.CallAfter(self.track_button_cntl.SetValue, True)
+            wx.CallAfter(self.mode_playbacktracking_button.SetValue, True)
         elif selected_mode is PlaybackState.PLAYBACK_NO_TRACK:
-            wx.CallAfter(self.notrack_button_cntl.SetValue, True)
-
-    @staticmethod
-    def recmode(e):
-        settings.marker_mode = "Recording"
-
-    @staticmethod
-    def trackmode(e):
-        settings.marker_mode = "PlaybackTrack"
-
-    @staticmethod
-    def notrackmode(e):
-        settings.marker_mode = "PlaybackNoTrack"
+            wx.CallAfter(self.mode_playbacknotrack_button.SetValue, True)
 
     def configure_timers(self):
         # Builds a 5-second non-blocking timer for console response timeout.
         # Calls self.console_disconnected if timer runs out.
         with self.timer_lock:
+
             def safe_timer_config():
-                if self.ConsoleTimeoutTimer and self.ConsoleTimeoutTimer.IsRunning():
-                    self.ConsoleTimeoutTimer.Stop()
-                self.ConsoleTimeoutTimer = wx.CallLater(5000, self.console_disconnected)
-                self.ConsoleTimeoutTimer.Start()
+                if (
+                    self.console_timeout_timer
+                    and self.console_timeout_timer.IsRunning()
+                ):
+                    self.console_timeout_timer.Stop()
+                self.console_timeout_timer = wx.CallLater(
+                    5000, self.update_console_connection_status, connected=False
+                )
+                self.console_timeout_timer.Start()
+
             wx.CallAfter(safe_timer_config)
 
-    def console_type_updated(self, console: Console) -> None:
-        wx.CallAfter(self.console_type_connection_label.SetLabel, console.type)
-
-    def console_connected(self, consolename, colour: wx.Colour = wx.GREEN):
-        if isinstance(self.ConsoleTimeoutTimer, wx.CallLater) and self.ConsoleTimeoutTimer.IsRunning():
-            # When a response is received from the console, reset the timeout timer if running
-            wx.CallAfter(self.ConsoleTimeoutTimer.Stop)
-            # Update the UI to reflect the connected status
-            self.console_connected_cntl.SetLabel(consolename)
-            self.console_connected_cntl.SetBackgroundColour(colour)
-            self.console_connected_cntl.SetForegroundColour(wx.BLACK)
-            # Restart the timeout timer
-            self.configure_timers()
-
+    def update_console_connection_status(
+        self,
+        connected: bool = False,
+        console_name: Optional[str] = None,
+        console: Optional[Console] = None,
+    ) -> None:
+        print(self.console_connection_icon.GetBestSize())
+        if console is None:
+            console = MainWindow.BridgeFunctions.console
+        if connected is not None:
+            self.console_connection_icon.set_state(connected)
+        if connected:
+            if console_name is not None:
+                self._console_name = console_name
+            if self._console_name is not None:
+                console_name_str = f"{self._console_name} "
+            else:
+                console_name_str = str()
+            self.console_connection_label.SetLabel(
+                f"{console.type} {console_name_str}is connected"
+            )
         else:
-            # If the timer was not already running
-            # Update UI to reflect connected
-            wx.CallAfter(self.console_connected_cntl.SetLabel,consolename)
-            wx.CallAfter(self.console_connected_cntl.SetBackgroundColour,wx.GREEN)
-            # Start the timer
-            self.configure_timers()
+            self._console_name = None
+            self.console_connection_label.SetLabel(f"{console.type} is not connected")
 
+    def update_daw_connection_status(
+        self,
+        connected: bool = False,
+        daw: Optional[Daw] = None,
+    ) -> None:
+        if daw is None:
+            daw = MainWindow.BridgeFunctions.daw
+        if connected is not None:
+            self.daw_connection_icon.set_state(connected)
+        if connected:
+            self.daw_connection_label.SetLabel(f"{daw.type} is connected")
+        else:
+            self.daw_connection_label.SetLabel(f"{daw.type} is not connected")
 
-    def console_disconnected(self):
-        # If timer runs out without being reset, update the UI to N/C
-        self.console_connected_cntl.SetLabel("N/C")
-        self.console_connected_cntl.SetBackgroundColour(wx.RED)
-        self.console_connected_cntl.SetForegroundColour(wx.WHITE)
+    def console_connected(self, consolename: Optional[str] = None):
+        if (
+            isinstance(self.console_timeout_timer, wx.CallLater)
+            and self.console_timeout_timer.IsRunning()
+        ):
+            wx.CallAfter(self.console_timeout_timer.Stop)
+        self.configure_timers()
+        self.update_console_connection_status(connected=True, console_name=consolename)
 
     def reaper_disconnected_listener(self, reapererror, arg2=None):
         logger.info("Reaper not connected. Reporting to user.")
-        dlg = wx.MessageDialog(self,
-                               "Reaper is not currently open. Please open and press OK.",
-                               "Reaper Disconnected", wx.OK | wx.CANCEL | wx.ICON_QUESTION)
+        dlg = wx.MessageDialog(
+            self,
+            "Reaper is not currently open. Please open and press OK.",
+            "Reaper Disconnected",
+            wx.OK | wx.CANCEL | wx.ICON_QUESTION,
+        )
         result = dlg.ShowModal()
         dlg.Destroy()
         if result == wx.ID_CANCEL:
@@ -322,11 +417,16 @@ class PrefsWindow(wx.Frame):
     # This is our preferences window pane
     def __init__(self, title, parent, console: Console, icons: wx.IconBundle):
         logger.info("Creating PrefsWindow")
-        wx.Frame.__init__(self, parent=parent, title=title, style=wx.DEFAULT_FRAME_STYLE & ~(wx.RESIZE_BORDER | wx.MAXIMIZE_BOX))
+        wx.Frame.__init__(
+            self,
+            parent=parent,
+            title=title,
+            style=wx.DEFAULT_FRAME_STYLE & ~(wx.RESIZE_BORDER | wx.MAXIMIZE_BOX),
+        )
         PrefsPanel(self, console=console)
         self.Fit()
         if self.GetSize().Width < 300:
-            self.SetSize(width=300,height=-1)
+            self.SetSize(width=300, height=-1)
         self.SetIcons(icons)
         self.Show()
 
@@ -336,6 +436,7 @@ HALF_INTERNAL_SPACING=5
 EXTERNAL_SPACING=15
 
 LABEL_ROW = 1
+
 
 class PrefsPanel(wx.Panel):
     def __init__(self, parent, console: Console):
@@ -369,50 +470,79 @@ class PrefsPanel(wx.Panel):
         console_main_section.AddGrowableCol(1)
         console_main_section.SetFlexibleDirection(direction=wx.HORIZONTAL)
         # Console Type
-        console_main_section.Add(wx.StaticText(self, label="Type:", style=wx.ALIGN_RIGHT))
+        console_main_section.Add(
+            wx.StaticText(self, label="Type:", style=wx.ALIGN_RIGHT)
+        )
         console_types = list(CONSOLES)
         console_types.sort()
         self.console_type_choice = wx.Choice(self, choices=console_types)
-        self.console_type_choice.SetSelection(console_types.index(settings.console_type))
-        console_main_section.Add(self.console_type_choice, flag=wx.EXPAND | wx.ALIGN_CENTER_VERTICAL)
+        self.console_type_choice.SetSelection(
+            console_types.index(settings.console_type)
+        )
+        console_main_section.Add(
+            self.console_type_choice, flag=wx.EXPAND | wx.ALIGN_CENTER_VERTICAL
+        )
         # Console IP
-        console_ip_label = wx.StaticText(self, label="IP address:", style=wx.ALIGN_RIGHT)
+        console_ip_label = wx.StaticText(
+            self, label="IP address:", style=wx.ALIGN_RIGHT
+        )
         console_main_section.Add(console_ip_label)
         self.console_ip_control = wx.TextCtrl(self, style=wx.TE_CENTER)
         self.console_ip_control.SetMaxLength(15)
         self.console_ip_control.SetValue(settings.console_ip)
-        console_main_section.Add(self.console_ip_control, flag=wx.EXPAND | wx.ALIGN_CENTER_VERTICAL)
+        console_main_section.Add(
+            self.console_ip_control, flag=wx.EXPAND | wx.ALIGN_CENTER_VERTICAL
+        )
         # label_min_width is used to force FlexSizers with only a checkbox (so no label) to look right
         label_min_width = console_ip_label.GetBestSize().width
         # Console Ports
         console_main_section.AddStretchSpacer()
-        console_main_ports_label_section = wx.GridSizer(1,2,0,INTERNAL_SPACING)
+        console_main_ports_label_section = wx.GridSizer(1, 2, 0, INTERNAL_SPACING)
         console_main_send_label = wx.StaticText(self, label="Send")
         console_main_send_label.SetFont(port_font)
-        console_main_ports_label_section.Add(console_main_send_label, flag=wx.ALIGN_BOTTOM | wx.ALIGN_CENTER_HORIZONTAL)
+        console_main_ports_label_section.Add(
+            console_main_send_label, flag=wx.ALIGN_BOTTOM | wx.ALIGN_CENTER_HORIZONTAL
+        )
         console_main_receive_label = wx.StaticText(self, label="Receive")
         console_main_receive_label.SetFont(port_font)
-        console_main_ports_label_section.Add(console_main_receive_label, flag=wx.ALIGN_BOTTOM | wx.ALIGN_CENTER_HORIZONTAL)
-        console_main_section.Add(console_main_ports_label_section, flag=wx.EXPAND, userData=LABEL_ROW)
-        console_main_section.Add(wx.StaticText(self, label="Ports:", style=wx.ALIGN_RIGHT))
-        console_main_ports_section = wx.GridSizer(1,2,0,INTERNAL_SPACING)
+        console_main_ports_label_section.Add(
+            console_main_receive_label,
+            flag=wx.ALIGN_BOTTOM | wx.ALIGN_CENTER_HORIZONTAL,
+        )
+        console_main_section.Add(
+            console_main_ports_label_section, flag=wx.EXPAND, userData=LABEL_ROW
+        )
+        console_main_section.Add(
+            wx.StaticText(self, label="Ports:", style=wx.ALIGN_RIGHT)
+        )
+        console_main_ports_section = wx.GridSizer(1, 2, 0, INTERNAL_SPACING)
         self.console_send_port_control = wx.TextCtrl(self, style=wx.TE_CENTER)
         self.console_send_port_control.SetMaxLength(5)
         self.console_send_port_control.SetValue(str(settings.console_port))
-        console_main_ports_section.Add(self.console_send_port_control, flag=wx.EXPAND | wx.ALIGN_CENTER_VERTICAL)
+        console_main_ports_section.Add(
+            self.console_send_port_control, flag=wx.EXPAND | wx.ALIGN_CENTER_VERTICAL
+        )
         self.console_rcv_port_control = wx.TextCtrl(self, style=wx.TE_CENTER)
         self.console_rcv_port_control.SetMaxLength(5)
         self.console_rcv_port_control.SetValue(str(settings.receive_port))
-        console_main_ports_section.Add(self.console_rcv_port_control, flag=wx.EXPAND | wx.ALIGN_CENTER_VERTICAL)
+        console_main_ports_section.Add(
+            self.console_rcv_port_control, flag=wx.EXPAND | wx.ALIGN_CENTER_VERTICAL
+        )
         console_main_section.Add(console_main_ports_section, flag=wx.EXPAND)
         panel_sizer.Add(console_main_section, flag=wx.EXPAND | wx.LEFT | wx.RIGHT, border=EXTERNAL_SPACING)
         panel_sizer.AddSpacer(INTERNAL_SPACING)
 
         # Console Repeater Section
         panel_sizer.AddSpacer(INTERNAL_SPACING)
-        panel_sizer.Add(wx.StaticLine(self), flag=wx.EXPAND | wx.LEFT | wx.RIGHT, border=EXTERNAL_SPACING)
+        panel_sizer.Add(
+            wx.StaticLine(self),
+            flag=wx.EXPAND | wx.LEFT | wx.RIGHT,
+            border=EXTERNAL_SPACING,
+        )
         panel_sizer.AddSpacer(INTERNAL_SPACING)
-        console_repeater_section = wx.FlexGridSizer(2, INTERNAL_SPACING, INTERNAL_SPACING)
+        console_repeater_section = wx.FlexGridSizer(
+            2, INTERNAL_SPACING, INTERNAL_SPACING
+        )
         console_repeater_section.AddGrowableCol(1)
         console_repeater_section.SetFlexibleDirection(direction=wx.HORIZONTAL)
         console_repeater_section.AddStretchSpacer()
@@ -421,31 +551,47 @@ class PrefsPanel(wx.Panel):
         self.repeater_radio_enabled.SetValue(settings.forwarder_enabled)
         console_repeater_section.Add(self.repeater_radio_enabled, flag=wx.EXPAND)
         # Repeater IP
-        console_repeater_section.Add(wx.StaticText(self, label="Tablet IP:", style=wx.ALIGN_RIGHT))
+        console_repeater_section.Add(
+            wx.StaticText(self, label="Tablet IP:", style=wx.ALIGN_RIGHT)
+        )
         self.repeater_ip_control = wx.TextCtrl(self, style=wx.TE_CENTER)
         self.repeater_ip_control.SetMaxLength(15)
         self.repeater_ip_control.SetValue(settings.repeater_ip)
-        console_repeater_section.Add(self.repeater_ip_control, flag=wx.EXPAND | wx.ALIGN_CENTER_VERTICAL)
+        console_repeater_section.Add(
+            self.repeater_ip_control, flag=wx.EXPAND | wx.ALIGN_CENTER_VERTICAL
+        )
         # Repeater Ports
         console_repeater_section.AddStretchSpacer()
-        console_repeater_ports_label_section = wx.GridSizer(1,2,0,INTERNAL_SPACING)
+        console_repeater_ports_label_section = wx.GridSizer(1, 2, 0, INTERNAL_SPACING)
         console_send_label = wx.StaticText(self, label="Send")
         console_send_label.SetFont(port_font)
-        console_repeater_ports_label_section.Add(console_send_label, flag=wx.ALIGN_BOTTOM | wx.ALIGN_CENTER_HORIZONTAL)
+        console_repeater_ports_label_section.Add(
+            console_send_label, flag=wx.ALIGN_BOTTOM | wx.ALIGN_CENTER_HORIZONTAL
+        )
         console_receive_label = wx.StaticText(self, label="Receive")
         console_receive_label.SetFont(port_font)
-        console_repeater_ports_label_section.Add(console_receive_label, flag=wx.ALIGN_BOTTOM | wx.ALIGN_CENTER_HORIZONTAL)
-        console_repeater_section.Add(console_repeater_ports_label_section, flag=wx.EXPAND, userData=LABEL_ROW)
-        console_repeater_section.Add(wx.StaticText(self, label="Ports:", style=wx.ALIGN_RIGHT))
-        console_repeater_ports_section = wx.GridSizer(1,2,0,INTERNAL_SPACING)
+        console_repeater_ports_label_section.Add(
+            console_receive_label, flag=wx.ALIGN_BOTTOM | wx.ALIGN_CENTER_HORIZONTAL
+        )
+        console_repeater_section.Add(
+            console_repeater_ports_label_section, flag=wx.EXPAND, userData=LABEL_ROW
+        )
+        console_repeater_section.Add(
+            wx.StaticText(self, label="Ports:", style=wx.ALIGN_RIGHT)
+        )
+        console_repeater_ports_section = wx.GridSizer(1, 2, 0, INTERNAL_SPACING)
         self.repeater_send_port_control = wx.TextCtrl(self, style=wx.TE_CENTER)
         self.repeater_send_port_control.SetMaxLength(5)
         self.repeater_send_port_control.SetValue(str(settings.repeater_port))
-        console_repeater_ports_section.Add(self.repeater_send_port_control, flag=wx.EXPAND | wx.ALIGN_CENTER_VERTICAL)
+        console_repeater_ports_section.Add(
+            self.repeater_send_port_control, flag=wx.EXPAND | wx.ALIGN_CENTER_VERTICAL
+        )
         self.repeater_rcv_port_control = wx.TextCtrl(self, style=wx.TE_CENTER)
         self.repeater_rcv_port_control.SetMaxLength(5)
         self.repeater_rcv_port_control.SetValue(str(settings.repeater_receive_port))
-        console_repeater_ports_section.Add(self.repeater_rcv_port_control, flag=wx.EXPAND | wx.ALIGN_CENTER_VERTICAL)
+        console_repeater_ports_section.Add(
+            self.repeater_rcv_port_control, flag=wx.EXPAND | wx.ALIGN_CENTER_VERTICAL
+        )
         console_repeater_section.Add(console_repeater_ports_section, flag=wx.EXPAND)
         panel_sizer.Add(console_repeater_section, flag=wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, border=EXTERNAL_SPACING)
         panel_sizer.AddSpacer(INTERNAL_SPACING)
@@ -457,10 +603,10 @@ class PrefsPanel(wx.Panel):
         panel_sizer.AddSpacer(HALF_INTERNAL_SPACING)
         panel_sizer.Add(wx.StaticLine(self), flag=wx.EXPAND | wx.LEFT | wx.RIGHT, border=EXTERNAL_SPACING)
         panel_sizer.AddSpacer(INTERNAL_SPACING)
-        daw_section = wx.FlexGridSizer(2,INTERNAL_SPACING, INTERNAL_SPACING)
+        daw_section = wx.FlexGridSizer(2, INTERNAL_SPACING, INTERNAL_SPACING)
         daw_section.AddGrowableCol(1)
         daw_section.SetFlexibleDirection(direction=wx.HORIZONTAL)
-        daw_section.Add(wx.StaticText(self, label="Type:", style=wx.ALIGN_RIGHT))        
+        daw_section.Add(wx.StaticText(self, label="Type:", style=wx.ALIGN_RIGHT))
         # DAW Type
         daw_types = [daw.type for daw in Daw.__subclasses__()]
         daw_types.sort()
@@ -471,7 +617,9 @@ class PrefsPanel(wx.Panel):
         panel_sizer.AddSpacer(INTERNAL_SPACING)
 
         # Application Settings Section
-        application_header = wx.StaticText(self, label="Application", style=wx.ALIGN_CENTER)
+        application_header = wx.StaticText(
+            self, label="Application", style=wx.ALIGN_CENTER
+        )
         application_header.SetFont(header_font)
         panel_sizer.Add(application_header, flag=wx.LEFT | wx.RIGHT | wx.EXPAND, border=EXTERNAL_SPACING)
         panel_sizer.AddSpacer(HALF_INTERNAL_SPACING)
@@ -481,13 +629,13 @@ class PrefsPanel(wx.Panel):
         app_settings_section.AddGrowableCol(1)
         app_settings_section.SetFlexibleDirection(direction=wx.VERTICAL)
         # Always On Top
-        app_settings_section.Add(width=label_min_width,height=0)
+        app_settings_section.Add(width=label_min_width, height=0)
         self.always_on_top_checkbox = wx.CheckBox(self, label="Always display on top")
         self.always_on_top_checkbox.SetValue(settings.always_on_top)
         app_settings_section.Add(self.always_on_top_checkbox, flag=wx.EXPAND)
         # Only match cue name
         app_settings_section.AddStretchSpacer()
-        self.match_mode_label_only = wx.CheckBox(self,label="Only match cue name")
+        self.match_mode_label_only = wx.CheckBox(self, label="Only match cue name")
         app_settings_section.Add(self.match_mode_label_only, flag=wx.EXPAND)
         self.match_mode_label_only.SetValue(settings.name_only_match)
         panel_sizer.Add(app_settings_section, flag=wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, border=EXTERNAL_SPACING)
@@ -552,10 +700,13 @@ class PrefsPanel(wx.Panel):
                     child_sizer.SetFlexibleDirection(wx.BOTH)
                     child_sizer.Layout()
                     for flex_child in child_sizer.GetChildren():
-                        if isinstance(flex_child, wx.SizerItem) and not flex_child.IsSpacer():
+                        if (
+                            isinstance(flex_child, wx.SizerItem)
+                            and not flex_child.IsSpacer()
+                        ):
                             flex_child_user_data = flex_child.GetUserData()
                             if flex_child_user_data != LABEL_ROW:
-                                flex_child.SetMinSize(wx.Size(label_min_width,-1))
+                                flex_child.SetMinSize(wx.Size(label_min_width, -1))
         # Update Button
         update_button = wx.Button(self, -1, "Update")
         panel_sizer.Add(update_button, 0, wx.ALL | wx.EXPAND, EXTERNAL_SPACING)
@@ -570,11 +721,37 @@ class PrefsPanel(wx.Panel):
         self.console_ip_control.Bind(wx.EVT_TEXT, self.changed_console_ip)
         self.console_ip_control.Bind(wx.EVT_KILL_FOCUS, self.check_console_ip)
         self.console_type_choice.Bind(wx.EVT_CHOICE, self.changed_console_type)
+        self.repeater_radio_enabled.Bind(
+            wx.EVT_CHECKBOX,
+            self.update_repeater_fields,
+        )
         self.Show()
 
+    def update_repeater_fields(
+        self,
+        _event: Optional[wx.CommandEvent] = None,
+        console: Optional[Console] = None,
+    ) -> None:
+        if console is None:
+            console = self.console
+        else:
+            self.console = console
+        self.repeater_ip_control.Enabled = (
+            Feature.REPEATER in console.supported_features
+            and self.repeater_radio_enabled.IsChecked()
+        )
+        self.repeater_send_port_control.Enabled = (
+            Feature.REPEATER in console.supported_features
+            and self.repeater_radio_enabled.IsChecked()
+        )
+        self.repeater_rcv_port_control.Enabled = (
+            Feature.REPEATER in console.supported_features
+            and self.repeater_radio_enabled.IsChecked()
+        )
+
     def changed_console_type(self, event: wx.CommandEvent) -> None:
-        console: Console = CONSOLES[event.GetString()]
-        self.update_console_supported_features(console)
+        self.console: Console = CONSOLES[event.GetString()]
+        self.update_console_supported_features(self.console)
 
     def update_console_supported_features(self, console: Console) -> None:
         self.console_rcv_port_control.Enabled = (
@@ -586,15 +763,7 @@ class PrefsPanel(wx.Panel):
         self.repeater_radio_enabled.Enabled = (
             Feature.REPEATER in console.supported_features
         )
-        self.repeater_ip_control.Enabled = (
-            Feature.REPEATER in console.supported_features
-        )
-        self.repeater_send_port_control.Enabled = (
-            Feature.REPEATER in console.supported_features
-        )
-        self.repeater_rcv_port_control.Enabled = (
-            Feature.REPEATER in console.supported_features
-        )
+        self.update_repeater_fields(console=console)
         if Feature.REPEATER not in console.supported_features:
             self.repeater_radio_enabled.SetValue(False)
         if Feature.CUE_NUMBER not in console.supported_features:
@@ -604,7 +773,6 @@ class PrefsPanel(wx.Panel):
         else:
             self.console_send_port_control.SetValue(str(console.fixed_port))
             self.console_send_port_control.Disable()
-        
 
     def update_button_pressed(self, e):
         logger.info("Updating configuration settings.")
@@ -615,11 +783,17 @@ class PrefsPanel(wx.Panel):
             settings.receive_port = str(self.console_rcv_port_control.GetValue())
             settings.repeater_ip = self.repeater_ip_control.GetValue()
             settings.repeater_port = str(self.repeater_send_port_control.GetValue())
-            settings.repeater_receive_port = str(self.repeater_rcv_port_control.GetValue())
+            settings.repeater_receive_port = str(
+                self.repeater_rcv_port_control.GetValue()
+            )
             settings.name_only_match = self.match_mode_label_only.GetValue()
             settings.forwarder_enabled = self.repeater_radio_enabled.GetValue()
-            settings.console_type = self.console_type_choice.GetString(self.console_type_choice.GetSelection())
-            settings.daw_type = self.daw_type_choice.GetString(self.daw_type_choice.GetSelection())
+            settings.console_type = self.console_type_choice.GetString(
+                self.console_type_choice.GetSelection()
+            )
+            settings.daw_type = self.daw_type_choice.GetString(
+                self.daw_type_choice.GetSelection()
+            )
             settings.always_on_top = self.always_on_top_checkbox.GetValue()
             settings.external_control_port = str(self.external_control_port_control.GetValue())
             settings.external_control_midi_port = self.external_control_midi_port_control.GetString(

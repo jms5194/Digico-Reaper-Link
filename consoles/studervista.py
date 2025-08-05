@@ -4,7 +4,6 @@ import time
 from typing import Any, Callable, List
 
 import asn1
-import wx
 from pubsub import pub
 
 from logger_config import logger
@@ -37,7 +36,7 @@ class StuderVista(Console):
                         (settings.console_ip, settings.console_port)
                     )
                     logger.info("Ember connected successfully")
-                except(TimeoutError, ConnectionRefusedError):
+                except (TimeoutError, ConnectionRefusedError):
                     # There's got to be a better way to get to the outer sleep
                     time.sleep(5)
                     continue
@@ -54,7 +53,7 @@ class StuderVista(Console):
                     _, value = decoder.read()
                     decoded_message = self._decode_message(value)
                     if decoded_message:
-                        pub.sendMessage("console_connected", consolename="Connected")
+                        pub.sendMessage("console_connected")
                         self._received_real_data.set()
                         if decoded_message != "Last Recalled Snapshot":
                             decoded_message = decoded_message[-1:][0]
@@ -82,11 +81,12 @@ class StuderVista(Console):
                     self._client_socket.sendall(
                         b"\x7f\x8f\xff\xfe\xd9\\\x800\x80\x00\x00\x00\x00"
                     )
-                    pub.sendMessage("console_connected", consolename="Connected")
+                    pub.sendMessage("console_connected")
                 else:
                     self._send_subscribe()
-                    pub.sendMessage(
-                        "console_connected", consolename="Starting", colour=wx.YELLOW
-                    )
+                    # TODO: Re-implement with a starting/connecting status
+                    # pub.sendMessage(
+                    #     "console_connected", consolename="Starting", colour=wx.YELLOW
+                    # )
             except OSError:
                 pub.sendMessage("console_disconnected")

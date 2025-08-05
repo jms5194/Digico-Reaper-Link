@@ -2,6 +2,7 @@ import configparser
 import ipaddress
 import os.path
 import socket
+import sys
 import threading
 import time
 from typing import Callable
@@ -12,11 +13,11 @@ from configupdater import ConfigUpdater
 from pubsub import pub
 
 import constants
+import external_control
 from app_settings import settings
 from consoles import CONSOLES, Console
 from daws import DAWS, Daw
 from logger_config import logger
-import external_control
 
 
 def find_local_ip_in_subnet(console_ip):
@@ -216,7 +217,7 @@ class DawConsoleBridge:
     @console.setter
     def console(self, value: Console) -> None:
         self._console = value
-        pub.sendMessage("console_type_updated", console=value)
+        pub.sendMessage("console_disconnected")
 
     @property
     def daw(self) -> Daw:
@@ -225,7 +226,7 @@ class DawConsoleBridge:
     @daw.setter
     def daw(self, value: Daw) -> None:
         self._daw = value
-        pub.sendMessage("daw_type_updated", daw=value)
+        pub.sendMessage("daw_connection_status", daw=value)
 
     # Console Functions:
 
