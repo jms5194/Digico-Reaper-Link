@@ -9,6 +9,7 @@ from logger_config import logger
 import threading
 import sys
 from constants import TransportAction
+import grpc
 
 class ProTools(Daw):
     type = "ProTools"
@@ -40,9 +41,10 @@ class ProTools(Daw):
                                                  application_name=sys.argv[0])
                 if self.pt_engine_connection is not None:
                     logger.info("Connection established to Pro Tools")
+                    pub.sendMessage("daw_connection_status", connected=True)
                     return True
-            except Exception:
-                logger.error("Unable to connect to Pro Tools. Retrying")
+            except Exception as e:
+                logger.error("Unable to connect to Pro Tools. Retrying in 1 second")
                 time.sleep(1)
                 self._open_protools_connection()
         return None
@@ -58,6 +60,11 @@ class ProTools(Daw):
             except ptsl.errors.CommandError as e:
                 if e.error_type == pt.PT_InvalidParameter:
                     logger.error("Bad parameter input to create_memory_location")
+            except grpc._channel._InactiveRpcError as e:
+                pub.sendMessage("daw_connection_status", connected=False)
+                logger.error("Pro Tools connection lost, Retrying connection")
+                self._open_protools_connection()
+
 
     def _incoming_transport_action(self, transport_action):
         # If transport actions are received from the console, send to Pro Tools
@@ -102,29 +109,49 @@ class ProTools(Daw):
                             self._goto_marker_by_loc(pt.MemoryLocation)
                     except Exception as e:
                         logger.error("No matching memory location found")
+                    except grpc._channel._InactiveRpcError as e:
+                        pub.sendMessage("daw_connection_status", connected=False)
+                        logger.error("Pro Tools connection lost, Retrying connection")
+                        self._open_protools_connection()
 
     def _goto_marker_by_loc(self, memory_loc):
         # Jump playhead to the given memory location
             match_loc_time = str(memory_loc.start_time)
-            self.pt_engine_connection.set_timeline_selection(in_time=match_loc_time)
+            with self.pt_send_lock:
+                try:
+                    self.pt_engine_connection.set_timeline_selection(in_time=match_loc_time)
+                except grpc._channel._InactiveRpcError as e:
+                    pub.sendMessage("daw_connection_status", connected=False)
+                    logger.error("Pro Tools connection lost, Retrying connection")
+                    self._open_protools_connection()
 
     def _get_current_transport_state(self):
         with self.pt_send_lock:
-            return self.pt_engine_connection.transport_state()
+            try:
+                return self.pt_engine_connection.transport_state()
+            except grpc._channel._InactiveRpcError as e:
+                pub.sendMessage("daw_connection_status", connected=False)
+                logger.error("Pro Tools connection lost, Retrying connection")
+                self._open_protools_connection()
 
     def _pro_tools_play(self):
         # Since Pro Tools only has a toggle of play state, additional logic is here to validate the toggle to the
         # correct mode
         with self.pt_send_lock:
             assert self.pt_engine_connection
-            current_transport_state = self.pt_engine_connection.transport_state()
-            if current_transport_state not in ("TS_TransportPlaying", "TS_TransportRecording"):
-                try:
-                    self.pt_engine_connection.toggle_play_state()
-                except ptsl.errors.CommandError as e:
-                    if e.error_type == pt.PT_NoOpenedSession:
-                        logger.error("Play command failed, no session is currently open")
-                        return False
+            try:
+                current_transport_state = self.pt_engine_connection.transport_state()
+                if current_transport_state not in ("TS_TransportPlaying", "TS_TransportRecording"):
+                    try:
+                        self.pt_engine_connection.toggle_play_state()
+                    except ptsl.errors.CommandError as e:
+                        if e.error_type == pt.PT_NoOpenedSession:
+                            logger.error("Play command failed, no session is currently open")
+                            return False
+            except grpc._channel._InactiveRpcError as e:
+                pub.sendMessage("daw_connection_status", connected=False)
+                logger.error("Pro Tools connection lost, Retrying connection")
+                self._open_protools_connection()    
             return None
 
     def _pro_tools_stop(self):
@@ -132,31 +159,41 @@ class ProTools(Daw):
         # correct mode
         with self.pt_send_lock:
             assert self.pt_engine_connection
-            current_transport_state = self.pt_engine_connection.transport_state()
-            if current_transport_state not in ("TS_TransportStopped", "TS_TransportStopping"):
-                try:
-                    self.pt_engine_connection.toggle_play_state()
-                except ptsl.errors.CommandError as e:
-                    if e.error_type == pt.PT_NoOpenedSession:
-                        logger.error("Play command failed, no session is currently open")
-                        return False
-            return None
-
-    def _pro_tools_rec(self):
-        # Arm transport and validate proper play state
-        with self.pt_send_lock:
-            assert self.pt_engine_connection
-            current_transport_state = self.pt_engine_connection.transport_state()
-            current_armed_state = self.pt_engine_connection.transport_armed()
-            if not current_armed_state:
-                self.pt_engine_connection.toggle_record_enable()
-                if current_transport_state != "TS_TransportRecording":
+            try:
+                current_transport_state = self.pt_engine_connection.transport_state()
+                if current_transport_state not in ("TS_TransportStopped", "TS_TransportStopping"):
                     try:
                         self.pt_engine_connection.toggle_play_state()
                     except ptsl.errors.CommandError as e:
                         if e.error_type == pt.PT_NoOpenedSession:
                             logger.error("Play command failed, no session is currently open")
                             return False
+            except grpc._channel._InactiveRpcError as e:
+                pub.sendMessage("daw_connection_status", connected=False)
+                logger.error("Pro Tools connection lost, Retrying connection")
+                self._open_protools_connection()
+            return None
+
+    def _pro_tools_rec(self):
+        # Arm transport and validate proper play state
+        with self.pt_send_lock:
+            assert self.pt_engine_connection
+            try:
+                current_transport_state = self.pt_engine_connection.transport_state()
+                current_armed_state = self.pt_engine_connection.transport_armed()
+                if not current_armed_state:
+                    self.pt_engine_connection.toggle_record_enable()
+                    if current_transport_state != "TS_TransportRecording":
+                        try:
+                            self.pt_engine_connection.toggle_play_state()
+                        except ptsl.errors.CommandError as e:
+                            if e.error_type == pt.PT_NoOpenedSession:
+                                logger.error("Play command failed, no session is currently open")
+                                return False
+            except grpc._channel._InactiveRpcError as e:
+                pub.sendMessage("daw_connection_status", connected=False)
+                logger.error("Pro Tools connection lost, Retrying connection")
+                self._open_protools_connection()
             return None
 
     def _shutdown_servers(self):
