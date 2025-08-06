@@ -268,3 +268,10 @@ class DawConsoleBridge:
         logger.info("Restarting server threads")
         self.console_name_event = threading.Event()
         self.start_threads()
+
+
+def get_resources_directory_path() -> str:
+    py2app_resource_path = os.environ.get("RESOURCEPATH")
+    if py2app_resource_path is not None:
+        return py2app_resource_path
+    return os.path.join(os.path.dirname(__file__), "resources")

@@ -1,11 +1,11 @@
 import os
 from typing import Optional
 
-
 import wx.lib.buttons
 import wx.svg
 
 import constants
+import utilities
 
 
 class NoBorderBitmapButton(wx.lib.buttons.GenBitmapButton):
@@ -82,8 +82,7 @@ def get_icon_path(icon_name: str, state: str = "off") -> str:
     if wx.Platform == "__WXMSW__":
         path = os.path.abspath(
             os.path.join(
-                os.path.dirname(__file__),
-                "resources",
+                utilities.get_resources_directory_path(),
                 "icons",
                 f"{icon_name}-{state}-solid.svg",
             )
@@ -92,8 +91,7 @@ def get_icon_path(icon_name: str, state: str = "off") -> str:
             return path
     return os.path.abspath(
         os.path.join(
-            os.path.dirname(__file__),
-            "resources",
+            utilities.get_resources_directory_path(),
             "icons",
             f"{icon_name}-{state}.svg",
         )

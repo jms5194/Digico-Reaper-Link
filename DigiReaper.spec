@@ -84,7 +84,7 @@ elif args.mac_osx:
     app = BUNDLE(
         exe,
         name="{}.app".format(constants.APPLICATION_NAME),
-        icon="resources/icon.png",
+        icon="resources/rprdigi.icns",
         bundle_identifier=constants.BUNDLE_IDENTIFIER,
         version="3.0.0",
         info_plist={

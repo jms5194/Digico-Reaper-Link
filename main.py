@@ -17,7 +17,7 @@ from consoles import CONSOLES, Console, Feature
 from constants import PlaybackState
 from daws import Daw
 from logger_config import logger
-from utilities import DawConsoleBridge
+from utilities import DawConsoleBridge, get_resources_directory_path
 from external_control import get_midi_ports
 
 INTERNAL_PORT_SPACING = 5
@@ -126,7 +126,7 @@ class MainWindow(wx.Frame):
         if not hasattr(self, "_app_icon"):
             self._app_icons = wx.IconBundle(
                 os.path.abspath(
-                    os.path.join(os.path.dirname(__file__), "resources", "rprdigi.ico")
+                    os.path.join(get_resources_directory_path(), "rprdigi.ico")
                 ),
                 wx.BITMAP_TYPE_ICO,
             )
