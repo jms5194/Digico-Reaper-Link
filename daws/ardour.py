@@ -38,6 +38,7 @@ class Ardour(Daw):
         #skipping all validation for now
         start_managed_thread("daw_connection_thread", self._build_ardour_osc_servers)
         start_managed_thread("daw_heartbeat_thread", self._ardour_heartbeat_check)
+        start_managed_thread("daw_osc_config_thread", self._send_ardour_osc_config)
 
 
     def _validate_ardour_prefs(self):
@@ -47,7 +48,6 @@ class Ardour(Daw):
                 if not self._check_ardour_prefs():
                     self._enable_ardour_osc()
                     pub.sendMessage("reset_daw", resetdaw=True, daw_name="Ardour")
-                    
                 else:
                     self._build_ardour_osc_servers()
                     return
@@ -80,34 +80,33 @@ class Ardour(Daw):
 
     def _build_ardour_osc_servers(self):
         # Connect to Ardour via OSC
-        logger.info("Starting Ardour OSC server")
-        self.ardour_client = udp_client.SimpleUDPClient("127.0.0.1", 3819)
-        self.ardour_dispatcher = dispatcher.Dispatcher()
-        self._receive_ardour_OSC()
-        self._send_ardour_osc_config()
-        try:
-            self.ardour_osc_server = osc_server.ThreadingOSCUDPServer(("127.0.0.1", 3820),
-                                                                    self.ardour_dispatcher)
-            logger.info("Ardour OSC server started")
-            self.ardour_osc_server.serve_forever()
-        except Exception as e:
-            logger.error(f"Ardour OSC server startup error: {e}")
+        while not self._shutdown_server_event.is_set():
+            logger.info("Starting Ardour OSC server")
+            self.ardour_client = udp_client.SimpleUDPClient("127.0.0.1", 3819)
+            self.ardour_dispatcher = dispatcher.Dispatcher()
+            self._receive_ardour_OSC()
+            try:
+                self.ardour_osc_server = osc_server.ThreadingOSCUDPServer(("127.0.0.1", 3820),
+                                                                        self.ardour_dispatcher)
+                logger.info("Ardour OSC server started")
+                self.ardour_osc_server.serve_forever()
+            except Exception as e:
+                logger.error(f"Ardour OSC server startup error: {e}")
 
     def _send_ardour_osc_config(self):
         while not self._shutdown_server_event.is_set():
             with self.ardour_send_lock:
-                # Send a message to Ardour describing what information we want to receive
-                self.ardour_client.send_message("/set_surface/0/159/24/0/0/0", 3820)
-                # Check that Ardour has received our configuration request
-                self.ardour_client.send_message("/set_surface", None)
-            if not self._ardour_responded_event.is_set():
-                # If Ardour has not responded to our config request, wait and try again.
-                resend_timer = threading.Timer(1.0, self._send_ardour_osc_config)
-                resend_timer.start()
-                logger.info("Ardour has not responded. Retrying OSC config message")
-                return
-            else:
-                return
+                if not self._ardour_responded_event.is_set():
+                    try:
+                        # Send a message to Ardour describing what information we want to receive
+                        self.ardour_client.send_message("/set_surface/0/159/24/0/0/0", 3820)
+                        # Check that Ardour has received our configuration request
+                        self.ardour_client.send_message("/set_surface", None)
+                        logger.info("Sent Ardour OSC configuration request")
+                    except Exception as e:
+                        logger.error("Ardour not yet available, retrying in 1 second")
+                    time.sleep(1)
+
 
 
     def _ardour_connected_status(self, osc_address, val):
@@ -132,8 +131,9 @@ class Ardour(Daw):
                     # If Ardour has not sent a heartbeat in the last 5 seconds, it is disconnected.
                     pub.sendMessage("daw_connection_status", connected=False)
                     self._ardour_responded_event.clear()
-                    #self.start_managed_threads()
-                    logger.error("Ardour OSC server heartbeat timeout")
+                    logger.error("MarkerMatic has lost connection to Ardour. Retrying.")
+                    self.ardour_osc_server.shutdown()
+                    self.ardour_osc_server.server_close()
                 else:
                     # If Ardour is still connected, set the connection status to True.
                     pub.sendMessage("daw_connection_status", connected=True)

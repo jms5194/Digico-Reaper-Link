@@ -249,6 +249,9 @@ class DawConsoleBridge:
             "repeater_osc_thread",
             "heartbeat_thread",
             'daw_heartbeat_thread',
+            'daw_osc_config_thread',
+            "external_osc_control",
+            "external_midi_control",
         ]:
             thread = getattr(self, attr, None)
             if thread and isinstance(thread, ManagedThread):
