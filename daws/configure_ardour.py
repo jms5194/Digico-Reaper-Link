@@ -13,12 +13,15 @@ def backup_config_file(config_file_path):
     before_file = config_file_path + ".before.bak"
     if not os.path.exists(before_file):
         shutil.copy(config_file_path, before_file)
+    logger.info("Backing up original Ardour config file")
     # Backup current config
     shutil.copy(config_file_path, config_file_path + ".bak")
+    logger.info("Backing up current Ardour config file")
 
 def add_OSC_interface(resource_path, rcv_port=8000, snd_port=9000):
     # Parse the XML configuration document
-    config = ET.parse(os.path.join(resource_path, "config"))
+    config_path = os.path.join(resource_path, "config")
+    config = ET.parse(config_path)
     root = config.getroot()
     osc_config = root.find("./ControlProtocols/Protocol[@name='Open Sound Control (OSC)']")
     osc_config.attrib["feedback"] = "16"
@@ -31,29 +34,37 @@ def add_OSC_interface(resource_path, rcv_port=8000, snd_port=9000):
     osc_config.attrib["send-page-size"] = "0"
     osc_config.attrib["active"] = "1"
     backup_config_file(resource_path)
-    config.write("config")
+    config.write(config_path)
 
 def osc_interface_exists(resource_path, rcv_port, snd_port):
     config = ET.parse(os.path.join(resource_path, "config"))
     root = config.getroot()
-    osc_config = root.find("./ControlProtocols/Protocol[@name='Open Sound Control (OSC)']")
+    try:
+        osc_config = root.find("./ControlProtocols/Protocol[@name='Open Sound Control (OSC)']")
+        if osc_config is None:
+            logger.info("Ardour OSC interface config does not exist")
+            return False
+    except ET.ParseError:
+        logger.error("Error parsing Ardour config file")
+        return False    
     assert isinstance(osc_config, xml.etree.ElementTree.Element)
     try:
-        if (osc_config.attrib["feedback"] == "16"
-            and osc_config.attrib["debugmode"] == "0"
-            and osc_config.attrib["address-only"] == "1"
-            and osc_config.attrib["remote-port"] == "3820"
-            and osc_config.attrib["banksize"] == "0"
-            and osc_config.attrib["striptypes"] == "31"
-            and osc_config.attrib["gainmode"] == "0"
-            and osc_config.attrib["send-page-size"] == "0"
-            and osc_config.attrib["active"] == "1"
-            ):
+        if (osc_config.attrib["feedback"] == "16") \
+            and (osc_config.attrib["debugmode"] == "0") \
+            and (osc_config.attrib["address-only"] == "1") \
+            and (osc_config.attrib["remote-port"] == "3820") \
+            and (osc_config.attrib["banksize"] == "0") \
+            and (osc_config.attrib["striptypes"] == "31") \
+            and (osc_config.attrib["gainmode"] == "0") \
+            and (osc_config.attrib["send-page-size"] == "0") \
+            and (osc_config.attrib["active"] == "1"):
             return True
         else:
-            add_OSC_interface(resource_path, rcv_port, snd_port)
+            logger.info("Couldn't match all OSC attibutes in Ardour config")
+            return False
     except KeyError:
         logger.error("Ardour config is missing keys")
+        return False
 
 def get_resource_path(detect_portable_install):
     for i in get_candidate_directories(detect_portable_install):

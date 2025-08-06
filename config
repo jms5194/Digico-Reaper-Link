@@ -212,13 +212,14 @@
       <Window name="dsp-statistics" visible="0" x-off="-1" y-off="-1" x-size="-1" y-size="-1" />
       <Window name="transport-masters" visible="0" x-off="-1" y-off="-1" x-size="-1" y-size="-1" />
       <Window name="RPM-71" visible="0" x-off="-1" y-off="-1" x-size="-1" y-size="-1" />
+      <Window name="RPM-170" visible="0" x-off="-1" y-off="-1" x-size="-1" y-size="-1" />
       <Tearoffs>
         <monitor-section tornoff="0" />
       </Tearoffs>
     </UI>
     <AudioMIDISetup>
       <EngineStates>
-        <State backend="CoreAudio" driver="" device="" input-device="MacBook Pro Microphone" output-device="MacBook Pro Speakers" sample-rate="48000" buffer-size="1024" n-periods="0" input-latency="0" output-latency="0" lm-input="" lm-output="" active="1" use-buffered-io="0" midi-option="CoreMidi" lru="1754267168">
+        <State backend="CoreAudio" driver="" device="" input-device="JMS iPhone Microphone" output-device="MacBook Pro Speakers" sample-rate="48000" buffer-size="1024" n-periods="0" input-latency="0" output-latency="0" lm-input="" lm-output="" active="1" use-buffered-io="0" midi-option="CoreMidi" lru="1754457831">
           <MIDIDevices />
         </State>
       </EngineStates>
@@ -233,8 +234,21 @@
     <Protocol name="Novation LaunchKey 4" active="0" session-state="0" />
     <Protocol name="Novation LaunchPad Mini" active="0" session-state="0" />
     <Protocol name="Novation LaunchPad Pro" active="0" session-state="0" />
-    <Protocol name="Novation LaunchPad X" active="0" session-state="0" />
-    <Protocol name="Open Sound Control (OSC)" feedback="16" debugmode="0" address-only="1" remote-port="3820" banksize="0" striptypes="31" gainmode="0" send-page-size="0" plug-page-size="0" active="1" session-state="0" />
+    <Protocol name="Novation LaunchPad X" feedback="0" active="0" session-state="0">
+      <Input>
+        <Port name="LaunchPad X in" type="midi" direction="Input" />
+      </Input>
+      <Output>
+        <Port name="LaunchPad X out" type="midi" direction="Output" />
+      </Output>
+      <DAWInput>
+        <Port name="LaunchPad X daw in" type="midi" direction="Input" />
+      </DAWInput>
+      <DAWOutput>
+        <Port name="LaunchPad X daw out" type="midi" direction="Output" />
+      </DAWOutput>
+    </Protocol>
+    <Protocol name="Open Sound Control (OSC)" feedback="16" debugmode="0" address-only="1" remote-port="3820" banksize="0" striptypes="31" gainmode="0" send-page-size="0" plug-page-size="0" active="1" />
     <Protocol name="PreSonus FaderPort" active="0" session-state="0" />
     <Protocol name="PreSonus FaderPort16" active="0" session-state="0" />
     <Protocol name="PreSonus FaderPort2" active="0" session-state="0" />

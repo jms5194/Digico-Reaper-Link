@@ -30,10 +30,8 @@ class Ardour(Daw):
     ) -> None:
         self._shutdown_server_event.clear()
         logger.info("Starting Ardour Connection thread")
-        #start_managed_thread("validate_ardour_prefs_thread", self._validate_ardour_prefs)
-        start_managed_thread(
-            "daw_connection_thread", self._build_ardour_osc_servers
-        )
+        start_managed_thread("daw_connection_thread", self._validate_ardour_prefs)
+
 
     def _validate_ardour_prefs(self):
         # If the Ardour config file does not contain an entry for Digico-Reaper Link, add one.
@@ -41,9 +39,10 @@ class Ardour(Daw):
             try:
                 if not self._check_ardour_prefs(3820, 3819):
                     self._add_ardour_prefs(3820, 3819)
-                    if configure_ardour.osc_interface_exists(configure_ardour.get_resource_path(True), 3820, 3819):
-                        pub.sendMessage("reset_daw", resetdaw=True, dawname="Ardour")
-                return True
+                    pub.sendMessage("reset_daw", resetdaw=True, dawname="Ardour")
+                else:
+                    self._build_ardour_osc_servers()
+                    return
             except RuntimeError:
                 # If Ardour is not running, wait and try again
                 logger.error("Ardour not running. Will retry in 1 seconds.")
@@ -55,13 +54,13 @@ class Ardour(Daw):
             logger.info("Ardour OSC interface config already exists")
             return True
         else:
-            logger.info("Ardour OSC interface config does not exist")
+            logger.info("Ardour OSC interface config does not exist or is misconfigured")
             return False
 
     @staticmethod
     def _add_ardour_prefs(rpr_rcv, rpr_send):
         configure_ardour.add_OSC_interface(configure_ardour.get_resource_path(True), rpr_rcv, rpr_send)
-        logger.info("Added OSC interface to Ardour preferences")
+        logger.info("Updated OSC interface in Ardour preferences")
 
     def _receive_ardour_OSC(self):
         # Receives and distributes OSC from Ardour, based on matching OSC values
@@ -71,18 +70,17 @@ class Ardour(Daw):
 
     def _build_ardour_osc_servers(self):
         # Connect to Ardour via OSC
-        if self._validate_ardour_prefs():
-            logger.info("Starting Ardour OSC server")
-            self.ardour_client = udp_client.SimpleUDPClient("127.0.0.1", 3819)
-            self.ardour_dispatcher = dispatcher.Dispatcher()
-            self._receive_ardour_OSC()
-            try:
-                self.ardour_osc_server = osc_server.ThreadingOSCUDPServer(("127.0.0.1", 3820),
-                                                                        self.ardour_dispatcher)
-                logger.info("Ardour OSC server started")
-                self.ardour_osc_server.serve_forever()
-            except Exception as e:
-                logger.error(f"Ardour OSC server startup error: {e}")
+        logger.info("Starting Ardour OSC server")
+        self.ardour_client = udp_client.SimpleUDPClient("127.0.0.1", 3819)
+        self.ardour_dispatcher = dispatcher.Dispatcher()
+        self._receive_ardour_OSC()
+        try:
+            self.ardour_osc_server = osc_server.ThreadingOSCUDPServer(("127.0.0.1", 3820),
+                                                                    self.ardour_dispatcher)
+            logger.info("Ardour OSC server started")
+            self.ardour_osc_server.serve_forever()
+        except Exception as e:
+            logger.error(f"Ardour OSC server startup error: {e}")
 
     def _current_transport_state(self, osc_address, val):
         # Watches what the Ardour playhead is doing.
