@@ -1,7 +1,7 @@
 from typing import Optional
 
 import mido
-import mido.backends.portmidi
+import mido.backends.rtmidi
 from pubsub import pub
 from pythonosc.dispatcher import Dispatcher
 from pythonosc.osc_server import ThreadingOSCUDPServer
