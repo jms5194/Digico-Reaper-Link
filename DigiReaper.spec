@@ -21,6 +21,10 @@ datas = [
     ("resources/rprdigi.icns", "./resources"),
     ("resources/rprdigi.ico", "./resources"),
     ("resources/icons", "./resources/icons"),
+    (
+        "resources/MarkerMatic-Bridge.bwextension",
+        "./resources/MarkerMatic-Bridge.bwextension",
+    ),
 ]
 
 

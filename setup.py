@@ -11,7 +11,11 @@ APP = ["main.py"]
 DATA_FILES = []
 OPTIONS = {
     "iconfile": "resources/rprdigi.icns",
-    "resources": ["resources/icons", "resources/rprdigi.ico"],
+    "resources": [
+        "resources/icons",
+        "resources/rprdigi.ico",
+        "resources/MarkerMatic-Bridge.bwextension",
+    ],
     "includes": ["mido.backends.portmidi"],
     "dylib_excludes": [
         "/Library/Frameworks/Python.framework/Versions/3.13/Frameworks/Tcl.framework",

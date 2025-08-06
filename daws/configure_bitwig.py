@@ -5,12 +5,15 @@ from logger_config import logger
 import hashlib
 import os
 from importlib_resources import files, as_file
+import utilities
 
 
 def verify_markermatic_bridge_in_user_dir():
     # Copy the Markermatic Bridge to the Bitwig extensions directory
     bridge_full_path = get_bitwig_extensions_path() / "MarkerMatic-Bridge.bwextension"
-    source = files("resources").joinpath('MarkerMatic-Bridge.bwextension')
+    source = files(utilities.get_resources_directory_path()).joinpath(
+        "MarkerMatic-Bridge.bwextension"
+    )
     with as_file(source) as package_file:
         if os.path.exists(get_bitwig_extensions_path()):
             if os.path.exists(bridge_full_path):
