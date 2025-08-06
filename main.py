@@ -6,6 +6,7 @@ from typing import Collection, Optional
 
 import wx
 import wx.lib.buttons
+import wx.adv
 import wx.svg
 import wx.svg._nanosvg
 from pubsub import pub
@@ -17,7 +18,8 @@ from consoles import CONSOLES, Console, Feature
 from constants import PlaybackState
 from daws import Daw
 from logger_config import logger
-from utilities import DawConsoleBridge, get_resources_directory_path
+import utilities
+from utilities import DawConsoleBridge
 from external_control import get_midi_ports
 
 INTERNAL_PORT_SPACING = 5
@@ -75,12 +77,14 @@ class MainWindow(wx.Frame):
         self.Show()
 
     def on_about(self, event):
-        # Create the About Dialog Box
-        dlg = wx.MessageDialog(
-            self, constants.APPLICATION_ABOUT, constants.APPLICATION_NAME, wx.OK
-        )
-        dlg.ShowModal()  # Shows it
-        dlg.Destroy()  # Destroy pop-up when finished.
+        info = wx.adv.AboutDialogInfo()
+        info.SetName(constants.APPLICATION_NAME)
+        info.SetVersion(constants.VERSION)
+        info.SetDescription(constants.APPLICATION_DESCRIPTION)
+        info.SetCopyright(constants.APPLICATION_COPYRIGHT)
+        info.SetLicence(constants.CREDITS)
+        info.SetWebSite(constants.WEBSITE, "Website")
+        wx.adv.AboutBox(info, self)
 
     def launch_preferences(self, event):
         # Open the preferences frame

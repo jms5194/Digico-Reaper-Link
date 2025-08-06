@@ -6,6 +6,7 @@ Usage:
 """
 
 from setuptools import setup
+import constants
 
 APP = ["main.py"]
 DATA_FILES = []
@@ -21,6 +22,15 @@ OPTIONS = {
         "/Library/Frameworks/Python.framework/Versions/3.13/Frameworks/Tcl.framework",
         "/Library/Frameworks/Python.framework/Versions/3.13/Frameworks/Tk.framework",
     ],
+    "plist": {
+        "CFBundleIdentifier": constants.BUNDLE_IDENTIFIER,
+        "CFBundleName": constants.APPLICATION_NAME,
+        "CFBundleDisplayName": constants.APPLICATION_NAME,
+        "NSHumanReadableCopyright": constants.APPLICATION_COPYRIGHT,
+        "CFBundleShortVersionString": constants.VERSION,
+        "CFBundleVersion": constants.VERSION,
+        "NSRequiresAquaSystemAppearance": False,
+    },
 }
 
 setup(
