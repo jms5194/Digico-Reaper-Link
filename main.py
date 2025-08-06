@@ -684,13 +684,6 @@ class PrefsPanel(wx.Panel):
         self.mmc_control_enabled_checkbox.SetValue(settings.mmc_control_enabled)
         external_control_section.Add(self.mmc_control_enabled_checkbox, flag=wx.EXPAND)
         panel_sizer.Add(external_control_section, flag=wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, border=EXTERNAL_SPACING)
-
-
-        app_settings_section.Add(width=label_min_width,height=0)
-        self.always_on_top_checkbox = wx.CheckBox(self, label="Always display on top")
-        self.always_on_top_checkbox.SetValue(settings.always_on_top)
-        app_settings_section.Add(self.always_on_top_checkbox, flag=wx.EXPAND)
-
         
         for child in panel_sizer.GetChildren():
             if isinstance(child, wx.SizerItem) and child.IsSizer():
