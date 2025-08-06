@@ -43,7 +43,7 @@ class ProTools(Daw):
                     logger.info("Connection established to Pro Tools")
                     pub.sendMessage("daw_connection_status", connected=True)
                     return True
-            except Exception as e:
+            except Exception:
                 logger.error("Unable to connect to Pro Tools. Retrying in 1 second")
                 time.sleep(1)
                 self._open_protools_connection()
@@ -60,7 +60,7 @@ class ProTools(Daw):
             except ptsl.errors.CommandError as e:
                 if e.error_type == pt.PT_InvalidParameter:
                     logger.error("Bad parameter input to create_memory_location")
-            except grpc._channel._InactiveRpcError as e:
+            except grpc._channel._InactiveRpcError:
                 pub.sendMessage("daw_connection_status", connected=False)
                 logger.error("Pro Tools connection lost, Retrying connection")
                 self._open_protools_connection()
@@ -107,9 +107,9 @@ class ProTools(Daw):
                             test_name = " ".join(test_name)
                         if name_to_match == test_name:
                             self._goto_marker_by_loc(pt.MemoryLocation)
-                    except Exception as e:
+                    except Exception:
                         logger.error("No matching memory location found")
-                    except grpc._channel._InactiveRpcError as e:
+                    except grpc._channel._InactiveRpcError:
                         pub.sendMessage("daw_connection_status", connected=False)
                         logger.error("Pro Tools connection lost, Retrying connection")
                         self._open_protools_connection()
@@ -120,7 +120,7 @@ class ProTools(Daw):
             with self.pt_send_lock:
                 try:
                     self.pt_engine_connection.set_timeline_selection(in_time=match_loc_time)
-                except grpc._channel._InactiveRpcError as e:
+                except grpc._channel._InactiveRpcError:
                     pub.sendMessage("daw_connection_status", connected=False)
                     logger.error("Pro Tools connection lost, Retrying connection")
                     self._open_protools_connection()
@@ -129,7 +129,7 @@ class ProTools(Daw):
         with self.pt_send_lock:
             try:
                 return self.pt_engine_connection.transport_state()
-            except grpc._channel._InactiveRpcError as e:
+            except grpc._channel._InactiveRpcError:
                 pub.sendMessage("daw_connection_status", connected=False)
                 logger.error("Pro Tools connection lost, Retrying connection")
                 self._open_protools_connection()
@@ -148,7 +148,7 @@ class ProTools(Daw):
                         if e.error_type == pt.PT_NoOpenedSession:
                             logger.error("Play command failed, no session is currently open")
                             return False
-            except grpc._channel._InactiveRpcError as e:
+            except grpc._channel._InactiveRpcError:
                 pub.sendMessage("daw_connection_status", connected=False)
                 logger.error("Pro Tools connection lost, Retrying connection")
                 self._open_protools_connection()    
@@ -168,7 +168,7 @@ class ProTools(Daw):
                         if e.error_type == pt.PT_NoOpenedSession:
                             logger.error("Play command failed, no session is currently open")
                             return False
-            except grpc._channel._InactiveRpcError as e:
+            except grpc._channel._InactiveRpcError:
                 pub.sendMessage("daw_connection_status", connected=False)
                 logger.error("Pro Tools connection lost, Retrying connection")
                 self._open_protools_connection()
@@ -190,7 +190,7 @@ class ProTools(Daw):
                             if e.error_type == pt.PT_NoOpenedSession:
                                 logger.error("Play command failed, no session is currently open")
                                 return False
-            except grpc._channel._InactiveRpcError as e:
+            except grpc._channel._InactiveRpcError:
                 pub.sendMessage("daw_connection_status", connected=False)
                 logger.error("Pro Tools connection lost, Retrying connection")
                 self._open_protools_connection()
