@@ -6,6 +6,7 @@ from typing import Any, Callable
 import threading
 import time
 from constants import PlaybackState, TransportAction
+import wx
 
 
 class Ardour(Daw):
@@ -46,7 +47,7 @@ class Ardour(Daw):
             try:
                 if not self._check_ardour_prefs():
                     self._enable_ardour_osc()
-                    pub.sendMessage("reset_daw", resetdaw=True, daw_name="Ardour")
+                    wx.CallAfter(pub.sendMessage,"reset_daw", resetdaw=True, daw_name="Ardour")
                 else:
                     self._build_ardour_osc_servers()
                     return
@@ -104,7 +105,7 @@ class Ardour(Daw):
                         logger.info("Sent Ardour OSC configuration request")
                 except Exception as e:
                     logger.error("Ardour not yet available, retrying in 1 second")
-                time.sleep(1)
+            time.sleep(1)
 
 
 
@@ -128,14 +129,14 @@ class Ardour(Daw):
             if self._ardour_responded_event.is_set():
                 if time.time() - self.current_heartbeat_timestamp > 2.2:
                     # If Ardour has not sent a heartbeat in the last 5 seconds, it is disconnected.
-                    pub.sendMessage("daw_connection_status", connected=False)
+                    wx.CallAfter(pub.sendMessage, "daw_connection_status", connected=False)
                     self._ardour_responded_event.clear()
                     logger.error("MarkerMatic has lost connection to Ardour. Retrying.")
                     self.ardour_osc_server.shutdown()
                     self.ardour_osc_server.server_close()
                 else:
                     # If Ardour is still connected, set the connection status to True.
-                    pub.sendMessage("daw_connection_status", connected=True)
+                    wx.CallAfter(pub.sendMessage,"daw_connection_status", connected=True)
             time.sleep(1)
 
 
@@ -198,7 +199,7 @@ class Ardour(Daw):
         # Sends action to skip to end of project and then record, to prevent overwrites
         from app_settings import settings
         settings.marker_mode = "Recording"
-        pub.sendMessage("mode_select_osc", selected_mode=PlaybackState.RECORDING)
+        wx.CallAfter(pub.sendMessage,"mode_select_osc", selected_mode=PlaybackState.RECORDING)
         with self.ardour_send_lock:
             self.ardour_client.send_message("/goto_end", None)
             self.ardour_client.send_message("/rec_enable_toggle", 1.0)
