@@ -20,3 +20,5 @@ python-osc==1.9.3
 python-rtmidi==1.5.8
 six==1.17.0
 wxPython==4.2.3
+# Keep this version of setuptools, needed for py2app currently
+setuptools==70.3.0
