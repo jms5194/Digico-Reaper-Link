@@ -2,7 +2,6 @@ import configparser
 import ipaddress
 import os.path
 import socket
-import sys
 import threading
 import time
 from typing import Callable

@@ -58,7 +58,7 @@ class Bitwig(Daw):
                 self.bitwig_cuemarkerbank = self.gateway_entry_point.getCueMarkerBank()
                 self._build_marker_dict()
                 return True
-            except Exception as e:
+            except Exception:
                 logger.error("Unable to connect to Bitwig. Retrying")
                 time.sleep(1)
         return None
@@ -118,7 +118,7 @@ class Bitwig(Daw):
                     value_name_only = " ".join(value_name_only_list)
                     if value_name_only == cue_name_only:
                         possible_markers.append(key)
-            except Exception as e:
+            except Exception:
                 logger.info("Bitwig found no matching marker")
                 return
             if possible_markers[0]:
@@ -129,7 +129,7 @@ class Bitwig(Daw):
         else:
             try:
                 possible_markers = [key for key, value in self.marker_dict.items() if value[0] == cue]
-            except Exception as e:
+            except Exception:
                 logger.info("Bitwig found no matching marker")
                 return
             if possible_markers[0]:
