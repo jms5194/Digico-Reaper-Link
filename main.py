@@ -130,7 +130,9 @@ class MainWindow(wx.Frame):
         if not hasattr(self, "_app_icon"):
             self._app_icons = wx.IconBundle(
                 os.path.abspath(
-                    os.path.join(get_resources_directory_path(), "rprdigi.ico")
+                    os.path.join(
+                        utilities.get_resources_directory_path(), "rprdigi.ico"
+                    )
                 ),
                 wx.BITMAP_TYPE_ICO,
             )
