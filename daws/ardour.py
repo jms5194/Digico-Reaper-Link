@@ -21,7 +21,6 @@ class Ardour(Daw):
         self.is_playing = False
         self.is_recording = False
         self.ardour_osc_server = None
-        self.ardour_disconnected_timer = threading.Timer
         self._ardour_responded_event.clear()
         self.current_heartbeat_timestamp = 0
         pub.subscribe(self._place_marker_with_name, "place_marker_with_name")
@@ -95,17 +94,17 @@ class Ardour(Daw):
 
     def _send_ardour_osc_config(self):
         while not self._shutdown_server_event.is_set():
-            with self.ardour_send_lock:
-                if not self._ardour_responded_event.is_set():
-                    try:
+            if not self._ardour_responded_event.is_set():
+                try:
+                    with self.ardour_send_lock:
                         # Send a message to Ardour describing what information we want to receive
                         self.ardour_client.send_message("/set_surface/0/159/24/0/0/0", 3820)
                         # Check that Ardour has received our configuration request
                         self.ardour_client.send_message("/set_surface", None)
                         logger.info("Sent Ardour OSC configuration request")
-                    except Exception as e:
-                        logger.error("Ardour not yet available, retrying in 1 second")
-                    time.sleep(1)
+                except Exception as e:
+                    logger.error("Ardour not yet available, retrying in 1 second")
+                time.sleep(1)
 
 
 
