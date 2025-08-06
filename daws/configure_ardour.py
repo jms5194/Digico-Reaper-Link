@@ -18,25 +18,17 @@ def backup_config_file(config_file_path):
     shutil.copy(config_file_path, config_file_path + ".bak")
     logger.info("Backing up current Ardour config file")
 
-def add_OSC_interface(resource_path, rcv_port=8000, snd_port=9000):
+def enable_osc_interface(resource_path):
     # Parse the XML configuration document
+    backup_config_file(resource_path)
     config_path = os.path.join(resource_path, "config")
     config = ET.parse(config_path)
     root = config.getroot()
     osc_config = root.find("./ControlProtocols/Protocol[@name='Open Sound Control (OSC)']")
-    osc_config.attrib["feedback"] = "16"
-    osc_config.attrib["debugmode"] = "0"
-    osc_config.attrib["address-only"] = "1"
-    osc_config.attrib["remote-port"] = "3820"
-    osc_config.attrib["banksize"] = "0"
-    osc_config.attrib["striptypes"] = "31"
-    osc_config.attrib["gainmode"] = "0"
-    osc_config.attrib["send-page-size"] = "0"
     osc_config.attrib["active"] = "1"
-    backup_config_file(resource_path)
     config.write(config_path)
 
-def osc_interface_exists(resource_path, rcv_port, snd_port):
+def osc_interface_exists(resource_path):
     config = ET.parse(os.path.join(resource_path, "config"))
     root = config.getroot()
     try:
@@ -49,18 +41,10 @@ def osc_interface_exists(resource_path, rcv_port, snd_port):
         return False    
     assert isinstance(osc_config, xml.etree.ElementTree.Element)
     try:
-        if (osc_config.attrib["feedback"] == "16") \
-            and (osc_config.attrib["debugmode"] == "0") \
-            and (osc_config.attrib["address-only"] == "1") \
-            and (osc_config.attrib["remote-port"] == "3820") \
-            and (osc_config.attrib["banksize"] == "0") \
-            and (osc_config.attrib["striptypes"] == "31") \
-            and (osc_config.attrib["gainmode"] == "0") \
-            and (osc_config.attrib["send-page-size"] == "0") \
-            and (osc_config.attrib["active"] == "1"):
+        if (osc_config.attrib["active"] == "1"):
             return True
         else:
-            logger.info("Couldn't match all OSC attibutes in Ardour config")
+            logger.info("OSC interface is not active")
             return False
     except KeyError:
         logger.error("Ardour config is missing keys")

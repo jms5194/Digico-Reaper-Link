@@ -248,6 +248,7 @@ class DawConsoleBridge:
             "daw_connection_thread",
             "repeater_osc_thread",
             "heartbeat_thread",
+            'daw_heartbeat_thread',
         ]:
             thread = getattr(self, attr, None)
             if thread and isinstance(thread, ManagedThread):
