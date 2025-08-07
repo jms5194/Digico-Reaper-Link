@@ -5,7 +5,7 @@ from pubsub import pub
 from pythonosc import dispatcher, osc_server, udp_client
 import threading
 import time
-from constants import PlaybackState, TransportAction
+from constants import PlaybackState, PyPubSubTopics, TransportAction
 
 LOOPBACK_IP = "127.0.0.1"
 
@@ -21,30 +21,39 @@ class Reaper(Daw):
         self.is_playing = False
         self.is_recording = False
         self.reaper_osc_server = None
-        pub.subscribe(self._place_marker_with_name, "place_marker_with_name")
-        pub.subscribe(self._incoming_transport_action, "incoming_transport_action")
-        pub.subscribe(self._handle_cue_load, "handle_cue_load")
-        pub.subscribe(self._shutdown_servers, "shutdown_servers")
-        pub.subscribe(self._shutdown_server_event.set, "shutdown_servers")
+        pub.subscribe(
+            self._place_marker_with_name, PyPubSubTopics.PLACE_MARKER_WITH_NAME
+        )
+        pub.subscribe(self._incoming_transport_action, PyPubSubTopics.TRANSPORT_ACTION)
+        pub.subscribe(self._handle_cue_load, PyPubSubTopics.HANDLE_CUE_LOAD)
+        pub.subscribe(self._shutdown_servers, PyPubSubTopics.SHUTDOWN_SERVERS)
+        pub.subscribe(self._shutdown_server_event.set, PyPubSubTopics.SHUTDOWN_SERVERS)
 
     def start_managed_threads(
-            self, start_managed_thread: Callable[[str, Any], None]
+        self, start_managed_thread: Callable[[str, Any], None]
     ) -> None:
         logger.info("Starting Reaper Connection threads")
         self._shutdown_server_event.clear()
-        start_managed_thread("validate_reaper_prefs_thread", self._validate_reaper_prefs)
         start_managed_thread(
-            "daw_connection_thread", self._build_reaper_osc_servers
+            "validate_reaper_prefs_thread", self._validate_reaper_prefs
         )
+        start_managed_thread("daw_connection_thread", self._build_reaper_osc_servers)
 
     def _validate_reaper_prefs(self):
         # If the Reaper .ini file does not contain an entry for Digico-Reaper Link, add one.
         from app_settings import settings
+
         while not self._shutdown_server_event.is_set():
             try:
-                if not self._check_reaper_prefs(settings.reaper_receive_port, settings.reaper_port):
-                    self._add_reaper_prefs(settings.reaper_receive_port, settings.reaper_port)
-                    pub.sendMessage("reset_daw", resetdaw=True, dawname="Reaper")
+                if not self._check_reaper_prefs(
+                    settings.reaper_receive_port, settings.reaper_port
+                ):
+                    self._add_reaper_prefs(
+                        settings.reaper_receive_port, settings.reaper_port
+                    )
+                    pub.sendMessage(
+                        PyPubSubTopics.REQUEST_DAW_RESTART, daw_name="Reaper"
+                    )
                 return True
             except RuntimeError:
                 # If reaper is not running, wait and try again
@@ -54,7 +63,9 @@ class Reaper(Daw):
 
     @staticmethod
     def _check_reaper_prefs(rpr_rcv, rpr_send):
-        if configure_reaper.osc_interface_exists(configure_reaper.get_resource_path(True), rpr_rcv, rpr_send):
+        if configure_reaper.osc_interface_exists(
+            configure_reaper.get_resource_path(True), rpr_rcv, rpr_send
+        ):
             logger.info("Reaper OSC interface config already exists")
             return True
         else:
@@ -63,12 +74,15 @@ class Reaper(Daw):
 
     @staticmethod
     def _add_reaper_prefs(rpr_rcv, rpr_send):
-        configure_reaper.add_OSC_interface(configure_reaper.get_resource_path(True), rpr_rcv, rpr_send)
+        configure_reaper.add_OSC_interface(
+            configure_reaper.get_resource_path(True), rpr_rcv, rpr_send
+        )
         logger.info("Added OSC interface to Reaper preferences")
 
     def _build_reaper_osc_servers(self):
         # Connect to Reaper via OSC
         from app_settings import settings
+
         logger.info("Starting Reaper OSC server")
         self.reaper_client = udp_client.SimpleUDPClient(
             LOOPBACK_IP, settings.reaper_port
@@ -93,6 +107,7 @@ class Reaper(Daw):
     def _marker_matcher(self, osc_address, test_name):
         # Matches a marker composite name with its Reaper ID
         from app_settings import settings
+
         address_split = osc_address.split("/")
         marker_id = address_split[2]
         if settings.name_only_match:
@@ -134,7 +149,7 @@ class Reaper(Daw):
             self.reaper_client.send_message("/marker", int(marker_id))
 
     def _place_marker_with_name(self, marker_name: str):
-        logger.info (f"Placed marker for cue: {marker_name}")
+        logger.info(f"Placed marker for cue: {marker_name}")
         with self.reaper_send_lock:
             self.reaper_client.send_message("/action", 40157)
             self.reaper_client.send_message("/lastmarker/name", marker_name)
@@ -142,6 +157,7 @@ class Reaper(Daw):
     def get_marker_id_by_name(self, name: str):
         # Asks for current marker information based upon number of markers.
         from app_settings import settings
+
         if self.is_playing is False:
             self.name_to_match = name
             if settings.name_only_match:
@@ -175,14 +191,18 @@ class Reaper(Daw):
     def _reaper_rec(self):
         # Sends action to skip to end of project and then record, to prevent overwrites
         from app_settings import settings
+
         settings.marker_mode = "Recording"
-        pub.sendMessage("mode_select_osc", selected_mode=PlaybackState.RECORDING)
+        pub.sendMessage(
+            PyPubSubTopics.CHANGE_PLAYBACK_STATE, selected_mode=PlaybackState.RECORDING
+        )
         with self.reaper_send_lock:
             self.reaper_client.send_message("/action", 40043)
             self.reaper_client.send_message("/action", 1013)
 
     def _handle_cue_load(self, cue: str) -> None:
         from app_settings import settings
+
         if settings.marker_mode == "Recording" and self.is_recording is True:
             self._place_marker_with_name(cue)
         elif settings.marker_mode == "PlaybackTrack" and self.is_playing is False:

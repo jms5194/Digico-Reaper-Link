@@ -11,6 +11,7 @@ import sys
 
 class CaseInsensitiveDict(OrderedDict):
     """OrderedDict with case-insensitive keys."""
+
     _dict: OrderedDict
 
     def __init__(self, *args, **kwargs):
@@ -34,24 +35,22 @@ class Config(ConfigParser):
     """Parser for REAPER .ini file."""
 
     def __init__(self, ini_file):
-        super().__init__(
-            strict=False, delimiters="=", dict_type=CaseInsensitiveDict
-        )
+        super().__init__(strict=False, delimiters="=", dict_type=CaseInsensitiveDict)
         self.optionxform = str
         self.ini_file = ini_file
         if not os.path.exists(ini_file):
             pathlib.Path(ini_file).touch()
-        self.read(self.ini_file, encoding='utf8')
+        self.read(self.ini_file, encoding="utf8")
 
     def write(self):
         # Backup config state before user has ever tried Reaper-Digico Link
-        before_rd_file = self.ini_file + '.before-Reaper-Digico.bak'
+        before_rd_file = self.ini_file + ".before-Reaper-Digico.bak"
         if not os.path.exists(before_rd_file):
             shutil.copy(self.ini_file, before_rd_file)
         # Backup current config
-        shutil.copy(self.ini_file, self.ini_file + '.bak')
+        shutil.copy(self.ini_file, self.ini_file + ".bak")
         # Write config
-        with open(self.ini_file, "w", encoding='utf8') as f:
+        with open(self.ini_file, "w", encoding="utf8") as f:
             super().write(f, False)
 
 
@@ -82,7 +81,11 @@ def add_OSC_interface(resource_path, rcv_port=8000, snd_port=9000):
     csurf_count += 1
     config["reaper"]["csurf_cnt"] = str(csurf_count)
     key = "csurf_{}".format(csurf_count - 1)
-    config["reaper"][key] = "OSC \"Reaper-Digico Link\" 3 {sndport} \"127.0.0.1\" {rcvport} 1024 10 \"\"".format(rcvport=rcv_port, sndport=snd_port)
+    config["reaper"][key] = (
+        'OSC "Reaper-Digico Link" 3 {sndport} "127.0.0.1" {rcvport} 1024 10 ""'.format(
+            rcvport=rcv_port, sndport=snd_port
+        )
+    )
     config.write()
 
 
@@ -109,33 +112,35 @@ def osc_interface_exists(resource_path, rcv_port, snd_port):
     for i in range(csurf_count):
         string = config["reaper"]["csurf_{}".format(i)]
         if string.startswith("OSC"):  # It's a web interface
-            if string.split(" ")[4] == str(snd_port) and string.split(" ")[6] == str(rcv_port):  # It's the one
+            if string.split(" ")[4] == str(snd_port) and string.split(" ")[6] == str(
+                rcv_port
+            ):  # It's the one
                 return True
     return False
 
 
 def get_resource_path(detect_portable_install):
     for i in get_candidate_directories(detect_portable_install):
-        if os.path.exists(os.path.join(i, 'reaper.ini')):
+        if os.path.exists(os.path.join(i, "reaper.ini")):
             return i
-    raise RuntimeError('Cannot find resource path')
+    raise RuntimeError("Cannot find resource path")
 
 
 def get_candidate_directories(detect_portable_install):
     if detect_portable_install:
         yield get_portable_resource_directory()
     if is_apple():
-        yield os.path.expanduser('~/Library/Application Support/REAPER')
+        yield os.path.expanduser("~/Library/Application Support/REAPER")
     elif is_windows():
-        yield os.path.expandvars(r'$APPDATA\REAPER')
+        yield os.path.expandvars(r"$APPDATA\REAPER")
     else:
-        yield os.path.expanduser('~/.config/REAPER')
+        yield os.path.expanduser("~/.config/REAPER")
 
 
 def get_portable_resource_directory():
     process_path = get_reaper_process_path()
     if is_apple():
-        return '/'.join(process_path.split('/')[:-4])
+        return "/".join(process_path.split("/")[:-4])
     return os.path.dirname(process_path)
 
 
@@ -154,17 +159,18 @@ def get_reaper_process_path():
         running.
     """
     processes = [
-        p for p in psutil.process_iter(['name', 'exe'])
-        if os.path.splitext(p.info['name']  # type:ignore
-                            )[0].lower() == 'reaper'
+        p
+        for p in psutil.process_iter(["name", "exe"])
+        if os.path.splitext(
+            p.info["name"]  # type:ignore
+        )[0].lower()
+        == "reaper"
     ]
     if not processes:
-        raise RuntimeError('No REAPER instance is currently running.')
+        raise RuntimeError("No REAPER instance is currently running.")
     elif len(processes) > 1:
-        raise RuntimeError(
-            'More than one REAPER instance is currently running.'
-        )
-    return processes[0].info['exe']  # type:ignore
+        raise RuntimeError("More than one REAPER instance is currently running.")
+    return processes[0].info["exe"]  # type:ignore
 
 
 def is_apple() -> bool:

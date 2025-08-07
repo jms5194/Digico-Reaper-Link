@@ -1,5 +1,5 @@
 import datetime
-from enum import StrEnum
+from enum import StrEnum, auto
 
 APPLICATION_NAME = "MarkerMatic"
 APPLICATION_NAME_LEGACY = "Digico-Reaper Link"
@@ -30,3 +30,16 @@ class TransportAction(StrEnum):
     PLAY = "play"
     STOP = "stop"
     RECORD = "record"
+
+
+class PyPubSubTopics(StrEnum):
+    REQUEST_DAW_RESTART = auto()
+    UPDATE_MAIN_WINDOW_DISPLAY_SETTINGS = auto()
+    SHUTDOWN_SERVERS = auto()
+    HANDLE_CUE_LOAD = auto()
+    CONSOLE_CONNECTED = auto()
+    CONSOLE_DISCONNECTED = auto()
+    CHANGE_PLAYBACK_STATE = auto()
+    PLACE_MARKER_WITH_NAME = auto()
+    DAW_CONNECTION_STATUS = auto()
+    TRANSPORT_ACTION = auto()

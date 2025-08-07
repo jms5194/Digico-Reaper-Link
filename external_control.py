@@ -6,7 +6,7 @@ from pubsub import pub
 from pythonosc.dispatcher import Dispatcher
 from pythonosc.osc_server import ThreadingOSCUDPServer
 
-from constants import PlaybackState, TransportAction
+from constants import PlaybackState, PyPubSubTopics, TransportAction
 from logger_config import logger
 
 
@@ -25,7 +25,7 @@ def external_osc_control():
         server = ThreadingOSCUDPServer(
             ("0.0.0.0", settings.external_control_port), dispatcher
         )
-        pub.subscribe(server.shutdown, "shutdown_servers")
+        pub.subscribe(server.shutdown, PyPubSubTopics.SHUTDOWN_SERVERS)
         server.serve_forever()
 
 
@@ -46,7 +46,7 @@ def _handle_mode_change(_: str, mode: str) -> None:
     except ValueError:
         logger.warning("%s is not a supported playback state", mode)
         return
-    pub.sendMessage("mode_select_osc", selected_mode=playback_state)
+    pub.sendMessage(PyPubSubTopics.CHANGE_PLAYBACK_STATE, selected_mode=playback_state)
 
 
 def _handle_transport_change(_: str, mode: str) -> None:
@@ -55,24 +55,28 @@ def _handle_transport_change(_: str, mode: str) -> None:
     except ValueError:
         logger.warning("%s is not a supported transport state", mode)
         return
-    pub.sendMessage("incoming_transport_action", transport_action=playback_state)
+    pub.sendMessage(PyPubSubTopics.TRANSPORT_ACTION, transport_action=playback_state)
 
 
 def _handle_marker(_: str, marker_name: Optional[str]) -> None:
     if marker_name is not None:
-        pub.sendMessage("place_marker_with_name", marker_name=marker_name)
+        pub.sendMessage(PyPubSubTopics.PLACE_MARKER_WITH_NAME, marker_name=marker_name)
     else:
         pub.sendMessage(
-            "place_marker_with_name", marker_name="Marker from External Control"
+            PyPubSubTopics.PLACE_MARKER_WITH_NAME,
+            marker_name="Marker from External Control",
         )
 
 
 def external_midi_control():
     from app_settings import settings
+
     if settings.external_control_midi_port:
-        port = mido.open_input(port=settings.external_control_midi_port, callback=_handle_midi_message)
+        port = mido.open_input(
+            port=settings.external_control_midi_port, callback=_handle_midi_message
+        )
         logger.info(f"Opened MIDI port {settings.external_control_midi_port}")
-        pub.subscribe(port.close, "shutdown_servers")
+        pub.subscribe(port.close, PyPubSubTopics.SHUTDOWN_SERVERS)
         logger.info("External Midi control started")
 
 
@@ -96,19 +100,22 @@ def _handle_midi_message(message: mido.Message) -> None:
                 # If MMC Play is received, send a play command
                 logger.info("Received MMC Play command")
                 pub.sendMessage(
-                    "incoming_transport_action", transport_action=TransportAction.PLAY
+                    PyPubSubTopics.TRANSPORT_ACTION,
+                    transport_action=TransportAction.PLAY,
                 )
             elif message.hex() == "F0 7F 06 03 F7":
                 logger.info("Received MMC Stop command")
                 # If MMC Stop is received, send a stop command
                 pub.sendMessage(
-                    "incoming_transport_action", transport_action=TransportAction.STOP
+                    PyPubSubTopics.TRANSPORT_ACTION,
+                    transport_action=TransportAction.STOP,
                 )
             elif message.hex() == "F0 7F 06 06 F7":
                 logger.info("Received MMC Record command")
                 # If MMC Record is received, send a record command
                 pub.sendMessage(
-                    "incoming_transport_action", transport_action=TransportAction.RECORD
+                    PyPubSubTopics.TRANSPORT_ACTION,
+                    transport_action=TransportAction.RECORD,
                 )
         else:
             pass

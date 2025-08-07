@@ -35,6 +35,7 @@ def verify_markermatic_bridge_in_user_dir():
             copy_markermatic_bridge_to_bitwig_extensions(package_file)
             return False
 
+
 def copy_markermatic_bridge_to_bitwig_extensions(package_file):
     destination_directory = get_bitwig_extensions_path()
     filename = os.path.basename(package_file)
@@ -44,6 +45,7 @@ def copy_markermatic_bridge_to_bitwig_extensions(package_file):
     shutil.copy(package_file, destination_path)
     logger.info(f"Extension '{filename}' copied or replaced successfully.")
     logger.info("Copied Markermatic Bridge to Bitwig extensions directory.")
+
 
 def get_bitwig_extensions_path() -> pathlib.Path:
     # Return the path to the Bitwig extensions directory based on the OS
@@ -55,26 +57,30 @@ def get_bitwig_extensions_path() -> pathlib.Path:
         return pathlib.Path.home() / "Bitwig Studio" / "Extensions"
     else:
         return pathlib.Path.home()
-    
+
+
 def is_apple() -> bool:
     """Return whether OS is macOS or OSX."""
     return sys.platform == "darwin"
+
 
 def is_windows() -> bool:
     """Return whether OS is Windows."""
     return sys.platform == "win32"
 
+
 def is_linux() -> bool:
     """Return whether OS is Linux."""
     return sys.platform.startswith("linux")
 
+
 def calculate_md5_checksum(file_path):
-        """Calculates the MD5 checksum of a given file."""
-        hasher = hashlib.md5()
-        with open(file_path, 'rb') as f:  # Open in binary read mode
-            while True:
-                chunk = f.read(8192)  # Read in chunks for large files
-                if not chunk:
-                    break
-                hasher.update(chunk)
-        return hasher.hexdigest()
+    """Calculates the MD5 checksum of a given file."""
+    hasher = hashlib.md5()
+    with open(file_path, "rb") as f:  # Open in binary read mode
+        while True:
+            chunk = f.read(8192)  # Read in chunks for large files
+            if not chunk:
+                break
+            hasher.update(chunk)
+    return hasher.hexdigest()

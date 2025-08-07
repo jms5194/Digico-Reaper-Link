@@ -15,6 +15,7 @@ import constants
 import external_control
 from app_settings import settings
 from consoles import CONSOLES, Console
+from constants import PyPubSubTopics
 from daws import DAWS, Daw
 from logger_config import logger
 
@@ -140,7 +141,9 @@ class DawConsoleBridge:
             updater["main"]["daw_type"] = str(daw_type)
             updater["main"]["always_on_top"] = str(always_on_top)
             updater["main"]["external_control_port"] = str(external_control_port)
-            updater["main"]["external_control_midi_port"] = str(external_control_midi_port)
+            updater["main"]["external_control_midi_port"] = str(
+                external_control_midi_port
+            )
             updater["main"]["mmc_control_enabled"] = str(mmc_control_enabled)
         except Exception as e:
             logger.error(f"Failed to update config file: {e}")
@@ -206,8 +209,11 @@ class DawConsoleBridge:
         else:
             logger.error("Console is not supported!")
         self.start_managed_thread(
-            "external_osc_control", external_control.external_osc_control)
-        self.start_managed_thread("external_midi_control", external_control.external_midi_control)
+            "external_osc_control", external_control.external_osc_control
+        )
+        self.start_managed_thread(
+            "external_midi_control", external_control.external_midi_control
+        )
 
     @property
     def console(self) -> Console:
@@ -216,7 +222,7 @@ class DawConsoleBridge:
     @console.setter
     def console(self, value: Console) -> None:
         self._console = value
-        pub.sendMessage("console_disconnected")
+        pub.sendMessage(PyPubSubTopics.CONSOLE_DISCONNECTED)
 
     @property
     def daw(self) -> Daw:
@@ -225,7 +231,7 @@ class DawConsoleBridge:
     @daw.setter
     def daw(self, value: Daw) -> None:
         self._daw = value
-        pub.sendMessage("daw_connection_status", daw=value)
+        pub.sendMessage(PyPubSubTopics.DAW_CONNECTION_STATUS, daw=value)
 
     # Console Functions:
 
@@ -238,7 +244,7 @@ class DawConsoleBridge:
                     self.console.heartbeat()
             except Exception as e:
                 logger.error(f"Heartbeat loop error: {e}")
-                pub.sendMessage("console_disconnected")
+                pub.sendMessage(PyPubSubTopics.CONSOLE_DISCONNECTED)
             time.sleep(3)
 
     def stop_all_threads(self):
@@ -248,8 +254,8 @@ class DawConsoleBridge:
             "daw_connection_thread",
             "repeater_osc_thread",
             "heartbeat_thread",
-            'daw_heartbeat_thread',
-            'daw_osc_config_thread',
+            "daw_heartbeat_thread",
+            "daw_osc_config_thread",
             "external_osc_control",
             "external_midi_control",
         ]:
@@ -261,7 +267,7 @@ class DawConsoleBridge:
     def close_servers(self):
         logger.info("Closing OSC servers...")
         self.console_name_event.set()  # Signal heartbeat to exit
-        pub.sendMessage("shutdown_servers")
+        pub.sendMessage(PyPubSubTopics.SHUTDOWN_SERVERS)
         self.stop_all_threads()
         logger.info("All servers closed and threads joined.")
         return True

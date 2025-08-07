@@ -6,9 +6,10 @@ from logger_config import logger
 from typing import Any, Callable
 import threading
 
-from constants import TransportAction
+from constants import PyPubSubTopics, TransportAction
 
 from py4j.java_gateway import JavaGateway
+
 
 class Bitwig(Daw):
     type = "Bitwig"
@@ -20,28 +21,32 @@ class Bitwig(Daw):
         self.gateway_entry_point = None
         self.marker_dict = {}
         self.gateway = None
-        pub.subscribe(self._place_marker_with_name, "place_marker_with_name")
-        pub.subscribe(self._incoming_transport_action, "incoming_transport_action")
-        pub.subscribe(self._handle_cue_load, "handle_cue_load")
-        pub.subscribe(self._shutdown_servers, "shutdown_servers")
-        pub.subscribe(self._shutdown_server_event.set, "shutdown_servers")
+        pub.subscribe(
+            self._place_marker_with_name, PyPubSubTopics.PLACE_MARKER_WITH_NAME
+        )
+        pub.subscribe(self._incoming_transport_action, PyPubSubTopics.TRANSPORT_ACTION)
+        pub.subscribe(self._handle_cue_load, PyPubSubTopics.HANDLE_CUE_LOAD)
+        pub.subscribe(self._shutdown_servers, PyPubSubTopics.SHUTDOWN_SERVERS)
+        pub.subscribe(self._shutdown_server_event.set, PyPubSubTopics.SHUTDOWN_SERVERS)
 
     def start_managed_threads(
-            self, start_managed_thread: Callable[[str, Any], None]
+        self, start_managed_thread: Callable[[str, Any], None]
     ) -> None:
         self._shutdown_server_event.clear()
-        start_managed_thread("validate_bitwig_prefs_thread", self._validate_bitwig_prefs)
+        start_managed_thread(
+            "validate_bitwig_prefs_thread", self._validate_bitwig_prefs
+        )
         logger.info("Starting Bitwig Connection thread")
         start_managed_thread("daw_connection_thread", self._open_bitwig_connection)
 
     def _validate_bitwig_prefs(self):
         # If the Bitwig Extensions directory does not contain our Markermatic Bridge, copy it over
-            try:
-                if not configure_bitwig.verify_markermatic_bridge_in_user_dir():
-                    pub.sendMessage("reset_daw", resetdaw=True, daw_name="Bitwig")
-                return True
-            except Exception as e:
-                logger.error(f"Unable to install Bitwig extension or error occurred: {e}")
+        try:
+            if not configure_bitwig.verify_markermatic_bridge_in_user_dir():
+                pub.sendMessage(PyPubSubTopics.REQUEST_DAW_RESTART, daw_name="Bitwig")
+            return True
+        except Exception as e:
+            logger.error(f"Unable to install Bitwig extension or error occurred: {e}")
 
     def _open_bitwig_connection(self):
         while not self._shutdown_server_event.is_set():
@@ -82,7 +87,6 @@ class Bitwig(Daw):
             cur_marker_split = cur_marker_info.split("<>")
             self.marker_dict[i] = cur_marker_split
 
-
     def _add_to_marker_dict(self, new_marker_num: int):
         cur_marker_info = self.gateway_entry_point.getCueMarkerInfo(new_marker_num)
         cur_marker_split = cur_marker_info.split("<>")
@@ -99,14 +103,22 @@ class Bitwig(Daw):
 
     def _handle_cue_load(self, cue: str):
         from app_settings import settings
-        if (settings.marker_mode == "Recording" and self.bitwig_transport.isPlaying().get() and
-                self.bitwig_transport.isArrangerRecordEnabled().get()):
+
+        if (
+            settings.marker_mode == "Recording"
+            and self.bitwig_transport.isPlaying().get()
+            and self.bitwig_transport.isArrangerRecordEnabled().get()
+        ):
             self._place_marker_with_name(cue)
-        elif settings.marker_mode == "PlaybackTrack" and not self.bitwig_transport.isPlaying().get():
+        elif (
+            settings.marker_mode == "PlaybackTrack"
+            and not self.bitwig_transport.isPlaying().get()
+        ):
             self._goto_marker_by_name(cue)
 
     def _goto_marker_by_name(self, cue: str):
         from app_settings import settings
+
         possible_markers = []
         if settings.name_only_match:
             cue_name_only_list = cue.split(" ")[1:]
@@ -128,7 +140,9 @@ class Bitwig(Daw):
             pass
         else:
             try:
-                possible_markers = [key for key, value in self.marker_dict.items() if value[0] == cue]
+                possible_markers = [
+                    key for key, value in self.marker_dict.items() if value[0] == cue
+                ]
             except Exception:
                 logger.info("Bitwig found no matching marker")
                 return
@@ -156,5 +170,3 @@ class Bitwig(Daw):
     def _shutdown_servers(self):
         logger.info("Closing connection to Bitwig")
         self.gateway.close()
-
-

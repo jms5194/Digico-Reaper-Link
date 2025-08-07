@@ -8,8 +8,9 @@ from typing import Any, Callable
 from logger_config import logger
 import threading
 import sys
-from constants import TransportAction
+from constants import PyPubSubTopics, TransportAction
 import grpc
+
 
 class ProTools(Daw):
     type = "ProTools"
@@ -19,29 +20,32 @@ class ProTools(Daw):
         super().__init__()
         self.pt_engine_connection = None
         self.pt_send_lock = threading.Lock()
-        pub.subscribe(self._place_marker_with_name, "place_marker_with_name")
-        pub.subscribe(self._incoming_transport_action, "incoming_transport_action")
-        pub.subscribe(self._handle_cue_load, "handle_cue_load")
-        pub.subscribe(self._shutdown_servers, "shutdown_servers")
-        pub.subscribe(self._shutdown_server_event.set, "shutdown_servers")
+        pub.subscribe(
+            self._place_marker_with_name, PyPubSubTopics.PLACE_MARKER_WITH_NAME
+        )
+        pub.subscribe(self._incoming_transport_action, PyPubSubTopics.TRANSPORT_ACTION)
+        pub.subscribe(self._handle_cue_load, PyPubSubTopics.HANDLE_CUE_LOAD)
+        pub.subscribe(self._shutdown_servers, PyPubSubTopics.SHUTDOWN_SERVERS)
+        pub.subscribe(self._shutdown_server_event.set, PyPubSubTopics.SHUTDOWN_SERVERS)
 
     def start_managed_threads(
-            self, start_managed_thread: Callable[[str, Any], None]
+        self, start_managed_thread: Callable[[str, Any], None]
     ) -> None:
         logger.info("Starting Pro Tools Connection thread")
-        start_managed_thread(
-            "daw_connection_thread", self._open_protools_connection
-        )
+        start_managed_thread("daw_connection_thread", self._open_protools_connection)
 
     def _open_protools_connection(self):
         # Open a connection to Pro Tools using the PTSL scripting interface
         while not self._shutdown_server_event.is_set():
             try:
-                self.pt_engine_connection = ptsl.engine.Engine(company_name="JSSD",
-                                                 application_name=sys.argv[0])
+                self.pt_engine_connection = ptsl.engine.Engine(
+                    company_name="JSSD", application_name=sys.argv[0]
+                )
                 if self.pt_engine_connection is not None:
                     logger.info("Connection established to Pro Tools")
-                    pub.sendMessage("daw_connection_status", connected=True)
+                    pub.sendMessage(
+                        PyPubSubTopics.DAW_CONNECTION_STATUS, connected=True
+                    )
                     return True
             except Exception:
                 logger.error("Unable to connect to Pro Tools. Retrying in 1 second")
@@ -53,7 +57,12 @@ class ProTools(Daw):
         with self.pt_send_lock:
             assert self.pt_engine_connection
             try:
-                self.pt_engine_connection.create_memory_location(memory_number=-1, start_time="current_pos", name=marker_name, location="MLC_MainRuler")
+                self.pt_engine_connection.create_memory_location(
+                    memory_number=-1,
+                    start_time="current_pos",
+                    name=marker_name,
+                    location="MLC_MainRuler",
+                )
                 # -1 seems to be a magic number for the next available memory_number.
                 # Start_time as current_pos is a hacky way to get it to drop where the playhead is- but throws an error.
                 # There must be a constant to put here that doesn't throw the error.
@@ -61,10 +70,9 @@ class ProTools(Daw):
                 if e.error_type == pt.PT_InvalidParameter:
                     logger.error("Bad parameter input to create_memory_location")
             except grpc._channel._InactiveRpcError:
-                pub.sendMessage("daw_connection_status", connected=False)
+                pub.sendMessage(PyPubSubTopics.DAW_CONNECTION_STATUS, connected=False)
                 logger.error("Pro Tools connection lost, Retrying connection")
                 self._open_protools_connection()
-
 
     def _incoming_transport_action(self, transport_action):
         # If transport actions are received from the console, send to Pro Tools
@@ -81,16 +89,27 @@ class ProTools(Daw):
     def _handle_cue_load(self, cue: str):
         # Receives cue information from console and actions based on software mode
         from app_settings import settings
-        if settings.marker_mode == "Recording" and self._get_current_transport_state() == "TS_TransportRecording":
+
+        if (
+            settings.marker_mode == "Recording"
+            and self._get_current_transport_state() == "TS_TransportRecording"
+        ):
             self._place_marker_with_name(cue)
-        elif settings.marker_mode == "PlaybackTrack" and self._get_current_transport_state() == "TS_TransportStopped":
+        elif (
+            settings.marker_mode == "PlaybackTrack"
+            and self._get_current_transport_state() == "TS_TransportStopped"
+        ):
             self._get_marker_id_by_name(cue)
 
     def _get_marker_id_by_name(self, name):
         # Match marker by name to the MemoryLocation object it represents
         from app_settings import settings
+
         name_to_match = name
-        if self._get_current_transport_state() not in ("TS_TransportPlaying", "TS_TransportRecording"):
+        if self._get_current_transport_state() not in (
+            "TS_TransportPlaying",
+            "TS_TransportRecording",
+        ):
             if settings.name_only_match:
                 name_to_match = name_to_match.split(" ")
                 name_to_match = name_to_match[1:]
@@ -110,27 +129,29 @@ class ProTools(Daw):
                     except Exception:
                         logger.error("No matching memory location found")
                     except grpc._channel._InactiveRpcError:
-                        pub.sendMessage("daw_connection_status", connected=False)
+                        pub.sendMessage(
+                            PyPubSubTopics.DAW_CONNECTION_STATUS, connected=False
+                        )
                         logger.error("Pro Tools connection lost, Retrying connection")
                         self._open_protools_connection()
 
     def _goto_marker_by_loc(self, memory_loc):
         # Jump playhead to the given memory location
-            match_loc_time = str(memory_loc.start_time)
-            with self.pt_send_lock:
-                try:
-                    self.pt_engine_connection.set_timeline_selection(in_time=match_loc_time)
-                except grpc._channel._InactiveRpcError:
-                    pub.sendMessage("daw_connection_status", connected=False)
-                    logger.error("Pro Tools connection lost, Retrying connection")
-                    self._open_protools_connection()
+        match_loc_time = str(memory_loc.start_time)
+        with self.pt_send_lock:
+            try:
+                self.pt_engine_connection.set_timeline_selection(in_time=match_loc_time)
+            except grpc._channel._InactiveRpcError:
+                pub.sendMessage(PyPubSubTopics.DAW_CONNECTION_STATUS, connected=False)
+                logger.error("Pro Tools connection lost, Retrying connection")
+                self._open_protools_connection()
 
     def _get_current_transport_state(self):
         with self.pt_send_lock:
             try:
                 return self.pt_engine_connection.transport_state()
             except grpc._channel._InactiveRpcError:
-                pub.sendMessage("daw_connection_status", connected=False)
+                pub.sendMessage(PyPubSubTopics.DAW_CONNECTION_STATUS, connected=False)
                 logger.error("Pro Tools connection lost, Retrying connection")
                 self._open_protools_connection()
 
@@ -141,17 +162,22 @@ class ProTools(Daw):
             assert self.pt_engine_connection
             try:
                 current_transport_state = self.pt_engine_connection.transport_state()
-                if current_transport_state not in ("TS_TransportPlaying", "TS_TransportRecording"):
+                if current_transport_state not in (
+                    "TS_TransportPlaying",
+                    "TS_TransportRecording",
+                ):
                     try:
                         self.pt_engine_connection.toggle_play_state()
                     except ptsl.errors.CommandError as e:
                         if e.error_type == pt.PT_NoOpenedSession:
-                            logger.error("Play command failed, no session is currently open")
+                            logger.error(
+                                "Play command failed, no session is currently open"
+                            )
                             return False
             except grpc._channel._InactiveRpcError:
-                pub.sendMessage("daw_connection_status", connected=False)
+                pub.sendMessage(PyPubSubTopics.DAW_CONNECTION_STATUS, connected=False)
                 logger.error("Pro Tools connection lost, Retrying connection")
-                self._open_protools_connection()    
+                self._open_protools_connection()
             return None
 
     def _pro_tools_stop(self):
@@ -161,15 +187,20 @@ class ProTools(Daw):
             assert self.pt_engine_connection
             try:
                 current_transport_state = self.pt_engine_connection.transport_state()
-                if current_transport_state not in ("TS_TransportStopped", "TS_TransportStopping"):
+                if current_transport_state not in (
+                    "TS_TransportStopped",
+                    "TS_TransportStopping",
+                ):
                     try:
                         self.pt_engine_connection.toggle_play_state()
                     except ptsl.errors.CommandError as e:
                         if e.error_type == pt.PT_NoOpenedSession:
-                            logger.error("Play command failed, no session is currently open")
+                            logger.error(
+                                "Play command failed, no session is currently open"
+                            )
                             return False
             except grpc._channel._InactiveRpcError:
-                pub.sendMessage("daw_connection_status", connected=False)
+                pub.sendMessage(PyPubSubTopics.DAW_CONNECTION_STATUS, connected=False)
                 logger.error("Pro Tools connection lost, Retrying connection")
                 self._open_protools_connection()
             return None
@@ -188,10 +219,12 @@ class ProTools(Daw):
                             self.pt_engine_connection.toggle_play_state()
                         except ptsl.errors.CommandError as e:
                             if e.error_type == pt.PT_NoOpenedSession:
-                                logger.error("Play command failed, no session is currently open")
+                                logger.error(
+                                    "Play command failed, no session is currently open"
+                                )
                                 return False
             except grpc._channel._InactiveRpcError:
-                pub.sendMessage("daw_connection_status", connected=False)
+                pub.sendMessage(PyPubSubTopics.DAW_CONNECTION_STATUS, connected=False)
                 logger.error("Pro Tools connection lost, Retrying connection")
                 self._open_protools_connection()
             return None

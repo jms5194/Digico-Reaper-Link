@@ -5,6 +5,8 @@ from typing import Any, Callable, List
 from pubsub import pub
 from pythonosc import udp_client
 
+from constants import PyPubSubTopics
+
 from . import Console, Feature
 
 
@@ -31,7 +33,9 @@ class BehringerX32(Console):
     def _console_client_thread(self) -> None:
         from app_settings import settings
 
-        self._client = udp_client.DispatchClient(settings.console_ip, self.fixed_send_port)
+        self._client = udp_client.DispatchClient(
+            settings.console_ip, self.fixed_send_port
+        )
         for show_control_mode in BehringerX32ShowControlMode:
             self._client.dispatcher.map(
                 f"/-show/showfile/{show_control_mode.name.lower()}/*/name",
@@ -104,7 +108,9 @@ class BehringerX32(Console):
         print(cue_name, cue_type[0], cue_name)
         self._message_received()
         if cue_type[0] is self._show_control_mode and self._cue_number != -1:
-            pub.sendMessage("handle_cue_load", cue=f"{self._cue_number} {cue_name}")
+            pub.sendMessage(
+                PyPubSubTopics.HANDLE_CUE_LOAD, cue=f"{self._cue_number} {cue_name}"
+            )
 
     def _console_name_received(
         self,
@@ -118,7 +124,9 @@ class BehringerX32(Console):
         self._message_received()
 
     def _message_received(self, *_) -> None:
-        pub.sendMessage("console_connected", consolename=self._console_name)
+        pub.sendMessage(
+            PyPubSubTopics.CONSOLE_CONNECTED, consolename=self._console_name
+        )
 
     def heartbeat(self) -> None:
         if hasattr(self, "_client"):
