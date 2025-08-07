@@ -375,7 +375,7 @@ class MainPanel(wx.Panel):
         def inner(daw_name):
             dlg = wx.MessageDialog(
                 self,
-                f"{daw_name} has been configured for use with {constants.APPLICATION_NAME}."
+                f"{daw_name} has been configured for use with {constants.APPLICATION_NAME}.\n"
                 f"Please restart {daw_name} and press OK",
                 f"{daw_name} Configured",
                 wx.OK | wx.ICON_QUESTION,
