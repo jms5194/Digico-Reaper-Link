@@ -21,43 +21,40 @@ def backup_config_file(config_file_path):
 
 def enable_osc_interface(resource_path):
     # Parse the XML configuration document
-    backup_config_file(resource_path)
-    config_path = os.path.join(resource_path, "config")
-    config = ET.parse(config_path)
-    root = config.getroot()
-    osc_config = root.find(
-        "./ControlProtocols/Protocol[@name='Open Sound Control (OSC)']"
-    )
-    osc_config.attrib["active"] = "1"
-    config.write(config_path)
+    try:
+        while get_ardour_process_path() is not None:
+            time.sleep(1.0)
+    except RuntimeError:
+        backup_config_file(resource_path)
+        config_path = os.path.join(resource_path, "config")
+        config = ET.parse(config_path)
+        root = config.getroot()
+        osc_config = root.find(
+            "./ControlProtocols/Protocol[@name='Open Sound Control (OSC)']"
+        )
+        osc_config.attrib["active"] = "1"
+        config.write(config_path)
+        logger.info("Wrote an updated Ardour config file with OSC enabled")
 
 
 def osc_interface_exists(resource_path):
+    config = ET.parse(os.path.join(resource_path, "config"))
+    root = config.getroot()
     try:
-        get_ardour_process_path()
-    except RuntimeError:
-        config = ET.parse(os.path.join(resource_path, "config"))
-        root = config.getroot()
-        try:
-            osc_config = root.find("./ControlProtocols/Protocol[@name='Open Sound Control (OSC)']")
-            if osc_config is None:
-                logger.info("Ardour OSC interface config does not exist")
-                return False
-        except ET.ParseError:
-            logger.error("Error parsing Ardour config file")
-            return False    
-        assert isinstance(osc_config, xml.etree.ElementTree.Element)
-        try:
-            if (osc_config.attrib["active"] == "1"):
-                return True
-            else:
-                logger.info("OSC interface is not active")
-                return False
-        except KeyError:
-            logger.error("Ardour config is missing keys")
+        osc_config = root.find("./ControlProtocols/Protocol[@name='Open Sound Control (OSC)']")
+    except xml.etree.ElementTree.ParseError as e:
+        logger.error(f"Error parsing Ardour config: {e}")
+        return False
+    assert isinstance(osc_config, xml.etree.ElementTree.Element)
+    try:
+        if (osc_config.attrib["active"] == "1"):
+            return True
+        else:
+            logger.info("OSC interface is not active")
             return False
-    time.sleep(1)
-    osc_interface_exists(get_resource_path(True))
+    except KeyError:
+        logger.error("Ardour config is missing keys")
+        return False
 
 
 def get_resource_path(detect_portable_install):
@@ -79,10 +76,14 @@ def get_candidate_directories(detect_portable_install):
 
 
 def get_portable_resource_directory():
-    process_path = get_ardour_process_path()
-    if is_apple():
-        return "/".join(process_path.split("/")[:-4])
-    return os.path.dirname(process_path)
+    try:
+        process_path = get_ardour_process_path()
+        if is_apple():
+            return "/".join(process_path.split("/")[:-4])
+        return os.path.dirname(process_path)
+    except Exception as e:
+        logger.info(f"Error getting portable resource directory: {e}")
+        return ""
 
 
 def is_apple() -> bool:

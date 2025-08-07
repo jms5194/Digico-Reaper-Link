@@ -243,7 +243,7 @@ class DawConsoleBridge:
                 if isinstance(self.console, Console):
                     self.console.heartbeat()
             except Exception as e:
-                logger.error(f"Heartbeat loop error: {e}")
+                logger.error(f"Console Heartbeat loop error: {e}")
                 pub.sendMessage(PyPubSubTopics.CONSOLE_DISCONNECTED)
             time.sleep(3)
 

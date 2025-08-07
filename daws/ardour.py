@@ -38,45 +38,24 @@ class Ardour(Daw):
     ) -> None:
         self._shutdown_server_event.clear()
         logger.info("Starting Ardour Connection thread")
-        # skipping all validation for now
+        self._validate_ardour_prefs()
         start_managed_thread("daw_connection_thread", self._build_ardour_osc_servers)
-        start_managed_thread("daw_heartbeat_thread", self._ardour_heartbeat_check)
-        start_managed_thread("daw_osc_config_thread", self._send_ardour_osc_config)
+        start_managed_thread("daw_heartbeat_thread", self._send_ardour_osc_config)
 
     def _validate_ardour_prefs(self):
-        # If the Ardour config file does not contain an entry for Digico-Reaper Link, add one.
-        while not self._shutdown_server_event.is_set():
-            try:
-                if not self._check_ardour_prefs():
-                    pub.sendMessage("reset_daw", resetdaw=True, daw_name="Ardour")
-                    self._enable_ardour_osc()
-                    pub.sendMessage(
-                        PyPubSubTopics.REQUEST_DAW_RESTART, daw_name="Ardour"
-                    )
-                else:
-                    self._build_ardour_osc_servers()
-                    return
-            except Exception as e:
-                logger.error(f"Error validating Ardour preferences: {e}")
-            time.sleep(1)
+        # Check if OSC is turned on in Ardour's config file.
+        # If not, enable it and restart Ardour.
+        try:
+            if not configure_ardour.osc_interface_exists(configure_ardour.get_resource_path(True)):
+                pub.sendMessage(PyPubSubTopics.REQUEST_DAW_RESTART, daw_name="Ardour")
+                enable_osc_thread = threading.Thread(
+                    target=configure_ardour.enable_osc_interface,
+                    args=(configure_ardour.get_resource_path(True),)
+                )
+                enable_osc_thread.start()
+        except Exception as e:
+            logger.error(f"Error validating Ardour preferences: {e}")
 
-    @staticmethod
-    def _check_ardour_prefs():
-        if configure_ardour.osc_interface_exists(
-            configure_ardour.get_resource_path(True)
-        ):
-            logger.info("Ardour OSC is already enabled")
-            return True
-        else:
-            logger.info(
-                "Ardour OSC interface config does not exist or is misconfigured"
-            )
-            return False
-
-    @staticmethod
-    def _enable_ardour_osc():
-        configure_ardour.enable_osc_interface(configure_ardour.get_resource_path(True))
-        logger.info("Enabled OSC interface in Ardour preferences")
 
     def _receive_ardour_OSC(self):
         # Receives and distributes OSC from Ardour, based on matching OSC values
@@ -113,7 +92,7 @@ class Ardour(Daw):
                         )
                         # Check that Ardour has received our configuration request
                         self.ardour_client.send_message("/set_surface", None)
-                        logger.info("Sent Ardour OSC configuration request")
+                    logger.info("Sent Ardour OSC configuration request")
                 except Exception:
                     logger.error("Ardour not yet available, retrying in 1 second")
             time.sleep(1)
@@ -127,11 +106,13 @@ class Ardour(Daw):
     def _ardour_responded_flag_set(self, osc_address, *args):
         # Watches if Ardour has responded to the OSC server.
         self._ardour_responded_event.set()
+        self._ardour_heartbeat_check()
         logger.info("Ardour has responded to OSC server")
 
     def _ardour_heartbeat_check(self):
         # Checks if Ardour is still connected and updates the UI
-        time.sleep(3)  # Initial delay to allow Ardour to respond
+        # Initial delay to allow Ardour to respond
+        time.sleep(2)
         while not self._shutdown_server_event.is_set():
             if self._ardour_responded_event.is_set():
                 if time.time() - self.current_heartbeat_timestamp > 2.2:
@@ -141,10 +122,15 @@ class Ardour(Daw):
                         PyPubSubTopics.DAW_CONNECTION_STATUS,
                         connected=False,
                     )
-                    self._ardour_responded_event.clear()
                     logger.error("MarkerMatic has lost connection to Ardour. Retrying.")
-                    self.ardour_osc_server.shutdown()
-                    self.ardour_osc_server.server_close()
+                    try:
+                        if self.ardour_osc_server:
+                            self.ardour_osc_server.shutdown()
+                            self.ardour_osc_server.server_close()
+                    except Exception as e:
+                        logger.error(f"Error while shutting down Ardour server: {e}")
+                    self._ardour_responded_event.clear()
+                    break
                 else:
                     # If Ardour is still connected, set the connection status to True.
                     wx.CallAfter(
