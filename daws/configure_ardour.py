@@ -5,7 +5,7 @@ from logger_config import logger
 import psutil
 import sys
 import xml.etree.ElementTree as ET
-
+import time
 
 def backup_config_file(config_file_path):
     # Backup config state before this software modified it.
@@ -29,26 +29,31 @@ def enable_osc_interface(resource_path):
     config.write(config_path)
 
 def osc_interface_exists(resource_path):
-    config = ET.parse(os.path.join(resource_path, "config"))
-    root = config.getroot()
     try:
-        osc_config = root.find("./ControlProtocols/Protocol[@name='Open Sound Control (OSC)']")
-        if osc_config is None:
-            logger.info("Ardour OSC interface config does not exist")
+        get_ardour_process_path()
+    except RuntimeError:
+        config = ET.parse(os.path.join(resource_path, "config"))
+        root = config.getroot()
+        try:
+            osc_config = root.find("./ControlProtocols/Protocol[@name='Open Sound Control (OSC)']")
+            if osc_config is None:
+                logger.info("Ardour OSC interface config does not exist")
+                return False
+        except ET.ParseError:
+            logger.error("Error parsing Ardour config file")
+            return False    
+        assert isinstance(osc_config, xml.etree.ElementTree.Element)
+        try:
+            if (osc_config.attrib["active"] == "1"):
+                return True
+            else:
+                logger.info("OSC interface is not active")
+                return False
+        except KeyError:
+            logger.error("Ardour config is missing keys")
             return False
-    except ET.ParseError:
-        logger.error("Error parsing Ardour config file")
-        return False    
-    assert isinstance(osc_config, xml.etree.ElementTree.Element)
-    try:
-        if (osc_config.attrib["active"] == "1"):
-            return True
-        else:
-            logger.info("OSC interface is not active")
-            return False
-    except KeyError:
-        logger.error("Ardour config is missing keys")
-        return False
+    time.sleep(1)
+    osc_interface_exists(get_resource_path(True))
 
 def get_resource_path(detect_portable_install):
     for i in get_candidate_directories(detect_portable_install):
