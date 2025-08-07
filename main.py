@@ -375,7 +375,7 @@ class MainPanel(wx.Panel):
         def inner(daw_name):
             dlg = wx.MessageDialog(
                 self,
-                f"{daw_name} has been configured for use with {constants.APPLICATION_NAME}."
+                f"{daw_name} has been configured for use with {constants.APPLICATION_NAME}.\n"
                 f"Please restart {daw_name} and press OK",
                 f"{daw_name} Configured",
                 wx.OK | wx.ICON_QUESTION,
@@ -820,9 +820,6 @@ class PrefsPanel(wx.Panel):
         self.update_console_supported_features(self.console)
 
     def update_console_supported_features(self, console: Console) -> None:
-        self.console_rcv_port_control.Enabled = (
-            Feature.SEPERATE_RECEIVE_PORT in console.supported_features
-        )
         self.match_mode_label_only.Enabled = (
             Feature.CUE_NUMBER in console.supported_features
         )
@@ -839,6 +836,16 @@ class PrefsPanel(wx.Panel):
         else:
             self.console_send_port_control.SetValue(str(console.fixed_send_port))
             self.console_send_port_control.Disable()
+        self.console_rcv_port_control.Enabled = (
+            Feature.SEPERATE_RECEIVE_PORT in console.supported_features
+        )
+        if console.fixed_receive_port is None:
+            self.console_rcv_port_control.Enabled = (
+                Feature.SEPERATE_RECEIVE_PORT in console.supported_features
+            )
+        else:
+            self.console_rcv_port_control.SetValue(str(console.fixed_receive_port))
+            self.console_rcv_port_control.Disable()
 
     def update_button_pressed(self, e):
         logger.info("Updating configuration settings.")
