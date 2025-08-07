@@ -17,6 +17,8 @@ LOG_FILENAME = "MarkerMatic.log"
 VERSION = "4.0.0"
 WEBSITE = "https://markermatic.com"
 
+PORT_STUDER_EMBER_RECEIVE = 49104
+
 
 class PlaybackState(StrEnum):
     RECORDING = "recording"

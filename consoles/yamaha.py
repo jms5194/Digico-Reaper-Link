@@ -31,7 +31,7 @@ class Buffer(object):
         return line.decode()
 
 class Yamaha(Console):
-    fixed_port = 49280
+    fixed_send_port = 49280
     type = "Yamaha"
     supported_features = [Feature.CUE_NUMBER]
     _client_socket: socket.socket
@@ -46,7 +46,7 @@ class Yamaha(Console):
         while not self._shutdown_server_event.is_set():
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
                 try:
-                    sock.connect((settings.console_ip, self.fixed_port))
+                    sock.connect((settings.console_ip, self.fixed_send_port))
                     sock.settimeout(1)
                 except(TimeoutError, ConnectionRefusedError, OSError):
                     # There's got to be a better way to get to the outer sleep

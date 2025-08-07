@@ -15,7 +15,7 @@ class BehringerX32ShowControlMode(Enum):
 
 
 class BehringerX32(Console):
-    fixed_port: int = 10023
+    fixed_send_port: int = 10023
     type = "Behringer X32"
     supported_features = [Feature.CUE_NUMBER]
     _client: udp_client.DispatchClient
@@ -31,7 +31,7 @@ class BehringerX32(Console):
     def _console_client_thread(self) -> None:
         from app_settings import settings
 
-        self._client = udp_client.DispatchClient(settings.console_ip, self.fixed_port)
+        self._client = udp_client.DispatchClient(settings.console_ip, self.fixed_send_port)
         for show_control_mode in BehringerX32ShowControlMode:
             self._client.dispatcher.map(
                 f"/-show/showfile/{show_control_mode.name.lower()}/*/name",

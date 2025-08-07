@@ -9,7 +9,7 @@ from . import Console, Feature
 
 
 class BehringerXAir(Console):
-    fixed_port: int = 10024
+    fixed_send_port: int = 10024
     type = "Behringer X Air"
     supported_features = [Feature.CUE_NUMBER]
     _received_real_data = threading.Event()
@@ -25,7 +25,7 @@ class BehringerXAir(Console):
     def _console_client_thread(self) -> None:
         from app_settings import settings
 
-        self._client = udp_client.DispatchClient(settings.console_ip, self.fixed_port)
+        self._client = udp_client.DispatchClient(settings.console_ip, self.fixed_send_port)
         self._client.dispatcher.map("/-snap/name", self._snapshot_name_received)
         self._client.dispatcher.map("/-snap/index", self._snapshot_number_received)
         self._client.dispatcher.map("/xinfo", self._console_name_received)

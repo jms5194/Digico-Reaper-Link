@@ -69,7 +69,7 @@ def _handle_marker(_: str, marker_name: Optional[str]) -> None:
 
 def external_midi_control():
     from app_settings import settings
-    if not settings.external_control_midi_port:
+    if settings.external_control_midi_port:
         port = mido.open_input(port=settings.external_control_midi_port, callback=_handle_midi_message)
         logger.info(f"Opened MIDI port {settings.external_control_midi_port}")
         pub.subscribe(port.close, "shutdown_servers")

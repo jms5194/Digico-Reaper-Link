@@ -6,12 +6,14 @@ from typing import Any, Callable, List
 import asn1
 from pubsub import pub
 
+import constants
 from logger_config import logger
 
 from . import Console
 
 
 class StuderVista(Console):
+    fixed_receive_port = constants.PORT_STUDER_EMBER_RECEIVE
     type = "Studer Vista"
     supported_features = []
     _client_socket: socket.socket
@@ -32,11 +34,14 @@ class StuderVista(Console):
                 socket.AF_INET, socket.SOCK_STREAM
             ) as self._client_socket:
                 try:
+                    self._client_socket.bind(
+                        ("0.0.0.0", constants.PORT_STUDER_EMBER_RECEIVE)
+                    )
                     self._client_socket.connect(
                         (settings.console_ip, settings.console_port)
                     )
                     logger.info("Ember connected successfully")
-                except (TimeoutError, ConnectionRefusedError):
+                except (OSError, TimeoutError, ConnectionRefusedError):
                     # There's got to be a better way to get to the outer sleep
                     time.sleep(5)
                     continue
