@@ -834,11 +834,16 @@ class PrefsPanel(wx.Panel):
             self.repeater_radio_enabled.SetValue(False)
         if Feature.CUE_NUMBER not in console.supported_features:
             self.match_mode_label_only.SetValue(False)
-        if console.fixed_port is None:
+        if console.fixed_send_port is None:
             self.console_send_port_control.Enable()
         else:
-            self.console_send_port_control.SetValue(str(console.fixed_port))
+            self.console_send_port_control.SetValue(str(console.fixed_send_port))
             self.console_send_port_control.Disable()
+        if console.fixed_receive_port is None:
+            self.console_rcv_port_control.Enable()
+        else:
+            self.console_rcv_port_control.SetValue(str(console.fixed_receive_port))
+            self.console_rcv_port_control.Disable()
 
     def update_button_pressed(self, e):
         logger.info("Updating configuration settings.")
