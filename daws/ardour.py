@@ -6,7 +6,8 @@ from typing import Any, Callable
 import threading
 import time
 from constants import PlaybackState, TransportAction
-
+import wx
+from constants import PyPubSubTopics
 
 
 class Ardour(Daw):
@@ -24,22 +25,23 @@ class Ardour(Daw):
         self.ardour_osc_server = None
         self._ardour_responded_event.clear()
         self.current_heartbeat_timestamp = 0
-        pub.subscribe(self._place_marker_with_name, "place_marker_with_name")
-        pub.subscribe(self._incoming_transport_action, "incoming_transport_action")
-        pub.subscribe(self._handle_cue_load, "handle_cue_load")
-        pub.subscribe(self._shutdown_servers, "shutdown_servers")
-        pub.subscribe(self._shutdown_server_event.set, "shutdown_servers")
+        pub.subscribe(
+            self._place_marker_with_name, PyPubSubTopics.PLACE_MARKER_WITH_NAME
+        )
+        pub.subscribe(self._incoming_transport_action, PyPubSubTopics.TRANSPORT_ACTION)
+        pub.subscribe(self._handle_cue_load, PyPubSubTopics.HANDLE_CUE_LOAD)
+        pub.subscribe(self._shutdown_servers, PyPubSubTopics.SHUTDOWN_SERVERS)
+        pub.subscribe(self._shutdown_server_event.set, PyPubSubTopics.SHUTDOWN_SERVERS)
 
     def start_managed_threads(
-            self, start_managed_thread: Callable[[str, Any], None]
+        self, start_managed_thread: Callable[[str, Any], None]
     ) -> None:
         self._shutdown_server_event.clear()
         logger.info("Starting Ardour Connection thread")
-        #skipping all validation for now
+        # skipping all validation for now
         start_managed_thread("daw_connection_thread", self._build_ardour_osc_servers)
         start_managed_thread("daw_heartbeat_thread", self._ardour_heartbeat_check)
         start_managed_thread("daw_osc_config_thread", self._send_ardour_osc_config)
-
 
     def _validate_ardour_prefs(self):
         # If the Ardour config file does not contain an entry for Digico-Reaper Link, add one.
@@ -48,6 +50,9 @@ class Ardour(Daw):
                 if not self._check_ardour_prefs():
                     pub.sendMessage("reset_daw", resetdaw=True, daw_name="Ardour")
                     self._enable_ardour_osc()
+                    pub.sendMessage(
+                        PyPubSubTopics.REQUEST_DAW_RESTART, daw_name="Ardour"
+                    )
                 else:
                     self._build_ardour_osc_servers()
                     return
@@ -57,11 +62,15 @@ class Ardour(Daw):
 
     @staticmethod
     def _check_ardour_prefs():
-        if configure_ardour.osc_interface_exists(configure_ardour.get_resource_path(True)):
+        if configure_ardour.osc_interface_exists(
+            configure_ardour.get_resource_path(True)
+        ):
             logger.info("Ardour OSC is already enabled")
             return True
         else:
-            logger.info("Ardour OSC interface config does not exist or is misconfigured")
+            logger.info(
+                "Ardour OSC interface config does not exist or is misconfigured"
+            )
             return False
 
     @staticmethod
@@ -85,8 +94,9 @@ class Ardour(Daw):
             self.ardour_dispatcher = dispatcher.Dispatcher()
             self._receive_ardour_OSC()
             try:
-                self.ardour_osc_server = osc_server.ThreadingOSCUDPServer(("127.0.0.1", 3820),
-                                                                        self.ardour_dispatcher)
+                self.ardour_osc_server = osc_server.ThreadingOSCUDPServer(
+                    ("127.0.0.1", 3820), self.ardour_dispatcher
+                )
                 logger.info("Ardour OSC server started")
                 self.ardour_osc_server.serve_forever()
             except Exception as e:
@@ -98,15 +108,15 @@ class Ardour(Daw):
                 try:
                     with self.ardour_send_lock:
                         # Send a message to Ardour describing what information we want to receive
-                        self.ardour_client.send_message("/set_surface/0/159/24/0/0/0", 3820)
+                        self.ardour_client.send_message(
+                            "/set_surface/0/159/24/0/0/0", 3820
+                        )
                         # Check that Ardour has received our configuration request
                         self.ardour_client.send_message("/set_surface", None)
                         logger.info("Sent Ardour OSC configuration request")
-                except Exception as e:
+                except Exception:
                     logger.error("Ardour not yet available, retrying in 1 second")
             time.sleep(1)
-
-
 
     def _ardour_connected_status(self, osc_address, val):
         # Watches if Ardour is connected to the OSC server.
@@ -114,13 +124,11 @@ class Ardour(Daw):
             if val == 1:
                 self.current_heartbeat_timestamp = time.time()
 
-
     def _ardour_responded_flag_set(self, osc_address, *args):
         # Watches if Ardour has responded to the OSC server.
         self._ardour_responded_event.set()
         logger.info("Ardour has responded to OSC server")
 
-    
     def _ardour_heartbeat_check(self):
         # Checks if Ardour is still connected and updates the UI
         time.sleep(3)  # Initial delay to allow Ardour to respond
@@ -128,16 +136,23 @@ class Ardour(Daw):
             if self._ardour_responded_event.is_set():
                 if time.time() - self.current_heartbeat_timestamp > 2.2:
                     # If Ardour has not sent a heartbeat in the last 5 seconds, it is disconnected.
-                    pub.sendMessage("daw_connection_status", connected=False)
+                    wx.CallAfter(
+                        pub.sendMessage,
+                        PyPubSubTopics.DAW_CONNECTION_STATUS,
+                        connected=False,
+                    )
                     self._ardour_responded_event.clear()
                     logger.error("MarkerMatic has lost connection to Ardour. Retrying.")
                     self.ardour_osc_server.shutdown()
                     self.ardour_osc_server.server_close()
                 else:
                     # If Ardour is still connected, set the connection status to True.
-                    pub.sendMessage("daw_connection_status", connected=True)
+                    wx.CallAfter(
+                        pub.sendMessage,
+                        PyPubSubTopics.DAW_CONNECTION_STATUS,
+                        connected=True,
+                    )
             time.sleep(1)
-
 
     def _current_transport_state(self, osc_address, val):
         # Watches what the Ardour playhead is doing.
@@ -197,8 +212,13 @@ class Ardour(Daw):
     def _ardour_rec(self):
         # Sends action to skip to end of project and then record, to prevent overwrites
         from app_settings import settings
+
         settings.marker_mode = "Recording"
-        pub.sendMessage("mode_select_osc", selected_mode=PlaybackState.RECORDING)
+        wx.CallAfter(
+            pub.sendMessage,
+            PyPubSubTopics.CHANGE_PLAYBACK_STATE,
+            selected_mode=PlaybackState.RECORDING,
+        )
         with self.ardour_send_lock:
             self.ardour_client.send_message("/goto_end", None)
             self.ardour_client.send_message("/rec_enable_toggle", 1.0)
@@ -206,7 +226,12 @@ class Ardour(Daw):
 
     def _handle_cue_load(self, cue: str) -> None:
         from app_settings import settings
-        if settings.marker_mode == "Recording" and self.is_recording is True and self.is_playing is True:
+
+        if (
+            settings.marker_mode == "Recording"
+            and self.is_recording is True
+            and self.is_playing is True
+        ):
             self._place_marker_with_name(cue)
         elif settings.marker_mode == "PlaybackTrack" and self.is_playing is False:
             self._goto_marker_by_name(cue)

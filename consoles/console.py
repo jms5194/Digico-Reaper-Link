@@ -4,6 +4,8 @@ from typing import Callable, List, Optional
 
 from pubsub import pub
 
+from constants import PyPubSubTopics
+
 
 class Feature(Enum):
     CUE_NUMBER = 1
@@ -12,14 +14,15 @@ class Feature(Enum):
 
 
 class Console:
-    fixed_port: Optional[int] = None
+    fixed_receive_port: Optional[int] = None
+    fixed_send_port: Optional[int] = None
     _shutdown_server_event: threading.Event
     supported_features: List[Feature]
     type = "Unknown"
 
     def __init__(self) -> None:
         self._shutdown_server_event = threading.Event()
-        pub.subscribe(self._shutdown_server_event.set, "shutdown_servers")
+        pub.subscribe(self._shutdown_server_event.set, PyPubSubTopics.SHUTDOWN_SERVERS)
 
     def heartbeat(self) -> None:
         pass

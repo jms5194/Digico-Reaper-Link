@@ -13,4 +13,3 @@ DAWS = {
 
 
 __all__ = ["Daw", "Reaper", "ProTools", "Ardour", "Bitwig"]
-

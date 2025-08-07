@@ -5,11 +5,13 @@ from typing import Any, Callable
 from pubsub import pub
 from pythonosc import udp_client
 
+from constants import PyPubSubTopics
+
 from . import Console, Feature
 
 
 class BehringerXAir(Console):
-    fixed_port: int = 10024
+    fixed_send_port: int = 10024
     type = "Behringer X Air"
     supported_features = [Feature.CUE_NUMBER]
     _received_real_data = threading.Event()
@@ -25,7 +27,9 @@ class BehringerXAir(Console):
     def _console_client_thread(self) -> None:
         from app_settings import settings
 
-        self._client = udp_client.DispatchClient(settings.console_ip, self.fixed_port)
+        self._client = udp_client.DispatchClient(
+            settings.console_ip, self.fixed_send_port
+        )
         self._client.dispatcher.map("/-snap/name", self._snapshot_name_received)
         self._client.dispatcher.map("/-snap/index", self._snapshot_number_received)
         self._client.dispatcher.map("/xinfo", self._console_name_received)
@@ -46,7 +50,7 @@ class BehringerXAir(Console):
 
     def _snapshot_number_received(self, _address: str, snapshot_number: str) -> None:
         pub.sendMessage(
-            "handle_cue_load",
+            PyPubSubTopics.HANDLE_CUE_LOAD,
             cue="{cue_number} {cue_name}".format(
                 cue_number=snapshot_number, cue_name=self._snapshot_name
             ),
@@ -65,7 +69,9 @@ class BehringerXAir(Console):
         self._message_received()
 
     def _message_received(self, *_) -> None:
-        pub.sendMessage("console_connected", consolename=self._console_name)
+        pub.sendMessage(
+            PyPubSubTopics.CONSOLE_CONNECTED, consolename=self._console_name
+        )
 
     def heartbeat(self) -> None:
         if hasattr(self, "_client"):

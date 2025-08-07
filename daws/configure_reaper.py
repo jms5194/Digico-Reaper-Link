@@ -12,6 +12,7 @@ from logger_config import logger
 
 class CaseInsensitiveDict(OrderedDict):
     """OrderedDict with case-insensitive keys."""
+
     _dict: OrderedDict
 
     def __init__(self, *args, **kwargs):
@@ -44,7 +45,7 @@ class Config(ConfigParser):
         self.ini_file = ini_file
         if not os.path.exists(ini_file):
             pathlib.Path(ini_file).touch()
-        self.read(self.ini_file, encoding='utf8')
+        self.read(self.ini_file, encoding="utf8")
 
     def write(self):
         # Backup config state before user has ever tried MarkerMatic
@@ -52,9 +53,9 @@ class Config(ConfigParser):
         if not os.path.exists(before_rd_file):
             shutil.copy(self.ini_file, before_rd_file)
         # Backup current config
-        shutil.copy(self.ini_file, self.ini_file + '.bak')
+        shutil.copy(self.ini_file, self.ini_file + ".bak")
         # Write config
-        with open(self.ini_file, "w", encoding='utf8') as f:
+        with open(self.ini_file, "w", encoding="utf8") as f:
             super().write(f, False)
 
 
@@ -127,26 +128,26 @@ def osc_interface_exists(resource_path, rcv_port, snd_port):
 
 def get_resource_path(detect_portable_install):
     for i in get_candidate_directories(detect_portable_install):
-        if os.path.exists(os.path.join(i, 'reaper.ini')):
+        if os.path.exists(os.path.join(i, "reaper.ini")):
             return i
-    raise RuntimeError('Cannot find resource path')
+    raise RuntimeError("Cannot find resource path")
 
 
 def get_candidate_directories(detect_portable_install):
     if detect_portable_install:
         yield get_portable_resource_directory()
     if is_apple():
-        yield os.path.expanduser('~/Library/Application Support/REAPER')
+        yield os.path.expanduser("~/Library/Application Support/REAPER")
     elif is_windows():
-        yield os.path.expandvars(r'$APPDATA\REAPER')
+        yield os.path.expandvars(r"$APPDATA\REAPER")
     else:
-        yield os.path.expanduser('~/.config/REAPER')
+        yield os.path.expanduser("~/.config/REAPER")
 
 
 def get_portable_resource_directory():
     process_path = get_reaper_process_path()
     if is_apple():
-        return '/'.join(process_path.split('/')[:-4])
+        return "/".join(process_path.split("/")[:-4])
     return os.path.dirname(process_path)
 
 
@@ -165,17 +166,18 @@ def get_reaper_process_path():
         running.
     """
     processes = [
-        p for p in psutil.process_iter(['name', 'exe'])
-        if os.path.splitext(p.info['name']  # type:ignore
-                            )[0].lower() == 'reaper'
+        p
+        for p in psutil.process_iter(["name", "exe"])
+        if os.path.splitext(
+            p.info["name"]  # type:ignore
+        )[0].lower()
+        == "reaper"
     ]
     if not processes:
-        raise RuntimeError('No REAPER instance is currently running.')
+        raise RuntimeError("No REAPER instance is currently running.")
     elif len(processes) > 1:
-        raise RuntimeError(
-            'More than one REAPER instance is currently running.'
-        )
-    return processes[0].info['exe']  # type:ignore
+        raise RuntimeError("More than one REAPER instance is currently running.")
+    return processes[0].info["exe"]  # type:ignore
 
 
 def is_apple() -> bool:
