@@ -22,6 +22,7 @@ class CaseInsensitiveDict(OrderedDict):
             self._dict[key.lower()] = value
 
     def __contains__(self, key):
+        # Added this isinstance to deal with the UNNAMED_SECTION
         if isinstance(key, str):
             return key.lower() in self._dict
 
@@ -92,6 +93,7 @@ def add_OSC_interface(resource_path, rcv_port=8000, snd_port=9000):
         csurf_count = 1
     key = "csurf_{}".format(csurf_count - 1)
     config["reaper"][key] = "OSC \"MarkerMatic Link\" 3 {sndport} \"127.0.0.1\" {rcvport} 1024 10 \"\"".format(rcvport=rcv_port, sndport=snd_port)
+    config["reaper"]["csurf_cnt"] = str(csurf_count)
     config.write()
 
 
@@ -118,7 +120,7 @@ def osc_interface_exists(resource_path, rcv_port, snd_port):
         csurf_count = int(config["reaper"].get("csurf_cnt", "0"))
         for i in range(csurf_count):
             string = config["reaper"]["csurf_{}".format(i)]
-            if string.startswith("OSC"):  # It's a web interface
+            if string.startswith("OSC"):  # It's an OSC interface
                 if string.split(" ")[4] == str(snd_port) and string.split(" ")[6] == str(rcv_port):  # It's the one
                     return True
         return False
