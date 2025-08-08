@@ -4,26 +4,30 @@ from configparser import ConfigParser
 from consoles import DiGiCo
 from daws import Reaper
 
+
 class ThreadSafeSettings:
     def __init__(self):
         self._lock = threading.Lock()
         self._settings = {
-            'console_ip' : "10.10.10.1",
-            'reaper_ip' : "127.0.0.1",
-            'repeater_ip' : "10.10.10.10",
-            'repeater_port' : 9999,
-            'repeater_receive_port' : 9998,
-            'reaper_port' : 49102,
-            'reaper_receive_port' : 49101,
-            'console_port' : 8001,
-            'receive_port' : 8000,
-            'forwarder_enabled' : False,
-            'marker_mode' : "PlaybackTrack",
-            'window_loc' : (400, 222),
-            'window_size' : (221, 310),
-            'name_only_match' : False,
-            'console_type': DiGiCo.type,
-            'daw_type' : Reaper.type
+            "console_ip": "192.0.2.11",
+            "repeater_ip": "192.0.2.21",
+            "repeater_port": 9999,
+            "repeater_receive_port": 9998,
+            "reaper_port": 49102,
+            "reaper_receive_port": 49101,
+            "console_port": 8001,
+            "receive_port": 8000,
+            "forwarder_enabled": False,
+            "marker_mode": "PlaybackTrack",
+            "window_loc": (400, 222),
+            "window_size": (221, 310),
+            "name_only_match": False,
+            "console_type": DiGiCo.type,
+            "daw_type": Reaper.type,
+            "always_on_top": False,
+            "mmc_control_enabled": True,
+            "external control port": 49103,
+            "external_control_midi_port": None,
         }
 
     @property
@@ -35,16 +39,6 @@ class ThreadSafeSettings:
     def console_ip(self, value):
         with self._lock:
             self._settings["console_ip"] = value
-
-    @property
-    def reaper_ip(self) -> str:
-        with self._lock:
-            return self._settings["reaper_ip"]
-
-    @reaper_ip.setter
-    def reaper_ip(self, value):
-        with self._lock:
-            self._settings["reaper_ip"] = value
 
     @property
     def repeater_ip(self) -> str:
@@ -204,6 +198,52 @@ class ThreadSafeSettings:
         with self._lock:
             self._settings["daw_type"] = value
 
+    @property
+    def always_on_top(self) -> bool:
+        with self._lock:
+            return self._settings["always_on_top"]
+
+    @always_on_top.setter
+    def always_on_top(self, value):
+        with self._lock:
+            self._settings["always_on_top"] = value
+
+    @property
+    def mmc_control_enabled(self) -> bool:
+        with self._lock:
+            return self._settings["mmc_control_enabled"]
+
+    @mmc_control_enabled.setter
+    def mmc_control_enabled(self, value: bool):
+        with self._lock:
+            self._settings["mmc_control_enabled"] = value
+
+    @property
+    def external_control_port(self) -> int:
+        with self._lock:
+            return self._settings["external control port"]
+
+    @external_control_port.setter
+    def external_control_port(self, value: int):
+        with self._lock:
+            port_num = int(value)
+            if not 1 <= port_num <= 65535:
+                raise ValueError("Invalid port number")
+            self._settings["external control port"] = port_num
+
+    @property
+    def external_control_midi_port(self) -> str:
+        with self._lock:
+            return self._settings["external_control_midi_port"]
+
+    @external_control_midi_port.setter
+    def external_control_midi_port(self, value: str):
+        with self._lock:
+            if value is None or isinstance(value, str):
+                self._settings["external_control_midi_port"] = value
+            else:
+                raise ValueError("MIDI port must be a string or None")
+
     def update_from_config(self, config: ConfigParser):
         # Update settings from a ConfigParser object
         with self._lock:
@@ -212,6 +252,7 @@ class ThreadSafeSettings:
                 "repeater_ip": "repeater_ip",
                 "console_type": "console_type",
                 "daw_type": "daw_type",
+                "external_control_midi_port": "external_control_midi_port",
             }
             for settings_name, config_name in string_properties.items():
                 self._settings[settings_name] = config.get(
@@ -225,6 +266,7 @@ class ThreadSafeSettings:
                 "repeater_port": "default_repeater_send_port",
                 "repeater_receive_port": "default_repeater_receive_port",
                 "reaper_receive_port": "default_reaper_receive_port",
+                "external control port": "external_control_port",
             }
             for settings_name, config_name in int_properties.items():
                 self._settings[settings_name] = config.getint(
@@ -234,6 +276,8 @@ class ThreadSafeSettings:
             boolean_properties = {
                 "forwarder_enabled": "forwarder_enabled",
                 "name_only_match": "name_only_match",
+                "always_on_top": "always_on_top",
+                "mmc_control_enabled": "mmc_control_enabled",
             }
             for settings_name, config_name in boolean_properties.items():
                 self._settings[settings_name] = config.getboolean(
