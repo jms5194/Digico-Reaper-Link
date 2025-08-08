@@ -47,12 +47,20 @@ class Ardour(Daw):
         # If not, enable it and restart Ardour.
         try:
             if not configure_ardour.osc_interface_exists(configure_ardour.get_resource_path(True)):
-                pub.sendMessage(PyPubSubTopics.REQUEST_DAW_RESTART, daw_name="Ardour")
-                enable_osc_thread = threading.Thread(
-                    target=configure_ardour.enable_osc_interface,
-                    args=(configure_ardour.get_resource_path(True),)
-                )
-                enable_osc_thread.start()
+                try:
+                    configure_ardour.get_ardour_process_path()
+                    pub.sendMessage(PyPubSubTopics.REQUEST_DAW_RESTART, daw_name="Ardour")
+                    enable_osc_thread = threading.Thread(
+                        target=configure_ardour.enable_osc_interface,
+                        args=(configure_ardour.get_resource_path(True),)
+                    )
+                    enable_osc_thread.start()
+                except RuntimeError:
+                    enable_osc_thread = threading.Thread(
+                        target=configure_ardour.enable_osc_interface,
+                        args=(configure_ardour.get_resource_path(True),)
+                    )
+                    enable_osc_thread.start()
         except Exception as e:
             logger.error(f"Error validating Ardour preferences: {e}")
 
@@ -80,6 +88,7 @@ class Ardour(Daw):
                 self.ardour_osc_server.serve_forever()
             except Exception as e:
                 logger.error(f"Ardour OSC server startup error: {e}")
+            time.sleep(0.1)
 
     def _send_ardour_osc_config(self):
         while not self._shutdown_server_event.is_set():

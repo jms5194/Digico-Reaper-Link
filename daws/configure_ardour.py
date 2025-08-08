@@ -32,6 +32,7 @@ def enable_osc_interface(resource_path):
         osc_config = root.find(
             "./ControlProtocols/Protocol[@name='Open Sound Control (OSC)']"
         )
+        assert isinstance(osc_config, xml.etree.ElementTree.Element)
         osc_config.attrib["active"] = "1"
         config.write(config_path)
         logger.info("Wrote an updated Ardour config file with OSC enabled")
@@ -59,8 +60,9 @@ def osc_interface_exists(resource_path):
 
 def get_resource_path(detect_portable_install):
     for i in get_candidate_directories(detect_portable_install):
-        if os.path.exists(os.path.join(i, "config")):
-            return i
+        if i is not None:
+            if os.path.exists(os.path.join(i, "config")):
+                return i
     raise RuntimeError("Cannot find resource path")
 
 
@@ -83,7 +85,7 @@ def get_portable_resource_directory():
         return os.path.dirname(process_path)
     except Exception as e:
         logger.info(f"Error getting portable resource directory: {e}")
-        return ""
+        return None
 
 
 def is_apple() -> bool:
