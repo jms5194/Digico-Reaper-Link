@@ -43,7 +43,6 @@ class MainWindow(wx.Frame):
 
         MainPanel(self)
         self.SetPosition(settings.window_loc)
-        # self.SetSize(settings.window_size)
         self.Fit()
 
         self.SetIcons(self.get_app_icons())
@@ -104,7 +103,6 @@ class MainWindow(wx.Frame):
         cur_pos = self.GetTopLevelParent().GetPosition()
         cur_size = self.GetTopLevelParent().GetSize()
         self.GetTopLevelParent().BridgeFunctions.update_pos_in_config(cur_pos)
-        self.GetTopLevelParent().BridgeFunctions.update_size_in_config(cur_size)
         # Make a dialog to confirm closing.
         dlg = wx.MessageDialog(
             self,

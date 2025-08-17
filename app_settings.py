@@ -3,6 +3,7 @@ from configparser import ConfigParser
 
 from consoles import DiGiCo
 from daws import Reaper
+from logger_config import logger
 
 
 class ThreadSafeSettings:
@@ -20,7 +21,6 @@ class ThreadSafeSettings:
             "forwarder_enabled": False,
             "marker_mode": "PlaybackTrack",
             "window_loc": (400, 222),
-            "window_size": (221, 310),
             "name_only_match": False,
             "console_type": DiGiCo.type,
             "daw_type": Reaper.type,
@@ -59,7 +59,7 @@ class ThreadSafeSettings:
     def repeater_port(self, value):
         with self._lock:
             port_num = int(value)
-            if not 1 <= port_num <= 65535:
+            if not validate_port_num(port_num):
                 raise ValueError("Invalid port number")
             self._settings["repeater_port"] = port_num
 
@@ -72,7 +72,7 @@ class ThreadSafeSettings:
     def repeater_receive_port(self, value):
         with self._lock:
             port_num = int(value)
-            if not 1 <= port_num <= 65535:
+            if not validate_port_num(port_num):
                 raise ValueError("Invalid port number")
             self._settings["repeater_receive_port"] = port_num
 
@@ -85,7 +85,7 @@ class ThreadSafeSettings:
     def reaper_port(self, value):
         with self._lock:
             port_num = int(value)
-            if not 1 <= port_num <= 65535:
+            if not validate_port_num(port_num):
                 raise ValueError("Invalid port number")
             self._settings["reaper_port"] = port_num
 
@@ -98,7 +98,7 @@ class ThreadSafeSettings:
     def reaper_receive_port(self, value):
         with self._lock:
             port_num = int(value)
-            if not 1 <= port_num <= 65535:
+            if not validate_port_num(port_num):
                 raise ValueError("Invalid port number")
             self._settings["reaper_receive_port"] = port_num
 
@@ -111,7 +111,7 @@ class ThreadSafeSettings:
     def console_port(self, value):
         with self._lock:
             port_num = int(value)
-            if not 1 <= port_num <= 65535:
+            if not validate_port_num(port_num):
                 raise ValueError("Invalid port number")
             self._settings["console_port"] = port_num
 
@@ -124,7 +124,7 @@ class ThreadSafeSettings:
     def receive_port(self, value):
         with self._lock:
             port_num = int(value)
-            if not 1 <= port_num <= 65535:
+            if not validate_port_num(port_num):
                 raise ValueError("Invalid port number")
             self._settings["receive_port"] = port_num
 
@@ -157,16 +157,6 @@ class ThreadSafeSettings:
     def window_loc(self, value):
         with self._lock:
             self._settings["window_loc"] = value
-
-    @property
-    def window_size(self):
-        with self._lock:
-            return self._settings["window_size"]
-
-    @window_size.setter
-    def window_size(self, value):
-        with self._lock:
-            self._settings["window_size"] = value
 
     @property
     def name_only_match(self) -> bool:
@@ -227,7 +217,7 @@ class ThreadSafeSettings:
     def external_control_port(self, value: int):
         with self._lock:
             port_num = int(value)
-            if not 1 <= port_num <= 65535:
+            if not validate_port_num(port_num):
                 raise ValueError("Invalid port number")
             self._settings["external control port"] = port_num
 
@@ -284,19 +274,22 @@ class ThreadSafeSettings:
                     "main", config_name, fallback=self._settings[settings_name]
                 )
 
-            # Not implementing fallbacks for these since they've been around since the v3 config
-            self._settings.update(
-                {
-                    "window_loc": (
-                        int(config["main"]["window_pos_x"]),
-                        int(config["main"]["window_pos_y"]),
-                    ),
-                    "window_size": (
-                        int(config["main"]["window_size_x"]),
-                        int(config["main"]["window_size_y"]),
-                    ),
-                }
-            )
+            # Not implementing fallbacks for this since it's been around since the v3 config
+            try:
+                self._settings.update(
+                    {
+                        "window_loc": (
+                            int(config["main"]["window_pos_x"]),
+                            int(config["main"]["window_pos_y"]),
+                        )
+                    }
+                )
+            except Exception as e:
+                logger.warning("Could not load setting %s. %s", settings_name, e)
 
 
 settings = ThreadSafeSettings()
+
+
+def validate_port_num(port_num: int) -> bool:
+    return 1 <= port_num <= 65535
