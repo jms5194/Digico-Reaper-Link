@@ -22,9 +22,11 @@ from external_control import get_midi_ports
 from logger_config import logger
 from utilities import DawConsoleBridge
 
-INTERNAL_PORT_SPACING = 5
+HALF_INTERNAL_SPACING = 5
 INTERNAL_SPACING = 10
 EXTERNAL_SPACING = 15
+
+LABEL_ROW = 1
 
 
 class MainWindow(wx.Frame):
@@ -425,14 +427,6 @@ class PrefsWindow(wx.Frame):
         self.Show()
 
 
-INTERNAL_PORT_SPACING = 5
-INTERNAL_SPACING = 10
-HALF_INTERNAL_SPACING = 5
-EXTERNAL_SPACING = 15
-
-LABEL_ROW = 1
-
-
 class PrefsPanel(wx.Panel):
     def __init__(self, parent, console: Console):
         logger.info("Creating PrefsPanel")
@@ -695,45 +689,30 @@ class PrefsPanel(wx.Panel):
         external_control_section.AddGrowableCol(1)
         external_control_section.SetFlexibleDirection(direction=wx.VERTICAL)
         # External Control OSC Port
-        external_control_section.AddStretchSpacer()
-        external_control_ports_label_section = wx.GridSizer(2, 1, 0, INTERNAL_SPACING)
-        external_control_port_label = wx.StaticText(self, label="Receive:")
-        external_control_port_label.SetFont(port_font)
-        external_control_ports_label_section.Add(
-            external_control_port_label,
-            flag=wx.ALIGN_BOTTOM | wx.ALIGN_CENTER_HORIZONTAL,
+        external_control_section.Add(
+            wx.StaticText(self, label="OSC port:", style=wx.ALIGN_RIGHT)
+        )
+        self.external_control_osc_port_control = wx.TextCtrl(
+            self, style=wx.TE_CENTER, validator=ui.PortValidator()
+        )
+        self.external_control_osc_port_control.SetMaxLength(5)
+        self.external_control_osc_port_control.SetValue(
+            str(settings.external_control_osc_port)
         )
         external_control_section.Add(
-            external_control_ports_label_section, flag=wx.EXPAND, userData=LABEL_ROW
-        )
-        external_control_section.Add(
-            wx.StaticText(self, label="OSC Port:", style=wx.ALIGN_RIGHT)
-        )
-        self.external_control_port_control = wx.TextCtrl(self, style=wx.TE_CENTER)
-        self.external_control_port_control.SetMaxLength(5)
-        self.external_control_port_control.SetValue(str(settings.external_control_port))
-        external_control_section.Add(
-            self.external_control_port_control,
+            self.external_control_osc_port_control,
             flag=wx.EXPAND | wx.ALIGN_CENTER_VERTICAL,
         )
-        self.external_control_port_control.SetValue(str(settings.external_control_port))
+        self.external_control_osc_port_control.SetValue(
+            str(settings.external_control_osc_port)
+        )
 
         # External Control Midi Port
-        external_control_section.AddStretchSpacer()
-        external_control_midi_label_section = wx.GridSizer(1, 1, 0, INTERNAL_SPACING)
-        external_control_midi_label = wx.StaticText(self, label="Available Ports:")
-        external_control_midi_label.SetFont(port_font)
-        external_control_midi_label_section.Add(
-            external_control_midi_label,
-            flag=wx.ALIGN_BOTTOM | wx.ALIGN_CENTER_HORIZONTAL,
-        )
         external_control_section.Add(
-            external_control_midi_label_section, flag=wx.EXPAND, userData=LABEL_ROW
+            wx.StaticText(self, label="MIDI port:", style=wx.ALIGN_RIGHT)
         )
-        external_control_section.Add(
-            wx.StaticText(self, label="MIDI Port:", style=wx.ALIGN_RIGHT)
-        )
-        available_ports = [""] + get_midi_ports()
+        available_ports = [constants.MIDI_PORT_NONE]
+        available_ports.extend(get_midi_ports())
         self.external_control_midi_port_control = wx.Choice(
             self, choices=available_ports, style=wx.TE_CENTER
         )
@@ -746,9 +725,7 @@ class PrefsPanel(wx.Panel):
             flag=wx.EXPAND | wx.ALIGN_CENTER_VERTICAL,
         )
         external_control_section.Add(width=label_min_width, height=0)
-        self.mmc_control_enabled_checkbox = wx.CheckBox(
-            self, label="Enable MMC Control"
-        )
+        self.mmc_control_enabled_checkbox = wx.CheckBox(self, label="MMC enabled")
         self.mmc_control_enabled_checkbox.SetValue(settings.mmc_control_enabled)
         external_control_section.Add(self.mmc_control_enabled_checkbox, flag=wx.EXPAND)
         panel_sizer.Add(
@@ -866,8 +843,8 @@ class PrefsPanel(wx.Panel):
                 self.daw_type_choice.GetSelection()
             )
             settings.always_on_top = self.always_on_top_checkbox.GetValue()
-            settings.external_control_port = str(
-                self.external_control_port_control.GetValue()
+            settings.external_control_osc_port = int(
+                self.external_control_osc_port_control.GetValue()
             )
             settings.external_control_midi_port = (
                 self.external_control_midi_port_control.GetString(
@@ -890,7 +867,7 @@ class PrefsPanel(wx.Panel):
                 console_type=settings.console_type,
                 daw_type=settings.daw_type,
                 always_on_top=settings.always_on_top,
-                external_control_port=settings.external_control_port,
+                external_control_osc_port=settings.external_control_osc_port,
                 external_control_midi_port=settings.external_control_midi_port,
                 mmc_control_enabled=settings.mmc_control_enabled,
             )

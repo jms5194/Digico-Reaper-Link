@@ -71,7 +71,10 @@ def _handle_marker(_: str, marker_name: Optional[str]) -> None:
 def external_midi_control():
     from app_settings import settings
 
-    if settings.external_control_midi_port:
+    if (
+        settings.external_control_midi_port
+        and settings.external_control_midi_port != constants.MIDI_PORT_NONE
+    ):
         port = mido.open_input(
             port=settings.external_control_midi_port, callback=_handle_midi_message
         )

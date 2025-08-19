@@ -1,6 +1,7 @@
 import threading
 from configparser import ConfigParser
 
+import constants
 from consoles import DiGiCo
 from daws import Reaper
 from logger_config import logger
@@ -26,8 +27,8 @@ class ThreadSafeSettings:
             "daw_type": Reaper.type,
             "always_on_top": False,
             "mmc_control_enabled": True,
-            "external control port": 49103,
-            "external_control_midi_port": None,
+            "external_control_osc_port": 49103,
+            "external_control_midi_port": constants.MIDI_PORT_NONE,
         }
 
     @property
@@ -209,17 +210,17 @@ class ThreadSafeSettings:
             self._settings["mmc_control_enabled"] = value
 
     @property
-    def external_control_port(self) -> int:
+    def external_control_osc_port(self) -> int:
         with self._lock:
-            return self._settings["external control port"]
+            return self._settings["external_control_osc_port"]
 
-    @external_control_port.setter
-    def external_control_port(self, value: int):
+    @external_control_osc_port.setter
+    def external_control_osc_port(self, value: int):
         with self._lock:
             port_num = int(value)
             if not validate_port_num(port_num):
                 raise ValueError("Invalid port number")
-            self._settings["external control port"] = port_num
+            self._settings["external_control_osc_port"] = port_num
 
     @property
     def external_control_midi_port(self) -> str:
@@ -229,10 +230,7 @@ class ThreadSafeSettings:
     @external_control_midi_port.setter
     def external_control_midi_port(self, value: str):
         with self._lock:
-            if value is None or isinstance(value, str):
-                self._settings["external_control_midi_port"] = value
-            else:
-                raise ValueError("MIDI port must be a string or None")
+            self._settings["external_control_midi_port"] = value
 
     def update_from_config(self, config: ConfigParser):
         # Update settings from a ConfigParser object
@@ -256,7 +254,7 @@ class ThreadSafeSettings:
                 "repeater_port": "default_repeater_send_port",
                 "repeater_receive_port": "default_repeater_receive_port",
                 "reaper_receive_port": "default_reaper_receive_port",
-                "external control port": "external_control_port",
+                "external_control_osc_port": "external_control_osc_port",
             }
             for settings_name, config_name in int_properties.items():
                 self._settings[settings_name] = config.getint(
