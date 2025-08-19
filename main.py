@@ -678,9 +678,7 @@ class PrefsPanel(wx.Panel):
         external_control_section.Add(
             wx.StaticText(self, label="OSC port:", style=wx.ALIGN_RIGHT)
         )
-        self.external_control_osc_port_control = wx.TextCtrl(
-            self, style=wx.TE_CENTER, validator=ui.PortValidator()
-        )
+        self.external_control_osc_port_control = wx.TextCtrl(self, style=wx.TE_CENTER)
         self.external_control_osc_port_control.SetMaxLength(5)
         self.external_control_osc_port_control.SetValue(
             str(settings.external_control_osc_port)
