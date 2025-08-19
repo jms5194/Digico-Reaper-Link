@@ -1,10 +1,10 @@
-import configparser
+import inspect
 import ipaddress
 import os.path
 import socket
 import threading
 import time
-from typing import Callable
+from typing import Callable, List
 
 import appdirs
 import psutil
@@ -43,30 +43,17 @@ def find_local_ip_in_subnet(console_ip):
     return None
 
 
-class ManagedThread(threading.Thread):
-    # Building threads that we can more easily control
-    def __init__(self, target, name=None, daemon=True):
-        super().__init__(target=target, name=name, daemon=daemon)
-        self._stop_event = threading.Event()
-
-    def stop(self):
-        self._stop_event.set()
-
-    def stopped(self):
-        return self._stop_event.is_set()
-
-
 class DawConsoleBridge:
     _console: Console
+    _threads: List[threading.Thread] = list()
 
     def __init__(self):
         logger.info("Initializing ConsoleMarkerBridge")
         self.ini_path = ""
         self.config_dir = ""
         self.lock = threading.Lock()
-
-
-        self.console_name_event = threading.Event()
+        self._shutdown_server_event = threading.Event()
+        self._server_restart_lock = threading.Lock()
         self._console = Console()
         self._daw = Daw()
 
@@ -157,8 +144,6 @@ class DawConsoleBridge:
         with open(self._ini_path, "w") as file:
             updater.write(file, validate=False)
         settings.update_from_config_file(self._ini_path)
-        self.close_servers()
-        self.restart_servers()
 
     def update_pos_in_config(self, win_pos_tuple):
         # Receives the position of the window from the UI and stores it in the preferences file
@@ -180,9 +165,12 @@ class DawConsoleBridge:
             updater.write(file, validate=False)
 
     def start_managed_thread(self, attr_name: str, target: Callable) -> None:
-        # Start a ManagedThread that can be signaled to stop
-        thread = ManagedThread(target=target, daemon=True)
-        setattr(self, attr_name, thread)
+        if "stop_event" in inspect.getargs(target.__code__).args:
+            kwargs = {"stop_event": self._shutdown_server_event}
+        else:
+            kwargs = None
+        thread = threading.Thread(target=target, kwargs=kwargs, daemon=True)
+        self._threads.append(thread)
         thread.start()
 
     def start_threads(self):
@@ -227,7 +215,7 @@ class DawConsoleBridge:
     def heartbeat_loop(self):
         # Periodically requests the console name every 3 seconds
         # to verify connection status and update the UI
-        while not self.console_name_event.is_set():
+        while not self._shutdown_server_event.is_set():
             try:
                 if isinstance(self.console, Console):
                     self.console.heartbeat()
@@ -238,34 +226,38 @@ class DawConsoleBridge:
 
     def stop_all_threads(self):
         logger.info("Stopping all threads")
-        for attr in [
-            "console_connection_thread",
-            "daw_connection_thread",
-            "repeater_osc_thread",
-            "heartbeat_thread",
-            "daw_heartbeat_thread",
-            "daw_osc_config_thread",
-            "external_osc_control",
-            "external_midi_control",
-        ]:
-            thread = getattr(self, attr, None)
-            if thread and isinstance(thread, ManagedThread):
-                thread.stop()
-                thread.join(timeout=1)
+        for thread in self._threads:
+            thread.join(timeout=constants.HIGHEST_THREAD_TIMEOUT * 2)
+            # Only remove threads that managed to shut down
+            if not thread.is_alive():
+                self._threads.remove(thread)
 
     def close_servers(self):
         logger.info("Closing OSC servers...")
-        self.console_name_event.set()  # Signal heartbeat to exit
+        self._shutdown_server_event.set()  # Signal heartbeat to exit
         pub.sendMessage(PyPubSubTopics.SHUTDOWN_SERVERS)
         self.stop_all_threads()
         logger.info("All servers closed and threads joined.")
         return True
 
     def restart_servers(self):
-        # Restart the OSC server threads.
         logger.info("Restarting server threads")
-        self.console_name_event = threading.Event()
+        self._shutdown_server_event.clear()
         self.start_threads()
+
+    def shutdown_and_restart_servers(self, as_thread: bool = True) -> None:
+        if as_thread:
+            threading.Thread(
+                target=self.shutdown_and_restart_servers, args=(False,)
+            ).start()
+        else:
+            with self._server_restart_lock:
+                self.close_servers()
+                self.restart_servers()
+
+    def attempt_reconnect(self):
+        logger.info("Manual reconnection requested")
+        self.shutdown_and_restart_servers()
 
 
 def get_resources_directory_path() -> str:

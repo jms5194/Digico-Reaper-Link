@@ -193,7 +193,11 @@ class MainPanel(wx.Panel):
 
         attempt_reconnect_button = ui.NoBorderBitmapButton(self, icon="reconnect")
         attempt_reconnect_button.SetToolTip("Attempt Reconnect")
-        self.Bind(wx.EVT_BUTTON, self.attemptreconnect, attempt_reconnect_button)
+        self.Bind(
+            wx.EVT_BUTTON,
+            attempt_reconnect,
+            attempt_reconnect_button,
+        )
         mode_grid.Add(attempt_reconnect_button)
 
         panel_sizer.Add(mode_grid, flag=wx.EXPAND)
@@ -385,28 +389,10 @@ class MainPanel(wx.Panel):
 
         wx.CallAfter(inner, daw_name)
 
-    @staticmethod
-    def attemptreconnect(e):
-        logger.info("Manual reconnection requested.")
-        # Just forces a close/reconnect of the OSC servers by manually updating the configuration.
-        MainWindow.BridgeFunctions.update_configuration(
-            con_ip=settings.console_ip,
-            rptr_ip=settings.repeater_ip,
-            con_send=settings.console_port,
-            con_rcv=settings.receive_port,
-            fwd_enable=settings.forwarder_enabled,
-            rpr_send=settings.reaper_port,
-            rpr_rcv=settings.reaper_receive_port,
-            rptr_snd=settings.repeater_port,
-            rptr_rcv=settings.repeater_receive_port,
-            name_only=settings.name_only_match,
-            console_type=settings.console_type,
-            daw_type=settings.daw_type,
-            always_on_top=settings.always_on_top,
-            external_control_port=settings.external_control_port,
-            external_control_midi_port=settings.external_control_midi_port,
-            mmc_control_enabled=settings.mmc_control_enabled,
-        )
+
+def attempt_reconnect(_: wx.Event):
+    """Handles the wxPython event, and calls the actual attempt_reconnect function"""
+    MainWindow.BridgeFunctions.attempt_reconnect()
 
 
 class PrefsWindow(wx.Frame):
@@ -871,6 +857,7 @@ class PrefsPanel(wx.Panel):
                 external_control_midi_port=settings.external_control_midi_port,
                 mmc_control_enabled=settings.mmc_control_enabled,
             )
+            MainWindow.BridgeFunctions.shutdown_and_restart_servers()
             # Close the preferences window when update is pressed.
             self.Parent.Destroy()
         except Exception as e:
