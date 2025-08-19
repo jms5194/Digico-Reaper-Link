@@ -76,25 +76,48 @@ def _handle_marker(_: str, marker_name: Optional[str]) -> None:
         )
 
 
-def external_midi_control():
+def external_midi_control(stop_event: threading.Event):
     from app_settings import settings
 
     if (
         settings.external_control_midi_port
         and settings.external_control_midi_port != constants.MIDI_PORT_NONE
     ):
-        port = mido.open_input(
-            port=settings.external_control_midi_port, callback=_handle_midi_message
-        )
-        logger.info(f"Opened MIDI port {settings.external_control_midi_port}")
-        pub.subscribe(port.close, PyPubSubTopics.SHUTDOWN_SERVERS)
-        logger.info("External Midi control started")
+        while not stop_event.is_set():
+            # Checking if the port is closed doesn't seem to work if disconnected, so no point to check
+            try:
+                port_name = settings.external_control_midi_port
+                # Check to make sure the MIDI port is actually available
+                if port_name not in mido.get_input_names():  # pyright: ignore[reportAttributeAccessIssue]
+                    raise MidiPortUnavailableError("MIDI port isn't available")
+                port: mido.ports.BasePort = mido.open_input(  # pyright: ignore[reportAttributeAccessIssue]
+                    port=port_name,
+                    callback=_handle_midi_message,
+                )
+                if port.name == port_name:
+                    logger.info(f"Opened MIDI port {port_name}")
+                    pub.subscribe(port.close, PyPubSubTopics.SHUTDOWN_SERVERS)
+                    # This thread needs to block so the port doesn't get shutdown
+                    stop_event.wait()
+                else:
+                    logger.error("mido opened the wrong MIDI port")
+                    port.close()
+            except (OSError, MidiPortUnavailableError) as e:
+                logger.error(
+                    f"Could not open MIDI port {settings.external_control_midi_port}, {e}"
+                )
+            if not stop_event.is_set():
+                time.sleep(constants.CONNECTION_RECONNECTION_DELAY_SECONDS)
+
+
+class MidiPortUnavailableError(Exception):
+    pass
 
 
 def get_midi_ports() -> list[str]:
     # Returns a list of available MIDI input ports.
     try:
-        return list(dict.fromkeys(mido.get_input_names()))
+        return list(dict.fromkeys(mido.get_input_names()))  # pyright: ignore[reportAttributeAccessIssue]
     except Exception as e:
         logger.error(f"Error getting MIDI ports: {e}")
         return []
@@ -106,7 +129,7 @@ def _handle_midi_message(message: mido.Message) -> None:
     from app_settings import settings
 
     if settings.mmc_control_enabled:
-        if message.type == "sysex":
+        if message.type == "sysex":  # pyright: ignore[reportAttributeAccessIssue]
             if message.hex() == "F0 7F 06 02 F7":
                 # If MMC Play is received, send a play command
                 logger.info("Received MMC Play command")
