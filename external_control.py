@@ -1,3 +1,5 @@
+import threading
+import time
 from typing import Optional
 
 import mido
@@ -6,27 +8,33 @@ from pubsub import pub
 from pythonosc.dispatcher import Dispatcher
 from pythonosc.osc_server import ThreadingOSCUDPServer
 
+import constants
+from app_settings import settings
 from constants import PlaybackState, PyPubSubTopics, TransportAction
 from logger_config import logger
 
 
-def external_osc_control():
-    from app_settings import settings
-
+def external_osc_control(stop_event: threading.Event):
     logger.info("Starting external OSC control")
-    if settings.external_control_port is None:
+    if settings.external_control_osc_port is None:
         logger.error(
-            "External control port is not set. Cannot start external control OSC server."
+            "external_control_osc_port is not set. Cannot start external control OSC server."
         )
         return
     else:
         dispatcher = Dispatcher()
         map_osc_external_control_dispatcher(dispatcher)
-        server = ThreadingOSCUDPServer(
-            ("0.0.0.0", settings.external_control_osc_port), dispatcher
-        )
-        pub.subscribe(server.shutdown, PyPubSubTopics.SHUTDOWN_SERVERS)
-        server.serve_forever()
+        while not stop_event.is_set():
+            try:
+                server = ThreadingOSCUDPServer(
+                    ("0.0.0.0", settings.external_control_osc_port), dispatcher
+                )
+                pub.subscribe(server.shutdown, PyPubSubTopics.SHUTDOWN_SERVERS)
+                server.serve_forever()
+            except OSError:
+                logger.error("Could not bind external control OSC server")
+                time.sleep(constants.CONNECTION_RECONNECTION_DELAY_SECONDS)
+                continue
 
 
 def map_osc_external_control_dispatcher(dispatcher: Dispatcher) -> None:
