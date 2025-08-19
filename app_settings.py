@@ -1,3 +1,4 @@
+import configparser
 import threading
 from configparser import ConfigParser
 
@@ -231,6 +232,13 @@ class ThreadSafeSettings:
     def external_control_midi_port(self, value: str):
         with self._lock:
             self._settings["external_control_midi_port"] = value
+
+    def update_from_config_file(self, path: str) -> None:
+        """Updates the currently loaded settings from the contents of the config file"""
+        logger.info("Loading settings from config file")
+        config = configparser.ConfigParser()
+        config.read(path)
+        self.update_from_config(config)
 
     def update_from_config(self, config: ConfigParser):
         # Update settings from a ConfigParser object

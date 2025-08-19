@@ -64,40 +64,44 @@ class DawConsoleBridge:
         self.ini_path = ""
         self.config_dir = ""
         self.lock = threading.Lock()
-        self.where_to_put_user_data()
-        self.check_configuration()
+
+
         self.console_name_event = threading.Event()
         self._console = Console()
         self._daw = Daw()
 
-    def where_to_put_user_data(self):
-        # Find a home for our preferences file
-        self.config_dir = appdirs.user_config_dir(
-            constants.APPLICATION_NAME_LEGACY, constants.APPLICATION_AUTHOR
+        # The path to the legacy (v3) configuration file, we only read this
+        self._legacy_ini_path = os.path.join(
+            appdirs.user_config_dir(
+                constants.APPLICATION_NAME_LEGACY, constants.APPLICATION_AUTHOR
+            ),
+            constants.CONFIG_FILENAME_LEGACY,
         )
-        if os.path.isdir(self.config_dir):
-            pass
-        else:
-            os.makedirs(self.config_dir)
-        self.ini_path = os.path.join(self.config_dir, constants.CONFIG_FILENAME)
+        # The folder that the current configuration file is saved in
+        ini_folder = appdirs.user_config_dir(
+            constants.APPLICATION_NAME, constants.APPLICATION_AUTHOR
+        )
+        self._ini_path = os.path.join(
+            ini_folder,
+            constants.CONFIG_FILENAME,
+        )
+        if not os.path.isdir(ini_folder):
+            os.makedirs(ini_folder)
+        self.check_configuration()
+
 
     def check_configuration(self):
-        # Load an existing configuration file, if one exists
+        "Check for a configuration file, and load settings from it"
         try:
-            if os.path.isfile(self.ini_path):
-                self.set_vars_from_pref(self.ini_path)
+            if os.path.isfile(self._ini_path):
+                settings.update_from_config_file(self._ini_path)
+            elif os.path.isfile(self._legacy_ini_path):
+                logger.info("Loading settings from legacy (v3) ini")
+                settings.update_from_config_file(self._legacy_ini_path)
         except Exception as e:
             logger.error(f"Failed to check/initialize config file: {e}")
 
-    @staticmethod
-    def set_vars_from_pref(config_file_loc):
-        # Bring in the vars to fill out settings from the preferences file
-        logger.info("Setting variables from preferences file")
-        config = configparser.ConfigParser()
-        config.read(config_file_loc)
-        settings.update_from_config(config)
-
-    def update_configuration(
+    def update_configuration_file(
         self,
         con_ip,
         rptr_ip,
@@ -111,16 +115,17 @@ class DawConsoleBridge:
         name_only,
         console_type,
         daw_type,
-        always_on_top: bool,
+        always_on_top,
         external_control_osc_port,
         external_control_midi_port,
         mmc_control_enabled,
     ):
-        # Given new values from the GUI, update the config file and restart the OSC Server
+        "Update the configuration files with new values"
+        # TODO: This can likely re-use the mapping that's used for reading the config file and loop through properties
         logger.info("Updating configuration file")
         updater = ConfigUpdater()
         try:
-            updater.read(self.ini_path)
+            updater.read(self._ini_path)
         except FileNotFoundError:
             pass
         try:
@@ -149,9 +154,9 @@ class DawConsoleBridge:
             updater["main"]["mmc_control_enabled"] = str(mmc_control_enabled)
         except Exception as e:
             logger.error(f"Failed to update config file: {e}")
-        with open(self.ini_path, "w") as file:
+        with open(self._ini_path, "w") as file:
             updater.write(file, validate=False)
-        self.set_vars_from_pref(self.ini_path)
+        settings.update_from_config_file(self._ini_path)
         self.close_servers()
         self.restart_servers()
 
@@ -160,7 +165,7 @@ class DawConsoleBridge:
         logger.info("Updating window position in config file")
         updater = ConfigUpdater()
         try:
-            updater.read(self.ini_path)
+            updater.read(self._ini_path)
         except FileNotFoundError:
             pass
         try:
@@ -171,25 +176,7 @@ class DawConsoleBridge:
             updater.set("main", "window_pos_y", str(win_pos_tuple[1]))
         except Exception as e:
             logger.error(f"Failed to update window position in config file: {e}")
-        with open(self.ini_path, "w") as file:
-            updater.write(file, validate=False)
-
-    def update_size_in_config(self, win_size_tuple):
-        logger.info("Updating window size in config file")
-        updater = ConfigUpdater()
-        try:
-            updater.read(self.ini_path)
-        except FileNotFoundError:
-            pass
-        try:
-            if not updater.has_section("main"):
-                print("Adding main section")
-                updater.add_section("main")
-            updater["main"]["window_size_x"] = str(win_size_tuple[0])
-            updater["main"]["window_size_y"] = str(win_size_tuple[1])
-        except Exception as e:
-            logger.error(f"Failed to update window size in config file: {e}")
-        with open(self.ini_path, "w") as file:
+        with open(self._ini_path, "w") as file:
             updater.write(file, validate=False)
 
     def start_managed_thread(self, attr_name: str, target: Callable) -> None:

@@ -853,7 +853,7 @@ class PrefsPanel(wx.Panel):
             )
             settings.mmc_control_enabled = self.mmc_control_enabled_checkbox.GetValue()
             # Force a close/reconnect of the OSC servers by pushing the configuration update.
-            MainWindow.BridgeFunctions.update_configuration(
+            MainWindow.BridgeFunctions.update_configuration_file(
                 con_ip=settings.console_ip,
                 rptr_ip=settings.repeater_ip,
                 con_send=settings.console_port,
