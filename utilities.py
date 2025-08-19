@@ -75,7 +75,7 @@ class DawConsoleBridge:
         if not os.path.isdir(ini_folder):
             os.makedirs(ini_folder)
         self.check_configuration()
-
+        pub.setListenerExcHandler(ListenerExceptionHandler())
 
     def check_configuration(self):
         "Check for a configuration file, and load settings from it"
@@ -258,6 +258,13 @@ class DawConsoleBridge:
     def attempt_reconnect(self):
         logger.info("Manual reconnection requested")
         self.shutdown_and_restart_servers()
+
+
+class ListenerExceptionHandler(pub.IListenerExcHandler):
+    def __call__(self, listenerID, topicObj):
+        logger.error(
+            "While processing a PubSub, %s threw an exception %s", listenerID, topicObj
+        )
 
 
 def get_resources_directory_path() -> str:
