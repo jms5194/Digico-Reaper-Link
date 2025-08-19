@@ -8,6 +8,8 @@ import time
 from constants import PlaybackState, TransportAction
 import wx
 from constants import PyPubSubTopics
+import psutil
+import os
 
 
 class Ardour(Daw):
@@ -177,11 +179,30 @@ class Ardour(Daw):
             logger.info("Ardour is not recording")
 
     def _goto_marker_by_name(self, marker_name):
-        with self.ardour_send_lock:
-            self.ardour_client.send_message("/marker", marker_name)
+        from app_settings import settings
+        if settings.name_only_match:
+            self._get_open_files_for_ardour()
+        else:
+            with self.ardour_send_lock:
+                self.ardour_client.send_message("/marker", marker_name)
+
+    def get_marker_id_by_name(self,name):
+        pass
+
+    def _get_open_files_for_ardour(self):
+        process_name = "Ardour8"
+        open_files = []
+        for proc in psutil.process_iter(['pid', 'name', 'open_files']):
+            try:
+                if proc.info['name'] == process_name:
+                    for f in proc.info['open_files']:
+                        open_files.append(f.path)
+            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                pass
+        print(open_files)
+        
 
     def _place_marker_with_name(self, marker_name):
-        print(f"Placing marker with name: {marker_name}")
         with self.ardour_send_lock:
             self.ardour_client.send_message("/add_marker", marker_name)
 
