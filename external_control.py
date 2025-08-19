@@ -23,7 +23,7 @@ def external_osc_control():
         dispatcher = Dispatcher()
         map_osc_external_control_dispatcher(dispatcher)
         server = ThreadingOSCUDPServer(
-            ("0.0.0.0", settings.external_control_port), dispatcher
+            ("0.0.0.0", settings.external_control_osc_port), dispatcher
         )
         pub.subscribe(server.shutdown, PyPubSubTopics.SHUTDOWN_SERVERS)
         server.serve_forever()
