@@ -1,18 +1,23 @@
-from . import Daw, configure_reaper
-from logger_config import logger
-from typing import Any, Callable
-from pubsub import pub
-from pythonosc import dispatcher, osc_server, udp_client
 import threading
 import time
-from constants import PlaybackState, PyPubSubTopics, TransportAction
+from typing import Any, Callable
 
-LOOPBACK_IP = "127.0.0.1"
+from pubsub import pub
+from pythonosc import dispatcher, osc_server, udp_client
+
+import constants
+from constants import PlaybackState, PyPubSubTopics, TransportAction
+from logger_config import logger
+
+from . import Daw, configure_reaper
 
 
 class Reaper(Daw):
     type = "Reaper"
     _shutdown_server_event = threading.Event()
+    _connected = threading.Event()
+    _connection_check_lock = threading.Lock()
+    _connection_timeout_counter = 0
 
     def __init__(self):
         super().__init__()
@@ -38,6 +43,26 @@ class Reaper(Daw):
             "validate_reaper_prefs_thread", self._validate_reaper_prefs
         )
         start_managed_thread("daw_connection_thread", self._build_reaper_osc_servers)
+        start_managed_thread("daw_connection_monitor", self._daw_connection_monitor)
+
+    def _daw_connection_monitor(self):
+        while not self._shutdown_server_event.is_set():
+            time.sleep(1)
+            with self._connection_check_lock:
+                self._connection_timeout_counter += 1
+                if self._connection_timeout_counter == constants.CHECK_CONNECTION_TIME:
+                    with self.reaper_send_lock:
+                        # Refresh all control surfaces
+                        self.reaper_client.send_message("/action", 41743)
+                elif (
+                    self._connection_timeout_counter
+                    >= constants.CHECK_CONNECTION_TIME_COMBINED
+                ):
+                    self._connected.clear()
+                    pub.sendMessage(
+                        PyPubSubTopics.DAW_CONNECTION_STATUS, connected=False
+                    )
+                    self._connection_timeout_counter = 0
 
     def _validate_reaper_prefs(self):
         # If the Reaper .ini file does not contain an entry for Digico-Reaper Link, add one.
@@ -85,13 +110,14 @@ class Reaper(Daw):
 
         logger.info("Starting Reaper OSC server")
         self.reaper_client = udp_client.SimpleUDPClient(
-            LOOPBACK_IP, settings.reaper_port
+            constants.IP_LOOPBACK, settings.reaper_port
         )
         self.reaper_dispatcher = dispatcher.Dispatcher()
         self._receive_reaper_OSC()
         try:
             self.reaper_osc_server = osc_server.ThreadingOSCUDPServer(
-                (LOOPBACK_IP, settings.reaper_receive_port), self.reaper_dispatcher
+                (constants.IP_LOOPBACK, settings.reaper_receive_port),
+                self.reaper_dispatcher,
             )
             logger.info("Reaper OSC server started")
             self.reaper_osc_server.serve_forever()
@@ -103,8 +129,17 @@ class Reaper(Daw):
         self.reaper_dispatcher.map("/marker/*/name", self._marker_matcher)
         self.reaper_dispatcher.map("/play", self._current_transport_state)
         self.reaper_dispatcher.map("/record", self._current_transport_state)
+        self.reaper_dispatcher.set_default_handler(self._message_received)
+
+    def _message_received(self, *_) -> None:
+        if not self._connected.is_set():
+            self._connected.set()
+            pub.sendMessage(PyPubSubTopics.DAW_CONNECTION_STATUS, connected=True)
+        with self._connection_check_lock:
+            self._connection_timeout_counter = 0
 
     def _marker_matcher(self, osc_address, test_name):
+        self._message_received()
         # Matches a marker composite name with its Reaper ID
         from app_settings import settings
 
@@ -118,6 +153,7 @@ class Reaper(Daw):
             self._goto_marker_by_id(marker_id)
 
     def _current_transport_state(self, osc_address, val):
+        self._message_received()
         # Watches what the Reaper playhead is doing.
         playing = None
         recording = None
