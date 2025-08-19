@@ -177,11 +177,11 @@ class DawConsoleBridge:
         # Start all OSC server threads
         logger.info("Starting threads")
         if settings.daw_type in DAWS:
-            self.daw: Daw = DAWS[settings.daw_type]()
+            self.daw = DAWS[settings.daw_type]()
             self.daw.start_managed_threads(self.start_managed_thread)
         self.start_managed_thread("heartbeat_thread", self.heartbeat_loop)
         if settings.console_type in CONSOLES:
-            self.console: Console = CONSOLES[settings.console_type]()
+            self.console = CONSOLES[settings.console_type]()
             self.console.start_managed_threads(self.start_managed_thread)
         else:
             logger.error("Console is not supported!")
