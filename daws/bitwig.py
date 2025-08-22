@@ -5,6 +5,7 @@ from pubsub import pub
 from logger_config import logger
 from typing import Any, Callable
 import threading
+import wx
 
 from constants import PyPubSubTopics, TransportAction
 
@@ -58,6 +59,11 @@ class Bitwig(Daw):
                 println = host.println
                 logger.info("Connected to Bitwig")
                 println("Connected to Bitwig")
+                wx.CallAfter(
+                        pub.sendMessage,
+                        PyPubSubTopics.DAW_CONNECTION_STATUS,
+                        connected=True,
+                 )
                 self.bitwig_transport = self.gateway_entry_point.getTransport()
                 self.bitwig_arranger = self.gateway_entry_point.getArranger()
                 self.bitwig_cuemarkerbank = self.gateway_entry_point.getCueMarkerBank()
