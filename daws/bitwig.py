@@ -1,21 +1,22 @@
+import threading
 import time
+from typing import Any, Callable
+
+import wx
+from pubsub import pub
+from py4j.java_gateway import JavaGateway
+from py4j.protocol import Py4JError, Py4JJavaError, Py4JNetworkError
+
+import constants
+from constants import PyPubSubTopics, TransportAction
+from logger_config import logger
 
 from . import Daw, configure_bitwig
-from pubsub import pub
-from logger_config import logger
-from typing import Any, Callable
-import threading
-import wx
-
-from constants import PyPubSubTopics, TransportAction
-
-from py4j.java_gateway import JavaGateway
-from py4j.protocol import Py4JError, Py4JNetworkError, Py4JJavaError
 
 
 class Bitwig(Daw):
     type = "Bitwig"
-    _shutdown_server_event = threading.Event()
+    _shutdown_or_restart_server_event = threading.Event()
 
     def __init__(self):
         super().__init__()
@@ -29,7 +30,9 @@ class Bitwig(Daw):
         pub.subscribe(self._incoming_transport_action, PyPubSubTopics.TRANSPORT_ACTION)
         pub.subscribe(self._handle_cue_load, PyPubSubTopics.HANDLE_CUE_LOAD)
         pub.subscribe(self._shutdown_servers, PyPubSubTopics.SHUTDOWN_SERVERS)
-        pub.subscribe(self._shutdown_server_event.set, PyPubSubTopics.SHUTDOWN_SERVERS)
+        pub.subscribe(
+            self._shutdown_or_restart_server_event.set, PyPubSubTopics.SHUTDOWN_SERVERS
+        )
 
     def start_managed_threads(
         self, start_managed_thread: Callable[[str, Any], None]
@@ -61,6 +64,7 @@ class Bitwig(Daw):
                 println = host.println
                 logger.info("Connected to Bitwig")
                 println("Connected to Bitwig")
+                self._shutdown_or_restart_server_event.clear()
                 wx.CallAfter(
                         pub.sendMessage,
                         PyPubSubTopics.DAW_CONNECTION_STATUS,
@@ -70,11 +74,10 @@ class Bitwig(Daw):
                 self.bitwig_arranger = self.gateway_entry_point.getArranger()
                 self.bitwig_cuemarkerbank = self.gateway_entry_point.getCueMarkerBank()
                 self._build_marker_dict()
-                return True
+                self._shutdown_or_restart_server_event.wait()
             except Exception:
                 logger.error("Unable to connect to Bitwig. Retrying")
-                time.sleep(1)
-        return None
+                time.sleep(constants.CONNECTION_RECONNECTION_DELAY_SECONDS)
 
     def _incoming_transport_action(self, transport_action):
         try:
@@ -95,7 +98,7 @@ class Bitwig(Daw):
                 cur_marker_info = self.gateway_entry_point.getCueMarkerInfo(i)
                 cur_marker_split = cur_marker_info.split("<>")
                 self.marker_dict[i] = cur_marker_split
-        except (Py4JError, Py4JNetworkError, Py4JJavaError, ConnectionRefusedError, IndexError) as e:
+        except (AttributeError, Py4JError, Py4JNetworkError, Py4JJavaError, ConnectionRefusedError, IndexError) as e:
             logger.error("Lost Connection to Bitwig. Attempting reconnect")
             self._bitwig_reconnect_attempt()
 
@@ -118,7 +121,7 @@ class Bitwig(Daw):
             self.gateway_entry_point.renameMarker(cur_marker_qty, marker_name)
             time.sleep(0.1)
             self._add_to_marker_dict(cur_marker_qty)
-        except (Py4JError, Py4JNetworkError, Py4JJavaError, ConnectionRefusedError, IndexError) as e:
+        except (AttributeError, Py4JError, Py4JNetworkError, Py4JJavaError, ConnectionRefusedError, IndexError) as e:
             logger.error("Lost Connection to Bitwig. Attempting reconnect")
             self._bitwig_reconnect_attempt()
 
@@ -129,7 +132,7 @@ class Bitwig(Daw):
             connected=False,
         )
         self._shutdown_servers()
-        self.start_managed_threads()
+        self._shutdown_or_restart_server_event.set()
 
     def _handle_cue_load(self, cue: str):
         from app_settings import settings
@@ -145,7 +148,7 @@ class Bitwig(Daw):
                 and not self.bitwig_transport.isPlaying().get()
             ):
                 self._goto_marker_by_name(cue)
-        except (Py4JError, Py4JNetworkError, Py4JJavaError, ConnectionRefusedError, IndexError) as e:
+        except (AttributeError, Py4JError, Py4JNetworkError, Py4JJavaError, ConnectionRefusedError, IndexError) as e:
             logger.error("Lost Connection to Bitwig. Attempting reconnect")
             self._bitwig_reconnect_attempt()
 
@@ -184,7 +187,7 @@ class Bitwig(Daw):
                     marker_to_nav = self.marker_dict[possible_markers[0]]
                     marker_time_to_nav = marker_to_nav[1]
                     self.gateway_entry_point.loadPlaybackPosition(marker_time_to_nav)
-        except (Py4JError, Py4JNetworkError, Py4JJavaError, ConnectionRefusedError, IndexError) as e:
+        except (AttributeError, Py4JError, Py4JNetworkError, Py4JJavaError, ConnectionRefusedError, IndexError) as e:
             logger.error("Lost Connection to Bitwig. Attempting reconnect")
             self._bitwig_reconnect_attempt()
 
@@ -192,14 +195,14 @@ class Bitwig(Daw):
         try:
             if not self.bitwig_transport.isPlaying().get():
                 self.bitwig_transport.play()
-        except (Py4JError, Py4JNetworkError, Py4JJavaError, ConnectionRefusedError, IndexError) as e:
+        except (AttributeError, Py4JError, Py4JNetworkError, Py4JJavaError, ConnectionRefusedError, IndexError) as e:
             logger.error("Lost Connection to Bitwig. Attempting reconnect")
             self._bitwig_reconnect_attempt()
 
     def _bitwig_stop(self):
         try:
             self.bitwig_transport.stop()
-        except (Py4JError, Py4JNetworkError, Py4JJavaError, ConnectionRefusedError, IndexError) as e:
+        except (AttributeError, Py4JError, Py4JNetworkError, Py4JJavaError, ConnectionRefusedError, IndexError) as e:
             logger.error("Lost Connection to Bitwig. Attempting reconnect")
             self._bitwig_reconnect_attempt()
 
@@ -212,7 +215,7 @@ class Bitwig(Daw):
                 self.bitwig_transport.stop()
                 self.bitwig_transport.record()
                 self.bitwig_transport.play()
-        except (Py4JError, Py4JNetworkError, Py4JJavaError, ConnectionRefusedError, IndexError) as e:
+        except (AttributeError, Py4JError, Py4JNetworkError, Py4JJavaError, ConnectionRefusedError, IndexError) as e:
             logger.error("Lost Connection to Bitwig. Attempting reconnect")
             self._bitwig_reconnect_attempt()
 
