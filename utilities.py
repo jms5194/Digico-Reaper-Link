@@ -177,11 +177,15 @@ class DawConsoleBridge:
         # Start all OSC server threads
         logger.info("Starting threads")
         if settings.daw_type in DAWS:
-            self.daw = DAWS[settings.daw_type]()
+            daw_type = DAWS[settings.daw_type]
+            if not isinstance(self.daw, daw_type):
+                self.daw = daw_type()
             self.daw.start_managed_threads(self.start_managed_thread)
         self.start_managed_thread("heartbeat_thread", self.heartbeat_loop)
         if settings.console_type in CONSOLES:
-            self.console = CONSOLES[settings.console_type]()
+            console_type = CONSOLES[settings.console_type]
+            if not isinstance(self.console, console_type):
+                self.console = console_type()
             self.console.start_managed_threads(self.start_managed_thread)
         else:
             logger.error("Console is not supported!")
@@ -227,10 +231,12 @@ class DawConsoleBridge:
     def stop_all_threads(self):
         logger.info("Stopping all threads")
         for thread in self._threads:
-            thread.join(timeout=constants.HIGHEST_THREAD_TIMEOUT * 2)
+            thread.join(timeout=constants.THREAD_JOIN_TIMEOUT)
             # Only remove threads that managed to shut down
             if not thread.is_alive():
                 self._threads.remove(thread)
+            else:
+                logger.warning(f"Thread {thread} didn't stop in time")
 
     def close_servers(self):
         logger.info("Closing OSC servers...")
