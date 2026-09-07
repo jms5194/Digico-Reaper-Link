@@ -1,8 +1,9 @@
 import socket
 import threading
 import time
+from collections.abc import Callable
 from datetime import datetime, timedelta
-from typing import Any, Callable, Optional
+from typing import Any, NamedTuple
 
 import wx
 from pubsub import pub
@@ -16,10 +17,21 @@ from . import Console, Feature
 DELIMITER = b"\n"
 BUFFER_SIZE = 4096
 SCENE_COOLDOWN = timedelta(seconds=1)
-SCENE_TYPES = ("MIXER:Lib/Scene", "scene_a")
+CUE_LISTS = ("MIXER:Lib/Scene", "scene_a")
 
 
-class Buffer(object):
+class SceneType(NamedTuple):
+    notify: str
+    info: str
+
+
+SCENE_TYPES = (
+    SceneType("sscurrent_ex", "ssinfo_ex"),
+    SceneType("sscurrentt_ex", "ssinfot_ex"),
+)
+
+
+class Buffer:
     def __init__(self, sock: socket.socket, shutdown_server_event: threading.Event):
         self.sock: socket.socket = sock
         self.buffer = b""
@@ -47,13 +59,13 @@ class Yamaha(Console):
         super().__init__()
         self._client_socket: socket.socket
         self._connection_established = threading.Event()
-        self.product_name: Optional[str] = None
+        self.product_name: str | None = None
         self._rcp_matchers = (
             self._match_internal_scene_recall,
             self._match_product_name,
             self._match_scene_info,
         )
-        self._last_scene_internal_id: Optional[str] = None
+        self._last_scene_internal_id: str | None = None
         self._last_scene_cooled = datetime.min
 
     def start_managed_threads(
@@ -108,29 +120,32 @@ class Yamaha(Console):
 
         Returns True if matched, False otherwise."""
         for scene_type in SCENE_TYPES:
-            if line.startswith(f"NOTIFY sscurrent_ex {scene_type}"):
-                internal_id = line.rsplit(maxsplit=1)[1]
-                if (
-                    internal_id == self._last_scene_internal_id
-                    and datetime.now() <= self._last_scene_cooled
-                ):
-                    logger.debug(
-                        f"Cooldown hasn't expired yet, will be cool after {self._last_scene_cooled}"
+            for cue_list in CUE_LISTS:
+                if line.startswith(f"NOTIFY {scene_type.notify} {cue_list}"):
+                    internal_id = line.rsplit(maxsplit=1)[1]
+                    if (
+                        internal_id == self._last_scene_internal_id
+                        and datetime.now() <= self._last_scene_cooled
+                    ):
+                        logger.debug(
+                            f"Cooldown hasn't expired yet, will be cool after {self._last_scene_cooled}"
+                        )
+                        return False
+                    self._last_scene_internal_id = internal_id
+                    self._last_scene_cooled = datetime.now() + SCENE_COOLDOWN
+                    logger.info(
+                        f"{self.type} internal {cue_list} scene {internal_id} recalled"
                     )
-                    return False
-                self._last_scene_internal_id = internal_id
-                self._last_scene_cooled = datetime.now() + SCENE_COOLDOWN
-                logger.info(
-                    f"{self.type} internal {scene_type} scene {internal_id} recalled"
-                )
-                self._request_scene_info(scene_type, internal_id)
-                return True
+                    self._request_scene_info(scene_type.info, cue_list, internal_id)
+                    return True
         return False
 
-    def _request_scene_info(self, scene_type: str, internal_id: str) -> None:
-        """Sends a request for a scene's info, using a scene type/cue list, and
-        the scene's internal ID"""
-        request_scene_info_command = f"ssinfo_ex {scene_type} {internal_id}\n"
+    def _request_scene_info(
+        self, scene_type_request: str, cue_list: str, internal_id: str
+    ) -> None:
+        """Sends a request for a scene's info, using a scene type, cue list,
+        and the scene's internal ID"""
+        request_scene_info_command = f"{scene_type_request} {cue_list} {internal_id}\n"
         self._client_socket.sendall(str.encode(request_scene_info_command))
 
     def _match_scene_info(
@@ -142,13 +157,14 @@ class Yamaha(Console):
 
         Returns True if matched, False otherwise."""
         for scene_type in SCENE_TYPES:
-            if line.startswith(f"OK ssinfo_ex {scene_type}"):
-                quote_split_line = line.split('"')
-                scene_number = quote_split_line[1]
-                scene_name = quote_split_line[3]
-                cue_payload = f"{scene_number} {scene_name}"
-                pub.sendMessage(PyPubSubTopics.HANDLE_CUE_LOAD, cue=cue_payload)
-                return True
+            for cue_list in CUE_LISTS:
+                if line.startswith(f"OK {scene_type.info} {cue_list}"):
+                    quote_split_line = line.split('"')
+                    scene_number = quote_split_line[1]
+                    scene_name = quote_split_line[3]
+                    cue_payload = f"{scene_number} {scene_name}"
+                    pub.sendMessage(PyPubSubTopics.HANDLE_CUE_LOAD, cue=cue_payload)
+                    return True
         return False
 
     def _request_product_name(self) -> None:
